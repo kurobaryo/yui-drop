@@ -64,6 +64,23 @@ This doc covers production deployment. For local dev, see the [Quick start](../R
 
 6. Restart: `docker compose up -d --build`.
 
+### Runtime storage switch (admin UI)
+
+The admin Settings page also lets the maintainer reconfigure storage at runtime without editing `.env`:
+
+- Navigate to `/admin/settings → Storage backend`.
+- Pick `S3 (Cloudflare R2 etc.)`, fill in endpoint/bucket/keys, and submit **Save and test connectivity**.
+- The backend will `head_bucket` the target before persisting — if it fails, the form returns a 422 and nothing is written.
+- The secret access key is AES-GCM encrypted (key from `SECRETS_KEY`) before it lands in `settings_kv`. The wire never sees the plaintext after save; `GET /api/admin/storage` always masks it as `****`.
+
+**SECRETS_KEY**: a base64url-encoded 32-byte value. The app refuses to start if it's empty. Generate one with:
+
+```bash
+python -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+```
+
+**Existing files are not migrated when you switch backends.** Rows already in `filecodes` keep their `file_path` pointing at the original location (e.g. local disk) and will continue to serve from there. Only **new uploads** land on the newly selected backend. No migration script ships in this iteration.
+
 ## Backups
 
 - **DB** (`/app/data/yui-drop.db` inside the container, `yui-drop-data` Docker volume on the host): back up daily. The container ships a script you can wire to cron:
