@@ -43,6 +43,14 @@ from ..services.admin import (
     verify_admin_password,
 )
 from ..services.admin_storage import read_storage_config, save_storage_config
+from ..services.admin_turnstile import (
+    read_turnstile_config,
+    save_turnstile_config,
+)
+from ..services.admin_uploads import (
+    resolve_upload_limits,
+    save_upload_limits,
+)
 from ..services.common import ServiceError, record_access
 from ..services.share import open_download_stream
 from .deps import require_admin
@@ -578,6 +586,112 @@ async def admin_save_storage(
         ip=real_client_ip(request),
         ua=_ua(request),
         extra={"event": "admin.storage.save", "backend": body.backend},
+    )
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET  /api/admin/turnstile  — read current Turnstile config (secret masked)
+# PUT  /api/admin/turnstile  — save site key / secret / enabled
+# ────────────────────────────────────────────────────────────────────────────
+
+
+class TurnstileConfigRequest(BaseModel):
+    enabled: bool | None = None
+    site_key: str | None = None
+    # Empty string is treated as "keep existing".
+    secret_key: str | None = None
+
+
+@router.get("/turnstile")
+async def admin_get_turnstile(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    out = await read_turnstile_config(db)
+    return ok(out)
+
+
+@router.put("/turnstile")
+async def admin_put_turnstile(
+    request: Request,
+    body: TurnstileConfigRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    try:
+        out = await save_turnstile_config(
+            db,
+            enabled=body.enabled,
+            site_key=body.site_key,
+            secret_key=body.secret_key,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await record_access(
+        db,
+        action=AccessLogAction.ADMIN_ACTION,
+        ip=real_client_ip(request),
+        ua=_ua(request),
+        extra={
+            "event": "admin.turnstile.save",
+            "enabled": body.enabled,
+            "site_key_set": body.site_key is not None,
+            "secret_set": bool(body.secret_key),
+        },
+    )
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET  /api/admin/uploads  — read current upload limits + chunked switch
+# PUT  /api/admin/uploads  — save any subset of the four knobs
+# ────────────────────────────────────────────────────────────────────────────
+
+
+class UploadLimitsRequest(BaseModel):
+    simple_upload_max_bytes: int | None = Field(default=None, ge=1)
+    chunk_upload_max_bytes: int | None = Field(default=None, ge=1)
+    multi_total_max_bytes: int | None = Field(default=None, ge=1)
+    chunk_upload_enabled: bool | None = None
+
+
+@router.get("/uploads")
+async def admin_get_uploads(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    out = await resolve_upload_limits(db)
+    return ok(out)
+
+
+@router.put("/uploads")
+async def admin_put_uploads(
+    request: Request,
+    body: UploadLimitsRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    try:
+        out = await save_upload_limits(
+            db,
+            simple_upload_max_bytes=body.simple_upload_max_bytes,
+            chunk_upload_max_bytes=body.chunk_upload_max_bytes,
+            multi_total_max_bytes=body.multi_total_max_bytes,
+            chunk_upload_enabled=body.chunk_upload_enabled,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await record_access(
+        db,
+        action=AccessLogAction.ADMIN_ACTION,
+        ip=real_client_ip(request),
+        ua=_ua(request),
+        extra={"event": "admin.uploads.save", "changed": body.model_dump(exclude_none=True)},
     )
     await db.commit()
     return ok(out)

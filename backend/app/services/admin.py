@@ -248,7 +248,12 @@ async def get_file_by_code(db: AsyncSession, code: str) -> dict[str, Any]:
     out = _row_summary(row, include_audit=True)
     # Surface a couple of extra fields useful for the admin drawer.
     out["file_path"] = row.file_path
-    out["storage_backend"] = settings.storage_backend
+    # Read the *live* storage backend from settings_kv (admin can change at
+    # runtime); fall back to the env value when nothing is saved yet.
+    from .admin_storage import read_storage_config
+
+    sc = await read_storage_config(db)
+    out["storage_backend"] = sc.get("backend") or settings.storage_backend
     return out
 
 
@@ -589,22 +594,39 @@ async def get_admin_settings(db: AsyncSession) -> dict[str, Any]:
     # storage.s3.secret_access_key is at-rest-encrypted; always mask it on the wire.
     if "storage.s3.secret_access_key" in safe_kv and safe_kv["storage.s3.secret_access_key"]:
         safe_kv["storage.s3.secret_access_key"] = "****"
+    # turnstile_secret_key_enc is also at-rest encrypted; mask on the wire too.
+    if "turnstile_secret_key_enc" in safe_kv and safe_kv["turnstile_secret_key_enc"]:
+        safe_kv["turnstile_secret_key_enc"] = "****"
     # Default audit toggle = True when the row is absent.
     audit_ip = kv.get(AUDIT_IP_KEY)
     audit_ip_on = coerce_bool(audit_ip, default=True)
+    # Surface the *live* storage backend and Turnstile bits using the
+    # settings_kv overlay rather than env-only defaults.
+    from .admin_storage import read_storage_config
+    from .admin_turnstile import read_turnstile_config
+    from .admin_uploads import resolve_upload_limits
+
+    sc = await read_storage_config(db)
+    ts = await read_turnstile_config(db)
+    ul = await resolve_upload_limits(db)
     return {
         "kv": safe_kv,
         "env": {
-            "turnstile_enabled": bool(kv.get("turnstile_enabled", False)),
-            "turnstile_site_key_present": bool(settings.turnstile_site_key),
-            "turnstile_secret_key_present": bool(settings.turnstile_secret_key),
-            "storage_backend": settings.storage_backend,
+            "turnstile_enabled": ts["enabled"],
+            "turnstile_site_key_present": bool(ts["site_key"]),
+            "turnstile_secret_key_present": bool(ts["has_secret"]),
+            "storage_backend": sc.get("backend") or settings.storage_backend,
             "app_name": settings.app_name,
             "app_url": settings.app_url,
             "max_upload_bytes": settings.max_upload_bytes,
             "max_text_bytes": settings.max_text_bytes,
             "pickup_code_length": settings.pickup_code_length,
             "audit_log_access_ip": audit_ip_on,
+            # Upload-limit overlay (admin-tunable).
+            "simple_upload_max_bytes": ul["simple_upload_max_bytes"],
+            "chunk_upload_max_bytes": ul["chunk_upload_max_bytes"],
+            "multi_total_max_bytes": ul["multi_total_max_bytes"],
+            "chunk_upload_enabled": ul["chunk_upload_enabled"],
         },
     }
 
@@ -636,15 +658,21 @@ async def patch_admin_settings(
             )
         if key == "turnstile_enabled":
             wants_on = bool(val)
-            if wants_on and not (
-                settings.turnstile_site_key and settings.turnstile_secret_key
-            ):
-                raise ServiceError(
-                    "turnstile_keys_missing",
-                    code=4004,
-                    http_status=400,
-                    detail={"need": ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"]},
-                )
+            if wants_on:
+                # Allow enabling when either the env keys or the
+                # settings_kv-stored equivalents are populated. The new
+                # ``admin_turnstile`` overlay is preferred — the env keys
+                # are kept as a first-boot fallback.
+                from .admin_turnstile import resolve_turnstile_config
+
+                cfg = await resolve_turnstile_config(db)
+                if not (cfg["site_key"] and cfg["secret_key"]):
+                    raise ServiceError(
+                        "turnstile_keys_missing",
+                        code=4004,
+                        http_status=400,
+                        detail={"need": ["turnstile_site_key", "turnstile_secret_key"]},
+                    )
             await _kv_set(db, "turnstile_enabled", wants_on)
             applied["turnstile_enabled"] = wants_on
             continue

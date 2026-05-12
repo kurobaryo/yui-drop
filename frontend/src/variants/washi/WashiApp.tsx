@@ -69,8 +69,25 @@ function washiLangToI18n(l: WashiLang): string {
 export function WashiApp() {
   const { t, i18n: i18nInstance } = useTranslation();
   // Deep-link prefill. `/s/:code` and `/v/:code` both land here in this build.
+  // We also honour a `?code=` query parameter as a fallback entry path, but
+  // unlike the path-based routes the query-string prefill does NOT auto-fire
+  // the resolve — the user has to tap "Pick up" explicitly (IDOR guard).
   const params = useParams<{ code?: string }>();
-  const [prefillCode, setPrefillCode] = useState<string | null>(params.code ?? null);
+  const initialQueryCode = (() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const q = new URLSearchParams(window.location.search).get('code');
+      return q && /^\d{1,6}$/.test(q) ? q : null;
+    } catch {
+      return null;
+    }
+  })();
+  const [prefillCode, setPrefillCode] = useState<string | null>(
+    params.code ?? initialQueryCode ?? null,
+  );
+  const [prefillAutoSubmit, setPrefillAutoSubmit] = useState<boolean>(
+    !!params.code,
+  );
 
   const [palette, setPalette] = useState<WashiPaletteName>(readPalette);
   const [mode, setMode] = useState<WashiMode>(readMode);
@@ -277,7 +294,11 @@ export function WashiApp() {
             <Pickup
               c={c}
               prefillCode={prefillCode}
-              onPrefillConsumed={() => setPrefillCode(null)}
+              autoSubmitOnPrefill={prefillAutoSubmit}
+              onPrefillConsumed={() => {
+                setPrefillCode(null);
+                setPrefillAutoSubmit(false);
+              }}
             />
           )}
           {tab === 'sendfile' && <SendFile c={c} />}
@@ -299,8 +320,22 @@ export function WashiApp() {
           }}
         >
           <span style={{ display: 'flex', gap: 16, marginLeft: 'auto' }}>
-            <a style={{ color: c.sub, textDecoration: 'none' }}>{t('washi.docs')}</a>
-            <a style={{ color: c.sub, textDecoration: 'none' }}>GitHub</a>
+            <a
+              href="https://github.com/kurobaryo/yui-drop#readme"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: c.sub, textDecoration: 'none' }}
+            >
+              {t('washi.docs')}
+            </a>
+            <a
+              href="https://github.com/kurobaryo/yui-drop"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: c.sub, textDecoration: 'none' }}
+            >
+              GitHub
+            </a>
             <a href="/admin" style={{ color: c.sub, textDecoration: 'none' }}>
               {t('washi.admin')}
             </a>

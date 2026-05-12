@@ -37,6 +37,9 @@ FORCE_DOWNLOAD_MIMES: frozenset[str] = frozenset(
 )
 
 # Simple-upload threshold. Anything larger should use chunk/* or presign/*.
+# Legacy default — kept as a fallback when ``settings_kv`` has no override.
+# Runtime callers resolve the live value via
+# :func:`app.services.admin_uploads.resolve_upload_limits`.
 SIMPLE_UPLOAD_MAX = 10 * 1024 * 1024  # 10 MiB
 SHA_BUF = 1024 * 1024  # 1 MiB read buffer
 
@@ -137,12 +140,19 @@ async def create_simple_file_share(
     """Server-write a small file blob then create the FileCode row."""
     if file_size <= 0:
         raise ServiceError("empty_file", code=4001, http_status=400)
-    if file_size > SIMPLE_UPLOAD_MAX:
+    # Pull the admin-configured simple-upload cap from settings_kv (with a
+    # safe fallback to the historic 10 MiB constant). Local import to avoid
+    # a circular dependency on the service-aggregator module.
+    from .admin_uploads import resolve_upload_limits
+
+    _limits = await resolve_upload_limits(db)
+    simple_cap = int(_limits["simple_upload_max_bytes"])
+    if file_size > simple_cap:
         raise ServiceError(
             "file_too_large_for_simple_upload",
             code=4132,
             http_status=413,
-            detail={"max_bytes": SIMPLE_UPLOAD_MAX},
+            detail={"max_bytes": simple_cap},
         )
     if file_size > settings.max_upload_bytes:
         raise ServiceError(
