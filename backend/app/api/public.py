@@ -1,0 +1,69 @@
+"""Public, unauthenticated endpoints (health, config).
+
+NOTE for follow-up subagents: the public router carries operational endpoints
+that do not depend on storage or service layers — keep it stable. ``/health``
+is implemented here directly so the dev loop stays self-contained.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..core.config import settings
+from ..db.session import get_db
+from ..schemas import ok
+
+router = APIRouter(prefix="/api", tags=["public"])
+
+
+@router.get("/health")
+async def health(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
+    """Liveness + DB connectivity probe.
+
+    Returns ``{"status": "ok", "db": "ok"}`` on success; ``{"db": "fail"}``
+    if the simple SELECT 1 round-trip fails.
+    """
+    db_status = "ok"
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception:
+        db_status = "fail"
+    return {"status": "ok" if db_status == "ok" else "degraded", "db": db_status}
+
+
+@router.get("/config")
+async def public_config() -> dict[str, Any]:
+    """Public configuration consumed by the SPA on boot.
+
+    Anything safe to expose to anonymous browsers — UI defaults, size caps,
+    supported languages, optional Turnstile site key. Secrets (admin token,
+    JWT secret, S3 keys) are NEVER returned here.
+    """
+    return ok(
+        {
+            "appName": settings.app_name,
+            "appUrl": settings.app_url,
+            "storage_backend": settings.storage_backend,
+            "maxUploadBytes": settings.max_upload_bytes,
+            "maxTextBytes": settings.max_text_bytes,
+            "pickupCodeLength": settings.pickup_code_length,
+            "supportedLanguages": ["en", "zh-CN", "ja"],
+            "expireOptions": [
+                {"value": 1, "style": "hour"},
+                {"value": 1, "style": "day"},
+                {"value": 7, "style": "day"},
+                {"value": 30, "style": "day"},
+                {"value": 1, "style": "count"},
+                {"value": 10, "style": "count"},
+            ],
+            # Turnstile site key only when both env keys are present.
+            "turnstileSiteKey": (
+                settings.turnstile_site_key
+                if (settings.turnstile_site_key and settings.turnstile_secret_key)
+                else None
+            ),
+        }
+    )

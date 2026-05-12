@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-accent="aurora-gold">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b0d12" />
+    <!-- We intentionally ship no analytics / telemetry / external trackers. -->
+    <title>Yui-Drop</title>
+    <script>
+      // Restore saved theme + accent before paint to avoid a flash.
+      try {
+        const t = localStorage.getItem('yui-drop:theme');
+        const a = localStorage.getItem('yui-drop:accent');
+        const root = document.documentElement;
+        if (t === 'light' || t === 'dark') {
+          root.setAttribute('data-theme', t);
+        } else if (t === 'auto' || !t) {
+          const mql = window.matchMedia('(prefers-color-scheme: light)');
+          root.setAttribute('data-theme', mql.matches ? 'light' : 'dark');
+        }
+        if (a) root.setAttribute('data-accent', a);
+      } catch (_) { /* localStorage may be unavailable */ }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,8 +1,8 @@
-# Backend — Yui-Drop
+# Yui-Drop backend
 
-FastAPI + SQLAlchemy 2.0 (async) + Alembic. See [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for the high-level design.
+FastAPI + SQLAlchemy 2.0 (async) + Alembic + Pydantic v2 backend for Yui-Drop.
 
-## Local dev
+## Quick start
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -11,6 +11,5 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-Tests: `pytest`
-Lint: `ruff check . && ruff format --check .`
-Type-check: `mypy app`
+See [`../docs/API.md`](../docs/API.md) for the REST contract and
+[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for the layout.

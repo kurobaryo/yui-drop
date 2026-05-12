@@ -1,0 +1,209 @@
+{
+  "app": {
+    "name": "Yui-Drop",
+    "tagline": "ファイル宅配ロッカー"
+  },
+  "hero": {
+    "badge": "🔒 暗号化 · 匿名",
+    "title": "ファイル宅配ロッカー",
+    "subtitle": "すばやく共有。"
+  },
+  "tabs": {
+    "retrieve": "受け取る",
+    "sendFile": "ファイル送信",
+    "sendText": "テキスト送信"
+  },
+  "retrieve": {
+    "label": "6桁の受け取りコードを入力",
+    "submit": "受け取る",
+    "loading": "確認中…",
+    "notFound": "コードが見つかりません(期限切れまたは使用済み)。",
+    "rateLimited": "リクエストが多すぎます。少し時間を置いてください。",
+    "genericError": "エラーが発生しました。もう一度お試しください。",
+    "pasteHint": "ヒント:Cmd/Ctrl-V でコード全体を貼り付けできます。"
+  },
+  "sendFile": {
+    "drop": "ファイルをドラッグまたはクリックして選択",
+    "chooseAnother": "別のファイルを選ぶ",
+    "expire": "有効期限",
+    "expireDay": "1日",
+    "expireWeek": "1週間",
+    "expireMonth": "1か月",
+    "expireCount": "N回受け取り後",
+    "expireForever": "無期限",
+    "count": "受け取り回数",
+    "upload": "アップロード",
+    "uploading": "アップロード中…",
+    "speed": "{{speed}}/s",
+    "eta": "残り {{eta}}",
+    "done": "完了!",
+    "code": "受け取りコード",
+    "copy": "コピー",
+    "copied": "コピー済み",
+    "link": "共有リンク",
+    "another": "もう一つ送る",
+    "tooLarge": "ファイルが大きすぎます(上限 {{max}})。"
+  },
+  "sendText": {
+    "placeholder": "テキストを貼り付けまたは入力(最大 {{max}})…",
+    "tooLong": "テキストが長すぎます(上限 {{max}})。"
+  },
+  "recent": {
+    "title": "最近の共有(このデバイス)",
+    "empty": "まだ共有履歴はありません。",
+    "footnote": "このデバイスからの共有のみローカルに記録されます。",
+    "expired": "期限切れ",
+    "clear": "クリア",
+    "code": "コード",
+    "kindFile": "ファイル",
+    "kindText": "テキスト"
+  },
+  "viewer": {
+    "download": "ダウンロード",
+    "copyLink": "リンクをコピー",
+    "noPreview": "このファイル形式はプレビューできません。",
+    "forceDownload": "安全のため、このタイプはダウンロードのみ可能です。",
+    "loading": "読み込み中…",
+    "notFound": "見つかりません。",
+    "size": "サイズ",
+    "type": "タイプ"
+  },
+  "footer": {
+    "credit": "© {{year}} · FileCodeBox にインスパイア",
+    "admin": "管理"
+  },
+  "theme": {
+    "light": "ライト",
+    "dark": "ダーク",
+    "auto": "システムに従う",
+    "switchAccent": "アクセント",
+    "switchTheme": "テーマ",
+    "auroraGold": "オーロラゴールド",
+    "champagneGold": "シャンパンゴールド",
+    "linearBlue": "Linear ブルー",
+    "sapphire": "サファイア",
+    "emerald": "エメラルド"
+  },
+  "lang": {
+    "switch": "言語",
+    "en": "English",
+    "zh-CN": "简体中文",
+    "ja": "日本語"
+  },
+  "admin": {
+    "login": {
+      "title": "管理者ログイン",
+      "password": "パスワード",
+      "submit": "ログイン",
+      "error": "パスワードが違います。",
+      "loading": "ログイン中…"
+    },
+    "nav": {
+      "dashboard": "ダッシュボード",
+      "files": "ファイル",
+      "logs": "ログ",
+      "settings": "設定",
+      "logout": "ログアウト",
+      "backToSite": "サイトに戻る"
+    },
+    "dashboard": {
+      "title": "ダッシュボード",
+      "totalFiles": "ファイル数",
+      "storageUsed": "ストレージ使用量",
+      "recycled": "ゴミ箱",
+      "uptime": "稼働時間",
+      "today": "今日",
+      "yesterday": "昨日",
+      "uploads": "アップロード",
+      "retrievals": "受け取り"
+    },
+    "files": {
+      "title": "ファイル",
+      "search": "コード / 名前 / テキストを検索…",
+      "includeDeleted": "削除済みを含む",
+      "emptyTrash": "ゴミ箱を空にする",
+      "emptyTrashConfirm": "ゴミ箱内のファイルをすべて永久削除しますか?元に戻せません。",
+      "columns": {
+        "code": "コード",
+        "name": "名前",
+        "size": "サイズ",
+        "type": "種類",
+        "created": "作成日時",
+        "expires": "期限",
+        "used": "受取済",
+        "status": "状態",
+        "actions": "操作"
+      },
+      "statusActive": "有効",
+      "statusDeleted": "削除済",
+      "statusExpired": "期限切れ",
+      "action": {
+        "view": "表示",
+        "edit": "期限編集",
+        "softDelete": "削除",
+        "restore": "復元",
+        "hardDelete": "完全削除"
+      },
+      "editExpiry": "期限を編集",
+      "expiredAt": "有効期限(ISO)",
+      "expiredCount": "受取上限(-1 = 無制限)",
+      "save": "保存",
+      "cancel": "キャンセル",
+      "page": "{{page}} / {{total}} ページ",
+      "empty": "ファイルはありません。"
+    },
+    "logs": {
+      "title": "アクセスログ",
+      "filterAction": "アクションで絞り込み",
+      "all": "すべて",
+      "columns": {
+        "ts": "日時",
+        "action": "アクション",
+        "code": "コード",
+        "ip": "IP",
+        "ua": "UA",
+        "status": "ステータス",
+        "event": "イベント"
+      },
+      "empty": "ログはありません。"
+    },
+    "settings": {
+      "title": "設定",
+      "env": "環境",
+      "storageBackend": "ストレージバックエンド",
+      "turnstile": "Turnstile(チャレンジ)",
+      "appName": "アプリ名",
+      "maxUpload": "アップロード上限",
+      "rotatePassword": "管理者パスワードを変更",
+      "newPassword": "新しいパスワード",
+      "confirmPassword": "新しいパスワード(確認)",
+      "passwordMismatch": "パスワードが一致しません。",
+      "save": "保存",
+      "saved": "保存しました。"
+    }
+  },
+  "notFound": {
+    "title": "ページが見つかりません。",
+    "back": "ホームへ"
+  },
+  "common": {
+    "copy": "コピー",
+    "copied": "コピー済み",
+    "close": "閉じる",
+    "yes": "はい",
+    "no": "いいえ",
+    "loading": "読み込み中…",
+    "ok": "OK",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "minute": "分",
+    "hour": "時間",
+    "day": "日",
+    "week": "週間",
+    "month": "か月",
+    "year": "年",
+    "now": "たった今",
+    "ago": "{{value}}{{unit}}前",
+    "in": "{{value}}{{unit}}後"
+  }
+}

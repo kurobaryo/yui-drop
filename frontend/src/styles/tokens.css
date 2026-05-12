@@ -1,0 +1,80 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * Yui-Drop design tokens
+ *
+ * Two switches:
+ *   data-theme="dark" | "light"   → surfaces / text
+ *   data-accent="aurora-gold" | "champagne-gold" | "linear-blue"
+ *                                 | "sapphire" | "emerald"   → accent HSL
+ *
+ * All themed colors are CSS variables so we never have to touch JS to
+ * recolor the whole app. Tailwind's `theme.extend.colors` references these.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/* ── Accent palette (5 fixed options, owner-approved) ───────────────────── */
+:root[data-accent="aurora-gold"] {
+  --accent-h: 41;
+  --accent-s: 88%;
+  --accent-l: 67%;
+}
+:root[data-accent="champagne-gold"] {
+  --accent-h: 38;
+  --accent-s: 53%;
+  --accent-l: 64%;
+}
+:root[data-accent="linear-blue"] {
+  --accent-h: 232;
+  --accent-s: 68%;
+  --accent-l: 60%;
+}
+:root[data-accent="sapphire"] {
+  --accent-h: 217;
+  --accent-s: 91%;
+  --accent-l: 60%;
+}
+:root[data-accent="emerald"] {
+  --accent-h: 160;
+  --accent-s: 84%;
+  --accent-l: 39%;
+}
+
+/* Default to aurora-gold if no attribute set. */
+:root {
+  --accent-h: 41;
+  --accent-s: 88%;
+  --accent-l: 67%;
+}
+
+/* ── Dark theme tokens (default) ────────────────────────────────────────── */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0b0d12;
+  --bg-1: #11141b;
+  --bg-2: #171b24;
+
+  --text: #e6e8ee;
+  --text-1: #d4d7df;
+  --text-2: #a8adba;
+  --text-muted: #6c7180;
+
+  --border: #232734;
+  --border-strong: #2e3340;
+}
+
+/* ── Light theme tokens ─────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #fbfbfc;
+  --bg-1: #f4f5f7;
+  --bg-2: #ebedf1;
+
+  --text: #14161c;
+  --text-1: #20232c;
+  --text-2: #4b4f5b;
+  --text-muted: #828795;
+
+  --border: #e3e5ea;
+  --border-strong: #cdd0d8;
+}

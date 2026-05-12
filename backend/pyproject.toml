@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yui-drop-backend"
+version = "0.1.0"
+description = "Yui-Drop backend: anonymous, ephemeral file & text sharing with a pickup code."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Yui-Drop Contributors" }]
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "pydantic>=2.5",
+    "pydantic-settings>=2.2",
+    "PyJWT>=2.8",
+    "bcrypt>=4.0,<6",
+    "aioboto3>=13.0",
+    "python-multipart>=0.0.9",
+    "python-magic>=0.4.27",
+    "structlog>=24.1",
+    "slowapi>=0.1.9",
+    "httpx>=0.27",
+    "apscheduler>=3.10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "moto[s3]>=5.0",
+    "httpx>=0.27",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["tests*", "alembic*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N"]
+ignore = ["E501", "B008", "N818"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B", "N"]
+"alembic/*" = ["E", "F", "N"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+disallow_untyped_defs = false
+warn_unused_ignores = false
+check_untyped_defs = true
+explicit_package_bases = true
+namespace_packages = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra -q"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
