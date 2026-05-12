@@ -9,7 +9,7 @@
  * All three resolve to a uniform { code, name, size } envelope and report
  * progress via a single `onProgress(percent01)` callback (0..1).
  */
-import { rawAxios } from './api';
+import { rawAxios, api } from './api';
 import {
   shareFileMultipart,
   multiInit,
@@ -63,6 +63,89 @@ const CHUNK_SIZE = 1 * 1024 * 1024;
 // S3 multipart minimum is 5 MiB per part except the last.
 const PRESIGN_PART_SIZE = 8 * 1024 * 1024;
 
+// ── Dynamic upload limits (loaded once from /api/config/upload) ────────────
+//
+// The backend exposes the active limits and the chunked-upload kill switch
+// via a public endpoint so the browser can preflight a refusal before
+// streaming bytes. We cache the response in a module-level promise so the
+// first call kicks off the fetch and every later caller reuses the result.
+
+export interface PublicUploadConfig {
+  chunk_upload_enabled: boolean;
+  simple_upload_max_bytes: number;
+  chunk_upload_max_bytes: number;
+  multi_total_max_bytes: number;
+}
+
+// Generous fallbacks if the endpoint can't be reached — the server is still
+// the final authority and will reject anything genuinely oversized.
+const FALLBACK_UPLOAD_CONFIG: PublicUploadConfig = {
+  chunk_upload_enabled: true,
+  simple_upload_max_bytes: SIMPLE_LIMIT,
+  chunk_upload_max_bytes: 50 * 1024 * 1024 * 1024,
+  multi_total_max_bytes: 50 * 1024 * 1024 * 1024,
+};
+
+let _uploadConfigPromise: Promise<PublicUploadConfig> | null = null;
+
+export function getUploadConfig(): Promise<PublicUploadConfig> {
+  if (_uploadConfigPromise) return _uploadConfigPromise;
+  _uploadConfigPromise = api
+    .get<PublicUploadConfig>('/config/upload')
+    .then((r) => r.data)
+    .catch(() => FALLBACK_UPLOAD_CONFIG);
+  return _uploadConfigPromise;
+}
+
+function fmtMb(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+  return `${mb.toFixed(0)} MB`;
+}
+
+async function enforceSingleFileLimits(file: File): Promise<void> {
+  const cfg = await getUploadConfig();
+  if (
+    !cfg.chunk_upload_enabled &&
+    file.size >= cfg.simple_upload_max_bytes
+  ) {
+    throw new Error(
+      'Large file upload is currently disabled by administrator',
+    );
+  }
+  if (file.size > cfg.chunk_upload_max_bytes) {
+    throw new Error(
+      `File is too large (max ${fmtMb(cfg.chunk_upload_max_bytes)}).`,
+    );
+  }
+}
+
+async function enforceMultiTotalLimit(files: File[]): Promise<void> {
+  const cfg = await getUploadConfig();
+  const total = files.reduce((acc, f) => acc + f.size, 0);
+  if (total > cfg.multi_total_max_bytes) {
+    throw new Error(
+      `Total size exceeds the limit (max ${fmtMb(cfg.multi_total_max_bytes)}).`,
+    );
+  }
+  // Apply the per-file ceiling individually too.
+  for (const f of files) {
+    if (f.size > cfg.chunk_upload_max_bytes) {
+      throw new Error(
+        `"${f.name}" is too large (max ${fmtMb(cfg.chunk_upload_max_bytes)}).`,
+      );
+    }
+    if (
+      !cfg.chunk_upload_enabled &&
+      f.size >= cfg.simple_upload_max_bytes
+    ) {
+      throw new Error(
+        'Large file upload is currently disabled by administrator',
+      );
+    }
+  }
+}
+
 function pickStrategy(
   file: File,
   backend: StorageBackend,
@@ -89,6 +172,7 @@ export function uploadFile(opts: UploadOptions): UploadHandle {
   };
 
   const run = async (): Promise<UploadResult> => {
+    await enforceSingleFileLimits(opts.file);
     if (strategy === 'simple') {
       const res = await shareFileMultipart(
         opts.file,
@@ -262,6 +346,7 @@ export function uploadFiles(opts: UploadFilesOptions): UploadFilesHandle {
   const totalBytes = opts.files.reduce((acc, f) => acc + f.size, 0);
 
   const run = async (): Promise<UploadFilesResult> => {
+    await enforceMultiTotalLimit(opts.files);
     // Mark every file as pending up front so the UI can render the queue.
     for (let i = 0; i < opts.files.length; i++) {
       opts.onFileState?.(i, 'pending');
