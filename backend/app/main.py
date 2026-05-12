@@ -89,7 +89,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     * Content-Security-Policy — default-src 'self', plus inline-data for
       images and inline styles (the SPA bundles its own CSS).
-    * X-Frame-Options: DENY    — block all framing (clickjacking).
+    * X-Frame-Options: SAMEORIGIN — allow same-origin framing for the
+      in-app PDF / media preview iframe; cross-origin framing still blocked.
     * X-Content-Type-Options: nosniff — keep browsers honest about types.
     * Referrer-Policy: strict-origin-when-cross-origin.
     * Permissions-Policy: deny camera/microphone/geolocation by default.
@@ -111,7 +112,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "script-src 'self' 'unsafe-inline'; "
         "connect-src 'self'; "
         "font-src 'self' data:; "
-        "frame-ancestors 'none'; "
+        "frame-ancestors 'self'; "
         "base-uri 'self'; "
         "form-action 'self'"
     )
@@ -120,7 +121,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         h = response.headers
         h.setdefault("Content-Security-Policy", self.DEFAULT_CSP)
-        h.setdefault("X-Frame-Options", "DENY")
+        h.setdefault("X-Frame-Options", "SAMEORIGIN")
         h.setdefault("X-Content-Type-Options", "nosniff")
         h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         h.setdefault(

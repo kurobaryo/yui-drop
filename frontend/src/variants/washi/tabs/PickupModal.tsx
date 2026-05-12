@@ -56,7 +56,19 @@ function extOf(name: string | null | undefined): string {
   return (name.split('.').pop() ?? '').toLowerCase();
 }
 
-function expiresLabel(expiredAt: string | null | undefined): string {
+function expiresLabel(
+  expiredAt: string | null | undefined,
+  expiredCount: number = -1,
+  usedCount: number = 0,
+): string {
+  // Count-based mode: expired_count >= 0 means "this many pickups allowed".
+  // Render as "remaining/total次" even when expired_at is null (count-only
+  // shares have no time bound). Floor remaining at 0 so an exhausted share
+  // shows "0/N次" instead of a negative number.
+  if (expiredCount >= 0) {
+    const remain = Math.max(0, expiredCount - usedCount);
+    return `${remain}/${expiredCount}次`;
+  }
   if (!expiredAt) return '∞';
   const ms = new Date(expiredAt).getTime() - Date.now();
   if (Number.isNaN(ms)) return '—';
@@ -478,7 +490,7 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
           }}
         >
           <div style={{ flex: 1, fontSize: 12, color: c.sub }}>
-            {fmtSize(totalSize)} · {expiresLabel(item.expired_at)} {t('washi.remaining')}
+            {fmtSize(totalSize)} · {expiresLabel(item.expired_at, item.expired_count, item.used_count)} {t('washi.remaining')}
           </div>
           {isText ? (
             <>
@@ -500,23 +512,50 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
                 {copied ? '✓ ' + t('washi.copied') : '⎘  ' + t('washi.copy')}
               </button>
               {textBody != null && (
-                <a
-                  href={`data:text/plain;charset=utf-8,${encodeURIComponent(textBody)}`}
-                  download={`${item.code}.txt`}
-                  style={{
-                    padding: '10px 16px',
-                    background: 'transparent',
-                    color: c.ink,
-                    border: `1px solid ${c.soft}`,
-                    borderRadius: 999,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    fontSize: 14,
-                    textDecoration: 'none',
-                  }}
-                >
-                  ↓  .txt
-                </a>
+                item.kind === 'file' && item.url ? (
+                  // Real file uploaded under a text/* (or text-like) MIME — link
+                  // straight to the backend stream so the download keeps its
+                  // original filename + extension (e.g. .md, .json, .yaml).
+                  // Previously we re-wrapped the body as a data: URL and forced
+                  // ".txt", which silently rewrote the user's file extension.
+                  <a
+                    href={item.url}
+                    download={item.name ?? `${item.code}.${extOf(item.name) || 'txt'}`}
+                    style={{
+                      padding: '10px 16px',
+                      background: 'transparent',
+                      color: c.ink,
+                      border: `1px solid ${c.soft}`,
+                      borderRadius: 999,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      fontSize: 14,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {`↓  .${extOf(item.name) || 'txt'}`}
+                  </a>
+                ) : (
+                  // Pure text share (no underlying file) — bundle the in-memory
+                  // body as a data: URL. .txt is the only sensible extension.
+                  <a
+                    href={`data:text/plain;charset=utf-8,${encodeURIComponent(textBody)}`}
+                    download={`${item.code}.txt`}
+                    style={{
+                      padding: '10px 16px',
+                      background: 'transparent',
+                      color: c.ink,
+                      border: `1px solid ${c.soft}`,
+                      borderRadius: 999,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      fontSize: 14,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    ↓  .txt
+                  </a>
+                )
               )}
             </>
           ) : item.kind === 'file' && item.url ? (

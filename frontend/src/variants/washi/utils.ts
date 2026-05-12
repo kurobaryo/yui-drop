@@ -140,7 +140,18 @@ export function fmtExpiryLeft(cfg: WashiExpiry | null, t: ExpiryStrings): string
 }
 
 /** Build the "23h" / "7d" / "∞" pill used by the Recent list / modal. */
-export function expiryShort(expiresAt: string | null | undefined): string {
+export function expiryShort(
+  expiresAt: string | null | undefined,
+  expiredCount: number = -1,
+  usedCount: number = 0,
+): string {
+  // Count-based shares show "remaining/total次" regardless of expires_at.
+  // Callers that don't track usage counts (e.g. the localStorage Recent list)
+  // simply omit the extra args and fall through to the time-based logic.
+  if (expiredCount >= 0) {
+    const remain = Math.max(0, expiredCount - usedCount);
+    return `${remain}/${expiredCount}次`;
+  }
   if (!expiresAt) return '∞';
   const ms = new Date(expiresAt).getTime() - Date.now();
   if (Number.isNaN(ms)) return '—';

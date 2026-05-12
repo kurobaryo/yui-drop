@@ -15,12 +15,30 @@ export function Progress({ c, progress }: { c: WashiColors; progress: number }) 
         style={{
           display: 'flex',
           justifyContent: 'space-between',
+          alignItems: 'center',
           fontSize: 12,
           color: c.sub,
           marginBottom: 6,
         }}
       >
-        <span>{t('washi.progress')}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {/* Tiny accent-colored ring spinner so progress never *looks* stuck
+              at 0% even when a multipart upload is still hashing / signing the
+              first part. The SVG keyframes are declared once below. */}
+          <span
+            aria-hidden="true"
+            style={{
+              display: 'inline-block',
+              width: 12,
+              height: 12,
+              borderRadius: '50%',
+              border: `2px solid ${c.soft}`,
+              borderTopColor: c.accent,
+              animation: 'washi-spin 0.9s linear infinite',
+            }}
+          />
+          {t('washi.progress')}
+        </span>
         <span style={{ fontFamily: '"JetBrains Mono", monospace' }}>{pct.toFixed(0)}%</span>
       </div>
       <div style={{ height: 6, background: c.soft, borderRadius: 999, overflow: 'hidden' }}>
@@ -35,6 +53,10 @@ export function Progress({ c, progress }: { c: WashiColors; progress: number }) 
           }}
         />
       </div>
+      {/* Keyframes for the spinner — scoped to this component but global to the
+          document. Idempotent: multiple Progress mounts re-declare the same
+          @keyframes name with the same body. */}
+      <style>{`@keyframes washi-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
