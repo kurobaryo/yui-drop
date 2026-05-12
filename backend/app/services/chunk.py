@@ -243,6 +243,15 @@ async def complete_chunk_upload(
     expire_style: str,
     ip: str | None,
     ua: str | None,
+    # Optional: bypass FileCode row creation (caller manages its own row, e.g.
+    # multi-file shares using share_files). When True, this function still
+    # writes bytes into storage and cleans up the chunk session, but returns
+    # only {key, size, hash} without creating a pickup code.
+    skip_filecode_creation: bool = False,
+    # Optional: force the storage key (instead of generating one). Used by
+    # multi-file shares so the share_files row's file_path matches the
+    # actual stored object.
+    override_key: str | None = None,
 ) -> dict[str, Any]:
     sess = (
         await db.execute(
@@ -309,12 +318,23 @@ async def complete_chunk_upload(
     if existing is not None:
         storage_key = existing.file_path
     else:
-        storage_key = build_storage_key(None, safe)
+        # If caller forced a key (multi-file share), use it; else autogenerate.
+        storage_key = override_key or build_storage_key(None, safe)
         # Stream merged file into storage.
         with open(merged_path, "rb") as f:
             await get_storage().server_write(storage_key, f, total)
 
     await asyncio.to_thread(shutil.rmtree, d, True)
+
+    # Caller-managed FileCode (e.g. multi-file share): return key+size, exit.
+    if skip_filecode_creation:
+        await db.delete(sess)
+        await db.commit()
+        return {
+            "key": storage_key,
+            "size": total,
+            "hash": sha,
+        }
 
     prefix = safe.rsplit(".", 1)[0] if "." in safe else safe
     suffix = f".{safe.rsplit('.', 1)[1]}" if "." in safe else None

@@ -12,6 +12,10 @@
 import { rawAxios } from './api';
 import {
   shareFileMultipart,
+  multiInit,
+  multiFileInit,
+  multiFileComplete,
+  multiFinalize,
   type ExpireStyle,
   type ShareFileResponse,
 } from './api/share';
@@ -209,4 +213,156 @@ async function runPresigned(
 
   const done = await presignComplete(init.upload_id, parts);
   return { code: done.code, name: done.name, size: done.size };
+}
+
+// ─── Multi-file uploader ──────────────────────────────────────────────────
+
+export type UploadFileState = 'pending' | 'uploading' | 'complete' | 'failed';
+
+export interface UploadFilesOptions {
+  files: File[];
+  expireValue: number;
+  expireStyle: ExpireStyle;
+  storageBackend: StorageBackend;
+  /** Per-file progress (0..1) — called many times per file. */
+  onFileProgress?: (index: number, fraction: number) => void;
+  /** Overall progress (0..1) computed across all files by total bytes. */
+  onOverallProgress?: (fraction: number) => void;
+  /** Per-file lifecycle marker. */
+  onFileState?: (index: number, state: UploadFileState) => void;
+}
+
+export interface UploadFilesResult {
+  code: string;
+  shareId: number;
+  fileCount: number;
+  totalSize: number;
+}
+
+export interface UploadFilesHandle {
+  promise: Promise<UploadFilesResult>;
+  abort: () => void;
+}
+
+const MULTI_CHUNK_SIZE = 1 * 1024 * 1024;
+
+/**
+ * Upload N files as a single multi-share.
+ *
+ * Sequential per-file for v1. Progress is aggregated into both per-file
+ * fractions and an overall fraction (weighted by total bytes).
+ *
+ * presign_payload is null for v1 (backend doesn't issue it yet for the multi
+ * flow); we always use the server-proxied chunked path here.
+ */
+export function uploadFiles(opts: UploadFilesOptions): UploadFilesHandle {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+
+  const totalBytes = opts.files.reduce((acc, f) => acc + f.size, 0);
+
+  const run = async (): Promise<UploadFilesResult> => {
+    // Mark every file as pending up front so the UI can render the queue.
+    for (let i = 0; i < opts.files.length; i++) {
+      opts.onFileState?.(i, 'pending');
+      opts.onFileProgress?.(i, 0);
+    }
+    opts.onOverallProgress?.(0);
+
+    const init = await multiInit({
+      declared_file_count: opts.files.length,
+      declared_total_size: totalBytes,
+      expire_value: opts.expireValue,
+      expire_style: opts.expireStyle,
+    });
+
+    let doneTotalBytes = 0;
+
+    for (let i = 0; i < opts.files.length; i++) {
+      if (controller.signal.aborted) {
+        throw new DOMException('aborted', 'AbortError');
+      }
+      const file = opts.files[i]!;
+      opts.onFileState?.(i, 'uploading');
+
+      try {
+        const fInit = await multiFileInit(init.share_id, init.upload_token, {
+          name: file.name,
+          size: file.size,
+          content_type: file.type || null,
+          declared_chunked: true,
+          chunk_size: MULTI_CHUNK_SIZE,
+        });
+
+        const chunkSize = fInit.chunk_size || MULTI_CHUNK_SIZE;
+        const totalChunks = fInit.total_chunks;
+        let fileDoneBytes = 0;
+
+        for (let c = 0; c < totalChunks; c++) {
+          if (controller.signal.aborted) {
+            throw new DOMException('aborted', 'AbortError');
+          }
+          const start = c * chunkSize;
+          const end = Math.min(start + chunkSize, file.size);
+          const blob = file.slice(start, end);
+          await chunkPart(
+            fInit.upload_id,
+            c,
+            blob,
+            (loaded) => {
+              const fileNow = fileDoneBytes + loaded;
+              opts.onFileProgress?.(
+                i,
+                file.size > 0 ? Math.min(1, fileNow / file.size) : 1,
+              );
+              if (totalBytes > 0) {
+                opts.onOverallProgress?.(
+                  Math.min(1, (doneTotalBytes + fileNow) / totalBytes),
+                );
+              }
+            },
+            controller.signal,
+          );
+          fileDoneBytes += end - start;
+          opts.onFileProgress?.(
+            i,
+            file.size > 0 ? Math.min(1, fileDoneBytes / file.size) : 1,
+          );
+          if (totalBytes > 0) {
+            opts.onOverallProgress?.(
+              Math.min(1, (doneTotalBytes + fileDoneBytes) / totalBytes),
+            );
+          }
+        }
+
+        await multiFileComplete(
+          init.share_id,
+          fInit.file_id,
+          init.upload_token,
+          { total_uploaded_bytes: file.size },
+        );
+
+        doneTotalBytes += file.size;
+        opts.onFileProgress?.(i, 1);
+        opts.onFileState?.(i, 'complete');
+        if (totalBytes > 0) {
+          opts.onOverallProgress?.(Math.min(1, doneTotalBytes / totalBytes));
+        }
+      } catch (e) {
+        opts.onFileState?.(i, 'failed');
+        throw e;
+      }
+    }
+
+    const fin = await multiFinalize(init.share_id, init.upload_token);
+    opts.onOverallProgress?.(1);
+    return {
+      code: fin.code,
+      shareId: init.share_id,
+      fileCount: fin.file_count,
+      totalSize: fin.total_size,
+    };
+  };
+
+  return { promise: run(), abort };
 }

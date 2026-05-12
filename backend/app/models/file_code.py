@@ -45,6 +45,24 @@ class FileCode(Base):
     is_chunked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     upload_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # Multi-file share fields (kind='multi'). For kind in {'text','file'} the
+    # fields above (name/size/file_path/text) remain authoritative; for 'multi'
+    # the payload lives in ``share_files`` and we summarize here.
+    #
+    # 'text' | 'file' | 'multi'. Defaults to 'file' for legacy rows so that
+    # backfilled data round-trips identically.
+    kind: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="file", server_default="file",
+    )
+    total_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    file_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0",
+    )
+    # False until /multi/.../finalize; True for any single-file/text row.
+    finalized: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1",
+    )
+
     # Soft delete
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
 

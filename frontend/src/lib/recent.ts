@@ -6,12 +6,15 @@
  */
 export interface RecentEntry {
   code: string;
-  kind: 'file' | 'text';
+  kind: 'file' | 'text' | 'multi';
   name?: string | null;
   size?: number | null;
   type?: string | null;
   created_at: string; // ISO
   expires_at?: string | null;
+  /** For kind === 'multi'. */
+  fileCount?: number;
+  totalSize?: number;
 }
 
 const KEY = 'yui-drop:recent';

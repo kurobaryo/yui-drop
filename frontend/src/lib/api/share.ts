@@ -1,6 +1,6 @@
 /**
  * Share endpoints: text drops, single-shot file uploads, code resolution,
- * and the token-protected download fallback.
+ * the token-protected download fallback, and multi-file share orchestration.
  */
 import { api } from '../api';
 
@@ -61,9 +61,20 @@ export async function shareFileMultipart(
   return data;
 }
 
+/** A single file inside a multi-share response. */
+export interface ShareMultiFile {
+  file_id: number;
+  order: number;
+  name: string;
+  size: number;
+  url: string | null;
+  content_type: string | null;
+  force_download: boolean;
+}
+
 export interface ShareSelectResponse {
   code: string;
-  kind: 'text' | 'file';
+  kind: 'text' | 'file' | 'multi';
   name: string | null;
   size: number | null;
   text: string | null;
@@ -73,6 +84,10 @@ export interface ShareSelectResponse {
   expired_at: string | null;
   expired_count: number;
   used_count: number;
+  /** Present only when kind === 'multi'. */
+  file_count?: number;
+  total_size?: number;
+  files?: ShareMultiFile[];
 }
 
 export async function shareSelect(
@@ -90,4 +105,96 @@ export function downloadUrl(code: string, key: string): string {
   u.searchParams.set('code', code);
   u.searchParams.set('key', key);
   return u.toString();
+}
+
+// ─── Multi-file share orchestration ─────────────────────────────────────────
+
+export interface MultiInitRequest {
+  declared_file_count: number;
+  declared_total_size: number;
+  expire_value: number;
+  expire_style: ExpireStyle;
+}
+export interface MultiInitResponse {
+  share_id: number;
+  code: string;
+  upload_token: string;
+  expired_at: string | null;
+  expired_count: number;
+}
+export async function multiInit(
+  body: MultiInitRequest,
+): Promise<MultiInitResponse> {
+  const { data } = await api.post<MultiInitResponse>('/share/multi/init', body);
+  return data;
+}
+
+export interface MultiFileInitRequest {
+  name: string;
+  size: number;
+  content_type?: string | null;
+  declared_chunked: boolean;
+  chunk_size?: number;
+}
+export interface MultiFileInitResponse {
+  file_id: number;
+  upload_id: string;
+  upload_url: string;
+  chunk_size: number;
+  total_chunks: number;
+  presign_payload: unknown | null;
+}
+export async function multiFileInit(
+  shareId: number,
+  uploadToken: string,
+  body: MultiFileInitRequest,
+): Promise<MultiFileInitResponse> {
+  const { data } = await api.post<MultiFileInitResponse>(
+    `/share/multi/${shareId}/file/init`,
+    body,
+    { headers: { Authorization: `Bearer ${uploadToken}` } },
+  );
+  return data;
+}
+
+export interface MultiFileCompleteRequest {
+  total_uploaded_bytes: number;
+  etag_list?: string[] | null;
+}
+export interface MultiFileCompleteResponse {
+  ok: boolean;
+  size_verified: boolean;
+  file_id: number;
+  size: number;
+}
+export async function multiFileComplete(
+  shareId: number,
+  fileId: number,
+  uploadToken: string,
+  body: MultiFileCompleteRequest,
+): Promise<MultiFileCompleteResponse> {
+  const { data } = await api.post<MultiFileCompleteResponse>(
+    `/share/multi/${shareId}/file/${fileId}/complete`,
+    body,
+    { headers: { Authorization: `Bearer ${uploadToken}` } },
+  );
+  return data;
+}
+
+export interface MultiFinalizeResponse {
+  code: string;
+  expired_at: string | null;
+  file_count: number;
+  total_size: number;
+}
+export async function multiFinalize(
+  shareId: number,
+  uploadToken: string,
+): Promise<MultiFinalizeResponse> {
+  const { data } = await api.post<MultiFinalizeResponse>(
+    `/share/multi/${shareId}/finalize`,
+    {},
+    { headers: { Authorization: `Bearer ${uploadToken}` } },
+  );
+  return data;
 }

@@ -44,6 +44,22 @@
     "another": "もう一つ送る",
     "tooLarge": "ファイルが大きすぎます(上限 {{max}})。"
   },
+  "sendFileMulti": {
+    "drop": "ファイルやフォルダをドラッグ、またはクリックして選択",
+    "maxHint": "最大 {{count}} 件 · 1ファイル {{perFile}} · 合計 {{total}}",
+    "summary": "{{n}} ファイル · {{size}}",
+    "clearQueue": "クリア",
+    "tooManyFiles": "ファイル数が多すぎます(上限 {{max}})。",
+    "fileTooLarge": "「{{name}}」が大きすぎます(上限 {{max}})。",
+    "totalTooLarge": "合計サイズが上限を超えています(上限 {{max}})。",
+    "uploadedFiles": "アップロード済みファイル"
+  },
+  "multiViewer": {
+    "selectAll": "すべて選択",
+    "downloadSelected": "選択をダウンロード",
+    "preview": "プレビュー",
+    "zipFootnote": "ダウンロードは1件ずつ実行されます。一括 zip は今後対応予定です。"
+  },
   "sendText": {
     "placeholder": "テキストを貼り付けまたは入力(最大 {{max}})…",
     "tooLong": "テキストが長すぎます(上限 {{max}})。"
@@ -56,7 +72,8 @@
     "clear": "クリア",
     "code": "コード",
     "kindFile": "ファイル",
-    "kindText": "テキスト"
+    "kindText": "テキスト",
+    "kindMulti": "{{n}} ファイル · {{size}}"
   },
   "viewer": {
     "download": "ダウンロード",

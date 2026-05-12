@@ -40,11 +40,15 @@ export default function RetrieveTab() {
         name: res.name,
         size: res.size,
         type: res.content_type,
+        fileCount: res.file_count,
+        totalSize: res.total_size,
         created_at: new Date().toISOString(),
         expires_at: res.expired_at,
       });
       if (res.kind === 'text') {
         setTextPayload({ code: res.code, text: res.text ?? '' });
+      } else if (res.kind === 'multi') {
+        navigate(`/m/${res.code}`);
       } else {
         navigate(`/v/${res.code}`);
       }

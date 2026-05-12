@@ -14,6 +14,10 @@ export interface PublicConfig {
   turnstile_site_key?: string | null;
   /** Optional list of allowed expiry styles surfaced by the server. */
   expire_styles?: string[];
+  /** Optional multi-file caps; if absent, fall back to max_upload_bytes. */
+  max_file_bytes?: number;
+  max_share_total_bytes?: number;
+  max_files_per_share?: number;
 }
 
 /** Sensible defaults if /api/config is missing or returns an error. */

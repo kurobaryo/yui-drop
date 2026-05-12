@@ -185,6 +185,24 @@ class S3Storage(StorageBackend):
             except Exception:
                 pass
 
+    async def delete_many(self, keys: list[str]) -> None:
+        if not keys:
+            return
+        # S3 DeleteObjects accepts up to 1000 keys per call.
+        async with self._client() as s3:
+            for i in range(0, len(keys), 1000):
+                batch = keys[i : i + 1000]
+                try:
+                    await s3.delete_objects(
+                        Bucket=self.bucket,
+                        Delete={
+                            "Objects": [{"Key": k} for k in batch],
+                            "Quiet": True,
+                        },
+                    )
+                except Exception:  # noqa: BLE001 — best-effort
+                    pass
+
     async def health(self) -> bool:
         try:
             async with self._client() as s3:
