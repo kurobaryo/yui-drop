@@ -110,6 +110,46 @@ export async function emptyRecycleBin(): Promise<{ deleted: number }> {
   return data;
 }
 
+// ── File detail by code (G.4) ─────────────────────────────────────────────
+/**
+ * Shape returned by `GET /api/admin/files/{code}`. Mirrors the row that
+ * powers the list view but with a couple of drawer-only extras
+ * (`file_path`, `storage_backend`) and the audit columns always present.
+ */
+export interface AdminFileDetail extends AdminFileRow {
+  file_path: string | null;
+  storage_backend: string | null;
+}
+
+export async function getFileByCode(code: string): Promise<AdminFileDetail> {
+  const { data } = await api.get<AdminFileDetail>(
+    `/admin/files/${encodeURIComponent(code)}`,
+  );
+  return data;
+}
+
+export interface AdminFileAccessLogItem {
+  ts: string | null;
+  action: string;
+  ip: string | null;
+  ua: string | null;
+  status_code: number | null;
+}
+export interface AdminFileAccessLogResponse {
+  items: AdminFileAccessLogItem[];
+  code: string;
+}
+export async function getFileAccessLog(
+  code: string,
+  limit = 200,
+): Promise<AdminFileAccessLogResponse> {
+  const { data } = await api.get<AdminFileAccessLogResponse>(
+    `/admin/files/${encodeURIComponent(code)}/access-log`,
+    { params: { limit } },
+  );
+  return data;
+}
+
 // ── Logs ──────────────────────────────────────────────────────────────────
 export interface AdminLogRow {
   id: number;

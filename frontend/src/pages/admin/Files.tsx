@@ -2,6 +2,10 @@
  * Admin Files — paginated table with search, include-deleted toggle,
  * empty-recycle-bin action, and per-row edit / soft-delete / restore /
  * hard-delete.
+ *
+ * Clicking the code cell (or anywhere on the row that isn't an action
+ * button) opens a right-side drawer showing the full FileCode metadata
+ * plus the share's access log. See `FileDetailDrawer` below.
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,13 +16,17 @@ import {
   deleteFile,
   restoreFile,
   emptyRecycleBin,
+  getFileByCode,
+  getFileAccessLog,
   type AdminFileRow,
+  type AdminFileAccessLogItem,
 } from '@/lib/api/admin';
 import { ApiError } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
+import { Drawer } from '@/components/ui/Drawer';
 import { toast } from '@/components/ui/Toast';
 import { humanBytes, formatTime, isExpired } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -33,6 +41,7 @@ export default function AdminFiles() {
   const [keywordInput, setKeywordInput] = useState('');
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [editing, setEditing] = useState<AdminFileRow | null>(null);
+  const [activeCode, setActiveCode] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'files', { page, size, keyword, includeDeleted }],
@@ -176,8 +185,9 @@ export default function AdminFiles() {
                   return (
                     <tr
                       key={row.id}
+                      onClick={() => setActiveCode(row.code)}
                       className={cn(
-                        'hover:bg-[--bg-2]',
+                        'cursor-pointer hover:bg-[--bg-2]',
                         (deleted || expired) && 'opacity-60',
                       )}
                     >
@@ -201,7 +211,11 @@ export default function AdminFiles() {
                       <td className="px-3 py-2 text-xs text-[--text-2]">
                         {status}
                       </td>
-                      <td className="px-3 py-2">
+                      <td
+                        className="px-3 py-2"
+                        // Stop row click from firing when interacting with action buttons.
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex flex-wrap items-center gap-1.5">
                           <Button
                             size="sm"
@@ -279,6 +293,11 @@ export default function AdminFiles() {
           }}
         />
       )}
+
+      <FileDetailDrawer
+        code={activeCode}
+        onClose={() => setActiveCode(null)}
+      />
     </div>
   );
 }
@@ -363,5 +382,190 @@ function EditExpiryModal({
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── File detail drawer (G.4) ───────────────────────────────────────────
+function FileDetailDrawer({
+  code,
+  onClose,
+}: {
+  code: string | null;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const open = code !== null;
+
+  // Two parallel queries — render both halves of the drawer independently
+  // so a slow access-log query doesn't gate the metadata panel.
+  const detail = useQuery({
+    queryKey: ['admin', 'file-detail', code],
+    queryFn: () => getFileByCode(code!),
+    enabled: open,
+  });
+  const logs = useQuery({
+    queryKey: ['admin', 'file-access-log', code],
+    queryFn: () => getFileAccessLog(code!, 200),
+    enabled: open,
+  });
+
+  const row = detail.data;
+  const deleted = !!row?.deleted_at;
+  const expired = !deleted && isExpired(row?.expired_at);
+  const status = deleted
+    ? t('admin.files.statusDeleted')
+    : expired
+    ? t('admin.files.statusExpired')
+    : t('admin.files.statusActive');
+
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      ariaLabel={t('admin.files.drawer.title')}
+      title={
+        <div className="flex items-baseline gap-3">
+          <span className="font-mono text-lg text-[--text-1]">
+            {code ?? ''}
+          </span>
+          <span className="text-xs text-[--text-2]">
+            {t('admin.files.drawer.title')}
+          </span>
+        </div>
+      }
+    >
+      {detail.isLoading || !row ? (
+        <div className="flex items-center justify-center py-16">
+          <Spinner />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-5 p-4">
+          {/* Metadata block ------------------------------------------- */}
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
+            <MetaRow label={t('admin.files.drawer.meta.code')}>
+              <span className="font-mono">{row.code}</span>
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.name')}>
+              {row.is_text ? '[text]' : row.name ?? '—'}
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.size')}>
+              {humanBytes(row.size)}
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.kind')}>
+              {row.is_text ? 'text' : row.is_chunked ? 'chunked' : 'single'}
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.created')}>
+              {formatTime(row.created_at)}
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.expires')}>
+              {row.expired_at ? formatTime(row.expired_at) : '∞'}
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.usage')}>
+              {row.used_count}
+              {row.expired_count > 0 ? ` / ${row.expired_count}` : ' / ∞'}
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.status')}>
+              {status}
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.storage')}>
+              {row.storage_backend ?? '—'}
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.filePath')}>
+              <span className="font-mono break-all">{row.file_path ?? '—'}</span>
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.createdByIp')}>
+              <span className="font-mono">{row.created_by_ip ?? '—'}</span>
+            </MetaRow>
+            <MetaRow label={t('admin.files.drawer.meta.createdByUa')}>
+              <span className="break-all">{row.created_by_ua ?? '—'}</span>
+            </MetaRow>
+          </div>
+
+          {/* Access log table ----------------------------------------- */}
+          <section>
+            <h3 className="mb-2 text-xs uppercase tracking-wider text-[--text-2]">
+              {t('admin.files.drawer.accessLog')}
+            </h3>
+            {logs.isLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Spinner />
+              </div>
+            ) : !logs.data || logs.data.items.length === 0 ? (
+              <div className="py-6 text-center text-xs text-[--text-muted]">
+                {t('admin.files.drawer.noLog')}
+              </div>
+            ) : (
+              <div className="max-h-[50vh] overflow-y-auto rounded-md border border-[--border]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-[--bg-2] text-left text-[--text-2]">
+                    <tr>
+                      <th className="px-2 py-1.5">
+                        {t('admin.files.drawer.col.ts')}
+                      </th>
+                      <th className="px-2 py-1.5">
+                        {t('admin.files.drawer.col.action')}
+                      </th>
+                      <th className="px-2 py-1.5">
+                        {t('admin.files.drawer.col.ip')}
+                      </th>
+                      <th className="px-2 py-1.5">
+                        {t('admin.files.drawer.col.ua')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[--border]">
+                    {logs.data.items.map((item, i) => (
+                      <AccessLogRow key={i} item={item} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+    </Drawer>
+  );
+}
+
+function MetaRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <div className="whitespace-nowrap text-[--text-2]">{label}</div>
+      <div className="min-w-0 text-[--text-1]">{children}</div>
+    </>
+  );
+}
+
+function AccessLogRow({ item }: { item: AdminFileAccessLogItem }) {
+  const { t } = useTranslation();
+  const ua = item.ua ?? '';
+  const truncated = ua.length > 60 ? `${ua.slice(0, 60)}…` : ua;
+  const actionLabel =
+    item.action === 'SHARE_CREATE'
+      ? t('admin.files.drawer.actionCreate')
+      : item.action === 'SHARE_RETRIEVE'
+      ? t('admin.files.drawer.actionRetrieve')
+      : item.action;
+
+  return (
+    <tr>
+      <td className="whitespace-nowrap px-2 py-1.5 text-[--text-2]">
+        {formatTime(item.ts)}
+      </td>
+      <td className="px-2 py-1.5">{actionLabel}</td>
+      <td className="px-2 py-1.5 font-mono text-[--text-2]">
+        {item.ip ?? '—'}
+      </td>
+      <td className="px-2 py-1.5 text-[--text-2]" title={ua || undefined}>
+        {truncated || '—'}
+      </td>
+    </tr>
   );
 }
