@@ -1,0 +1,177 @@
+/**
+ * Admin endpoints. All require Bearer token (auto-injected via the axios
+ * interceptor reading from the zustand admin store).
+ */
+import { api } from '../api';
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+export interface AdminLoginResponse {
+  token: string;
+  token_type: 'Bearer';
+  expires_at: string;
+}
+export async function adminLogin(password: string): Promise<AdminLoginResponse> {
+  const { data } = await api.post<AdminLoginResponse>('/admin/login', {
+    password,
+  });
+  return data;
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+export interface DashboardCounters {
+  uploads: number;
+  retrievals: number;
+}
+export interface DashboardResponse {
+  totalFiles: number;
+  storageUsed: number;
+  recycledFiles: number;
+  sysUptime: number;
+  today: DashboardCounters;
+  yesterday: DashboardCounters;
+}
+export async function getDashboard(): Promise<DashboardResponse> {
+  const { data } = await api.get<DashboardResponse>('/admin/dashboard');
+  return data;
+}
+
+// ── Files ─────────────────────────────────────────────────────────────────
+export interface AdminFileRow {
+  id: number;
+  code: string;
+  prefix: string | null;
+  suffix: string | null;
+  name: string | null;
+  size: number;
+  is_text: boolean;
+  is_chunked: boolean;
+  file_hash: string | null;
+  expired_at: string | null;
+  expired_count: number;
+  used_count: number;
+  deleted_at: string | null;
+  created_at: string | null;
+  created_by_ip?: string | null;
+  created_by_ua?: string | null;
+}
+export interface AdminFileListResponse {
+  items: AdminFileRow[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface AdminFileListParams {
+  page?: number;
+  size?: number;
+  keyword?: string;
+  include_deleted?: boolean;
+}
+export async function listFiles(
+  params: AdminFileListParams = {},
+): Promise<AdminFileListResponse> {
+  const { data } = await api.get<AdminFileListResponse>('/admin/file', {
+    params: {
+      page: params.page ?? 1,
+      size: params.size ?? 20,
+      keyword: params.keyword || undefined,
+      include_deleted: params.include_deleted ?? false,
+    },
+  });
+  return data;
+}
+
+export interface AdminFilePatch {
+  code?: string;
+  prefix?: string;
+  suffix?: string;
+  expired_at?: string | null;
+  expired_count?: number | null;
+}
+export async function patchFile(
+  id: number,
+  patch: AdminFilePatch,
+): Promise<AdminFileRow> {
+  const { data } = await api.patch<AdminFileRow>(`/admin/file/${id}`, patch);
+  return data;
+}
+
+export async function restoreFile(id: number): Promise<AdminFileRow> {
+  const { data } = await api.post<AdminFileRow>(`/admin/file/${id}/restore`);
+  return data;
+}
+
+export async function deleteFile(id: number, hard = false): Promise<void> {
+  await api.delete(`/admin/file/${id}`, { params: { hard } });
+}
+
+export async function emptyRecycleBin(): Promise<{ deleted: number }> {
+  const { data } = await api.delete<{ deleted: number }>('/admin/recycle-bin');
+  return data;
+}
+
+// ── Logs ──────────────────────────────────────────────────────────────────
+export interface AdminLogRow {
+  id: number;
+  ts: string | null;
+  action: string;
+  code: string | null;
+  ip: string | null;
+  ua: string | null;
+  status_code: number | null;
+  extra: Record<string, unknown> | null;
+}
+export interface AdminLogListResponse {
+  items: AdminLogRow[];
+  total: number;
+  page: number;
+  size: number;
+}
+export interface AdminLogListParams {
+  page?: number;
+  size?: number;
+  action?: string;
+  ip?: string;
+}
+export async function listLogs(
+  params: AdminLogListParams = {},
+): Promise<AdminLogListResponse> {
+  const { data } = await api.get<AdminLogListResponse>('/admin/logs', {
+    params: {
+      page: params.page ?? 1,
+      size: params.size ?? 20,
+      action: params.action || undefined,
+      ip: params.ip || undefined,
+    },
+  });
+  return data;
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────
+export interface AdminSettingsResponse {
+  kv: Record<string, unknown>;
+  env: {
+    turnstile_enabled: boolean;
+    turnstile_site_key_present: boolean;
+    turnstile_secret_key_present: boolean;
+    storage_backend: string;
+    app_name: string;
+    app_url: string | null;
+    max_upload_bytes: number;
+    max_text_bytes: number;
+    pickup_code_length: number;
+  };
+}
+export async function getAdminSettings(): Promise<AdminSettingsResponse> {
+  const { data } = await api.get<AdminSettingsResponse>('/admin/settings');
+  return data;
+}
+export async function patchAdminSettings(
+  updates: Record<string, unknown>,
+): Promise<AdminSettingsResponse> {
+  const { data } = await api.patch<AdminSettingsResponse>(
+    '/admin/settings',
+    updates,
+  );
+  return data;
+}

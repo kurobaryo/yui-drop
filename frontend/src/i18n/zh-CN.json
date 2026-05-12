@@ -1,0 +1,209 @@
+{
+  "app": {
+    "name": "Yui-Drop",
+    "tagline": "文件快递柜"
+  },
+  "hero": {
+    "badge": "🔒 安全加密 · 匿名",
+    "title": "文件快递柜",
+    "subtitle": "快速分享"
+  },
+  "tabs": {
+    "retrieve": "取件",
+    "sendFile": "寄文件",
+    "sendText": "寄文字"
+  },
+  "retrieve": {
+    "label": "请输入 6 位取件码",
+    "submit": "取件",
+    "loading": "查询中…",
+    "notFound": "取件码不存在、已过期或已用完。",
+    "rateLimited": "操作过于频繁,请稍后再试。",
+    "genericError": "出错了,请重试。",
+    "pasteHint": "提示:可用 Cmd/Ctrl-V 直接粘贴整串。"
+  },
+  "sendFile": {
+    "drop": "拖文件到这里,或点击选择",
+    "chooseAnother": "重新选择",
+    "expire": "过期设置",
+    "expireDay": "1 天",
+    "expireWeek": "1 周",
+    "expireMonth": "1 个月",
+    "expireCount": "取件 N 次后",
+    "expireForever": "永久",
+    "count": "取件次数",
+    "upload": "上传",
+    "uploading": "上传中…",
+    "speed": "{{speed}}/s",
+    "eta": "剩余 {{eta}}",
+    "done": "上传完成!",
+    "code": "你的取件码",
+    "copy": "复制",
+    "copied": "已复制",
+    "link": "分享链接",
+    "another": "再寄一个",
+    "tooLarge": "文件过大(上限 {{max}})。"
+  },
+  "sendText": {
+    "placeholder": "粘贴或输入文本(最多 {{max}})…",
+    "tooLong": "文本过长(上限 {{max}})。"
+  },
+  "recent": {
+    "title": "最近分享(本设备)",
+    "empty": "暂无分享记录。",
+    "footnote": "仅记录本设备发起的分享。",
+    "expired": "已过期",
+    "clear": "清空",
+    "code": "取件码",
+    "kindFile": "文件",
+    "kindText": "文字"
+  },
+  "viewer": {
+    "download": "下载",
+    "copyLink": "复制链接",
+    "noPreview": "此类型暂不支持预览。",
+    "forceDownload": "为安全起见,此类型必须下载查看。",
+    "loading": "加载中…",
+    "notFound": "未找到。",
+    "size": "大小",
+    "type": "类型"
+  },
+  "footer": {
+    "credit": "© {{year}} · 灵感来自 FileCodeBox",
+    "admin": "管理"
+  },
+  "theme": {
+    "light": "亮色",
+    "dark": "暗色",
+    "auto": "跟随系统",
+    "switchAccent": "主题色",
+    "switchTheme": "外观",
+    "auroraGold": "极光金",
+    "champagneGold": "香槟金",
+    "linearBlue": "Linear 蓝",
+    "sapphire": "蓝宝石",
+    "emerald": "翡翠绿"
+  },
+  "lang": {
+    "switch": "语言",
+    "en": "English",
+    "zh-CN": "简体中文",
+    "ja": "日本語"
+  },
+  "admin": {
+    "login": {
+      "title": "管理员登录",
+      "password": "密码",
+      "submit": "登录",
+      "error": "密码错误。",
+      "loading": "登录中…"
+    },
+    "nav": {
+      "dashboard": "总览",
+      "files": "文件",
+      "logs": "日志",
+      "settings": "设置",
+      "logout": "退出",
+      "backToSite": "返回前台"
+    },
+    "dashboard": {
+      "title": "总览",
+      "totalFiles": "文件总数",
+      "storageUsed": "存储占用",
+      "recycled": "回收站",
+      "uptime": "运行时长",
+      "today": "今天",
+      "yesterday": "昨天",
+      "uploads": "上传",
+      "retrievals": "取件"
+    },
+    "files": {
+      "title": "文件列表",
+      "search": "搜索 code / 文件名 / 文本…",
+      "includeDeleted": "包含已删除",
+      "emptyTrash": "清空回收站",
+      "emptyTrashConfirm": "永久删除所有回收站文件?此操作不可恢复。",
+      "columns": {
+        "code": "取件码",
+        "name": "名称",
+        "size": "大小",
+        "type": "类型",
+        "created": "创建时间",
+        "expires": "过期时间",
+        "used": "已取",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "statusActive": "活跃",
+      "statusDeleted": "已删",
+      "statusExpired": "已过期",
+      "action": {
+        "view": "查看",
+        "edit": "改过期",
+        "softDelete": "删除",
+        "restore": "恢复",
+        "hardDelete": "彻底删除"
+      },
+      "editExpiry": "修改过期设置",
+      "expiredAt": "过期时间(ISO 格式)",
+      "expiredCount": "取件次数上限(-1 表示无限)",
+      "save": "保存",
+      "cancel": "取消",
+      "page": "第 {{page}} / {{total}} 页",
+      "empty": "暂无文件。"
+    },
+    "logs": {
+      "title": "访问日志",
+      "filterAction": "按动作筛选",
+      "all": "全部",
+      "columns": {
+        "ts": "时间",
+        "action": "动作",
+        "code": "取件码",
+        "ip": "IP",
+        "ua": "客户端",
+        "status": "状态",
+        "event": "事件"
+      },
+      "empty": "暂无日志。"
+    },
+    "settings": {
+      "title": "设置",
+      "env": "环境信息",
+      "storageBackend": "存储后端",
+      "turnstile": "Turnstile 人机校验",
+      "appName": "应用名称",
+      "maxUpload": "上传上限",
+      "rotatePassword": "修改管理员密码",
+      "newPassword": "新密码",
+      "confirmPassword": "确认新密码",
+      "passwordMismatch": "两次密码不一致。",
+      "save": "保存修改",
+      "saved": "已保存。"
+    }
+  },
+  "notFound": {
+    "title": "页面不存在。",
+    "back": "返回首页"
+  },
+  "common": {
+    "copy": "复制",
+    "copied": "已复制",
+    "close": "关闭",
+    "yes": "是",
+    "no": "否",
+    "loading": "加载中…",
+    "ok": "确定",
+    "cancel": "取消",
+    "confirm": "确认",
+    "minute": "分钟",
+    "hour": "小时",
+    "day": "天",
+    "week": "周",
+    "month": "个月",
+    "year": "年",
+    "now": "刚刚",
+    "ago": "{{value}} {{unit}}前",
+    "in": "{{value}} {{unit}}后"
+  }
+}

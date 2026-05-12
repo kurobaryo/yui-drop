@@ -1,0 +1,209 @@
+{
+  "app": {
+    "name": "Yui-Drop",
+    "tagline": "Drop. Code. Done."
+  },
+  "hero": {
+    "badge": "🔒 Encrypted · Anonymous",
+    "title": "Drop. Code. Done.",
+    "subtitle": "Quick file share."
+  },
+  "tabs": {
+    "retrieve": "Retrieve",
+    "sendFile": "Send file",
+    "sendText": "Send text"
+  },
+  "retrieve": {
+    "label": "Enter the 6-digit pickup code",
+    "submit": "Retrieve",
+    "loading": "Looking up…",
+    "notFound": "Code not found, expired, or already used up.",
+    "rateLimited": "Too many attempts. Slow down.",
+    "genericError": "Something went wrong. Try again.",
+    "pasteHint": "Tip: paste a full code with Cmd/Ctrl-V."
+  },
+  "sendFile": {
+    "drop": "Drag a file here, or click to choose",
+    "chooseAnother": "Choose another file",
+    "expire": "Expires",
+    "expireDay": "1 day",
+    "expireWeek": "1 week",
+    "expireMonth": "1 month",
+    "expireCount": "After N pickups",
+    "expireForever": "Never",
+    "count": "Pickups",
+    "upload": "Upload",
+    "uploading": "Uploading…",
+    "speed": "{{speed}}/s",
+    "eta": "ETA {{eta}}",
+    "done": "Uploaded!",
+    "code": "Your code",
+    "copy": "Copy",
+    "copied": "Copied",
+    "link": "Share link",
+    "another": "Send another",
+    "tooLarge": "File is too large (max {{max}})."
+  },
+  "sendText": {
+    "placeholder": "Paste or type a snippet (max {{max}})…",
+    "tooLong": "Text too long (max {{max}})."
+  },
+  "recent": {
+    "title": "Recent shares (this device)",
+    "empty": "No recent shares yet.",
+    "footnote": "Only shares started from this device are remembered locally.",
+    "expired": "expired",
+    "clear": "Clear",
+    "code": "Code",
+    "kindFile": "File",
+    "kindText": "Text"
+  },
+  "viewer": {
+    "download": "Download",
+    "copyLink": "Copy link",
+    "noPreview": "Preview is not available for this file type.",
+    "forceDownload": "For safety, this file type must be downloaded.",
+    "loading": "Loading…",
+    "notFound": "Not found.",
+    "size": "Size",
+    "type": "Type"
+  },
+  "footer": {
+    "credit": "© {{year}} · Inspired by FileCodeBox",
+    "admin": "Admin"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "auto": "Auto (system)",
+    "switchAccent": "Accent",
+    "switchTheme": "Theme",
+    "auroraGold": "Aurora Gold",
+    "champagneGold": "Champagne Gold",
+    "linearBlue": "Linear Blue",
+    "sapphire": "Sapphire",
+    "emerald": "Emerald"
+  },
+  "lang": {
+    "switch": "Language",
+    "en": "English",
+    "zh-CN": "简体中文",
+    "ja": "日本語"
+  },
+  "admin": {
+    "login": {
+      "title": "Admin login",
+      "password": "Password",
+      "submit": "Sign in",
+      "error": "Wrong password.",
+      "loading": "Signing in…"
+    },
+    "nav": {
+      "dashboard": "Dashboard",
+      "files": "Files",
+      "logs": "Logs",
+      "settings": "Settings",
+      "logout": "Sign out",
+      "backToSite": "Back to site"
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "totalFiles": "Total files",
+      "storageUsed": "Storage used",
+      "recycled": "Recycled",
+      "uptime": "Uptime",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "uploads": "Uploads",
+      "retrievals": "Retrievals"
+    },
+    "files": {
+      "title": "Files",
+      "search": "Search code / name / text…",
+      "includeDeleted": "Include deleted",
+      "emptyTrash": "Empty recycle bin",
+      "emptyTrashConfirm": "Permanently delete all recycled files? This cannot be undone.",
+      "columns": {
+        "code": "Code",
+        "name": "Name",
+        "size": "Size",
+        "type": "Type",
+        "created": "Created",
+        "expires": "Expires",
+        "used": "Used",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "statusActive": "active",
+      "statusDeleted": "deleted",
+      "statusExpired": "expired",
+      "action": {
+        "view": "View",
+        "edit": "Edit expiry",
+        "softDelete": "Delete",
+        "restore": "Restore",
+        "hardDelete": "Hard delete"
+      },
+      "editExpiry": "Edit expiry",
+      "expiredAt": "Expires at (ISO)",
+      "expiredCount": "Pickup limit (-1 = unlimited)",
+      "save": "Save",
+      "cancel": "Cancel",
+      "page": "Page {{page}} / {{total}}",
+      "empty": "No files."
+    },
+    "logs": {
+      "title": "Logs",
+      "filterAction": "Filter by action",
+      "all": "All",
+      "columns": {
+        "ts": "Timestamp",
+        "action": "Action",
+        "code": "Code",
+        "ip": "IP",
+        "ua": "User Agent",
+        "status": "Status",
+        "event": "Event"
+      },
+      "empty": "No logs."
+    },
+    "settings": {
+      "title": "Settings",
+      "env": "Environment",
+      "storageBackend": "Storage backend",
+      "turnstile": "Turnstile (challenge)",
+      "appName": "App name",
+      "maxUpload": "Max upload",
+      "rotatePassword": "Rotate admin password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "passwordMismatch": "Passwords don't match.",
+      "save": "Save changes",
+      "saved": "Saved."
+    }
+  },
+  "notFound": {
+    "title": "Page not found.",
+    "back": "Go home"
+  },
+  "common": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "loading": "Loading…",
+    "ok": "OK",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "minute": "minute",
+    "hour": "hour",
+    "day": "day",
+    "week": "week",
+    "month": "month",
+    "year": "year",
+    "now": "just now",
+    "ago": "{{value}} {{unit}} ago",
+    "in": "in {{value}} {{unit}}"
+  }
+}
