@@ -298,6 +298,71 @@ async def resolve_share(
     row.used_count = (row.used_count or 0) + 1
 
     storage = get_storage()
+
+    # Multi-file share: row.kind='multi' + finalized — list its files.
+    if row.kind == "multi":
+        if not row.finalized:
+            await _miss("share_not_finalized")
+            raise NotFoundError("share_not_finalized")
+        # Lazy import to avoid a cycle.
+        from ..models.share_file import ShareFile
+
+        sfs = (
+            await db.execute(
+                select(ShareFile)
+                .where(ShareFile.share_id == row.id, ShareFile.state == "complete")
+                .order_by(ShareFile.order)
+            )
+        ).scalars().all()
+
+        files_out = []
+        for sf in sfs:
+            ct = _guess_content_type(sf.name, sf.suffix)
+            force_dl = bool(ct and ct in FORCE_DOWNLOAD_MIMES)
+            url = await storage.get_object_url(
+                sf.file_path,
+                ttl=3600,
+                response_filename=sf.name if force_dl else None,
+            )
+            files_out.append({
+                "file_id": sf.id,
+                "order": sf.order,
+                "name": sf.name,
+                "size": sf.size,
+                "url": url,
+                "content_type": ct,
+                "force_download": force_dl,
+            })
+
+        await record_access(
+            db,
+            action=AccessLogAction.SHARE_RETRIEVE,
+            code=code,
+            ip=ip,
+            ua=ua,
+            status_code=200,
+            extra={"event": "share.retrieve.multi", "file_count": len(files_out)},
+        )
+        await db.commit()
+        if ip:
+            await retrieve_fail_tracker.record_success(ip)
+        return {
+            "code": row.code,
+            "kind": "multi",
+            "name": None,
+            "size": None,
+            "text": None,
+            "url": None,
+            "content_type": None,
+            "force_download": False,
+            "expired_at": row.expired_at.isoformat() if row.expired_at else None,
+            "expired_count": row.expired_count,
+            "used_count": row.used_count,
+            "total_size": row.total_size or 0,
+            "file_count": row.file_count,
+            "files": files_out,
+        }
+
     is_text = row.text is not None and row.file_path is None
     if is_text:
         await record_access(

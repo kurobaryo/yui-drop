@@ -44,6 +44,22 @@
     "another": "再寄一个",
     "tooLarge": "文件过大(上限 {{max}})。"
   },
+  "sendFileMulti": {
+    "drop": "拖入多个文件或文件夹,或点击选择",
+    "maxHint": "最多 {{count}} 个 · 单文件 {{perFile}} · 总计 {{total}}",
+    "summary": "{{n}} 个文件 · {{size}}",
+    "clearQueue": "清空",
+    "tooManyFiles": "文件数过多(上限 {{max}} 个)。",
+    "fileTooLarge": "「{{name}}」过大(上限 {{max}})。",
+    "totalTooLarge": "总大小超出限制(上限 {{max}})。",
+    "uploadedFiles": "已上传文件"
+  },
+  "multiViewer": {
+    "selectAll": "全选",
+    "downloadSelected": "下载所选",
+    "preview": "预览",
+    "zipFootnote": "下载会逐个触发。打包下载(zip)将在后续版本提供。"
+  },
   "sendText": {
     "placeholder": "粘贴或输入文本(最多 {{max}})…",
     "tooLong": "文本过长(上限 {{max}})。"
@@ -56,7 +72,8 @@
     "clear": "清空",
     "code": "取件码",
     "kindFile": "文件",
-    "kindText": "文字"
+    "kindText": "文字",
+    "kindMulti": "{{n}} 个文件 · {{size}}"
   },
   "viewer": {
     "download": "下载",

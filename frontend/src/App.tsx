@@ -9,6 +9,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
 import ShortLink from './pages/ShortLink';
 import Viewer from './pages/Viewer';
+import MultiViewer from './pages/MultiViewer';
 import NotFound from './pages/NotFound';
 import AdminLogin from './pages/admin/Login';
 import AdminLayout from './pages/admin/Layout';
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/s/:code" element={<ShortLink />} />
         <Route path="/v/:code" element={<Viewer />} />
+        <Route path="/m/:code" element={<MultiViewer />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />

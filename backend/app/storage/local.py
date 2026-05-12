@@ -191,6 +191,13 @@ class LocalStorage(StorageBackend):
 
         await asyncio.to_thread(_rm)
 
+    async def delete_many(self, keys: list[str]) -> None:
+        for k in keys:
+            try:
+                await self.delete(k)
+            except Exception:  # noqa: BLE001 — best-effort cleanup
+                pass
+
     async def health(self) -> bool:
         try:
             probe = self.root / ".healthcheck"

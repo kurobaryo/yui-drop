@@ -7,6 +7,7 @@ from .access_log import AccessLog, AccessLogAction
 from .file_code import FileCode
 from .multipart_session import MultipartSession
 from .settings_kv import SettingsKV
+from .share_file import ShareFile
 from .upload_chunk import UploadChunk
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "FileCode",
     "MultipartSession",
     "SettingsKV",
+    "ShareFile",
     "UploadChunk",
 ]

@@ -64,6 +64,15 @@ export function RecentList() {
       <ul className="divide-y divide-[--border] rounded-lg border border-[--border] bg-[--bg-1]">
         {items.map((it) => {
           const expired = isExpired(it.expires_at);
+          const isMulti = it.kind === 'multi';
+          const isText = it.kind === 'text';
+          const prefix = isText ? '📝' : isMulti ? '🗂' : '📁';
+          const label = isMulti
+            ? t('recent.kindMulti', {
+                n: it.fileCount ?? 0,
+                size: humanBytes(it.totalSize ?? 0),
+              })
+            : it.name ?? (isText ? t('recent.kindText') : t('recent.kindFile'));
           return (
             <li
               key={it.code + it.created_at}
@@ -84,11 +93,17 @@ export function RecentList() {
                 {it.code}
               </button>
               <span className="flex-1 truncate text-[--text-2]">
-                {it.name ??
-                  (it.kind === 'text' ? t('recent.kindText') : t('recent.kindFile'))}
+                <span className="mr-1.5" aria-hidden>
+                  {prefix}
+                </span>
+                {label}
               </span>
               <span className="text-xs text-[--text-muted]">
-                {it.size != null ? humanBytes(it.size) : ''}
+                {isMulti
+                  ? ''
+                  : it.size != null
+                    ? humanBytes(it.size)
+                    : ''}
               </span>
               <span className="ml-2 text-xs text-[--text-muted] w-16 text-right">
                 {expired ? t('recent.expired') : timeUntil(it.expires_at)}

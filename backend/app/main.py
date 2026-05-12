@@ -30,6 +30,7 @@ from .api import chunk as chunk_api
 from .api import presign as presign_api
 from .api import public as public_api
 from .api import share as share_api
+from .api import share_multi as share_multi_api
 from .core.config import settings
 from .core.logging import configure_logging, get_logger
 from .core.rate_limit import limiter
@@ -186,6 +187,7 @@ def create_app() -> FastAPI:
     # Routers — each router carries its own prefix.
     app.include_router(public_api.router)
     app.include_router(share_api.router)
+    app.include_router(share_multi_api.router)
     app.include_router(chunk_api.router)
     app.include_router(presign_api.router)
     app.include_router(admin_api.router)

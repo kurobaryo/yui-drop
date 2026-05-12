@@ -71,7 +71,17 @@ class Settings(BaseSettings):
     rate_limit_retrieve_fails_per_hour: int = 20
     retrieve_ban_duration_min: int = 60
     rate_limit_login_per_5min: int = 10
-    max_upload_bytes: int = 10 * 1024 * 1024 * 1024  # 10 GiB
+    max_upload_bytes: int = 10 * 1024 * 1024 * 1024  # 10 GiB (legacy alias)
+    # Per-file cap for the new multi-file share flow. Independent of
+    # ``max_upload_bytes`` so legacy single-file APIs keep their existing
+    # behaviour even if operators tune one and not the other.
+    max_file_bytes: int = Field(default=10 * 1024 * 1024 * 1024, alias="MAX_FILE_BYTES")
+    # Sum-of-files cap for one multi-file share. Default 50 GiB.
+    max_share_total_bytes: int = Field(
+        default=53687091200, alias="MAX_SHARE_TOTAL_BYTES"
+    )
+    # File-count cap for one multi-file share.
+    max_files_per_share: int = Field(default=200, alias="MAX_FILES_PER_SHARE")
     max_text_bytes: int = 256 * 1024  # 256 KiB
     storage_quota_bytes: int | None = None
     expire_sweeper_interval_min: int = 10

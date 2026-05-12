@@ -83,6 +83,14 @@ class StorageBackend(Protocol):
         """Delete an object. No-op if it doesn't exist."""
         ...
 
+    async def delete_many(self, keys: list[str]) -> None:
+        """Delete multiple objects. Default impl calls ``delete`` per key.
+
+        Backends with a native bulk-delete API (S3 ``DeleteObjects``) should
+        override for fewer round-trips.
+        """
+        ...
+
     async def health(self) -> bool:
         """Cheap reachability probe."""
         ...

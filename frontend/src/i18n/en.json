@@ -44,6 +44,22 @@
     "another": "Send another",
     "tooLarge": "File is too large (max {{max}})."
   },
+  "sendFileMulti": {
+    "drop": "Drag files or a folder here, or click to choose",
+    "maxHint": "up to {{count}} files · per file {{perFile}} · total {{total}}",
+    "summary": "{{n}} files · {{size}}",
+    "clearQueue": "Clear",
+    "tooManyFiles": "Too many files (max {{max}}).",
+    "fileTooLarge": "\"{{name}}\" is too large (max {{max}}).",
+    "totalTooLarge": "Total size exceeds the limit (max {{max}}).",
+    "uploadedFiles": "Uploaded files"
+  },
+  "multiViewer": {
+    "selectAll": "Select all",
+    "downloadSelected": "Download selected",
+    "preview": "Preview",
+    "zipFootnote": "Downloads are triggered one by one. Zip bundling will come later."
+  },
   "sendText": {
     "placeholder": "Paste or type a snippet (max {{max}})…",
     "tooLong": "Text too long (max {{max}})."
@@ -56,7 +72,8 @@
     "clear": "Clear",
     "code": "Code",
     "kindFile": "File",
-    "kindText": "Text"
+    "kindText": "Text",
+    "kindMulti": "{{n}} files · {{size}}"
   },
   "viewer": {
     "download": "Download",
