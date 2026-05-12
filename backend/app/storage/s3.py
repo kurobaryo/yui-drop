@@ -28,6 +28,7 @@ class S3Storage(StorageBackend):
         secret_key: str | None = None,
         region: str = "auto",
         public_hostname: str | None = None,
+        prefix: str = "",
     ) -> None:
         self.bucket = bucket
         self.endpoint_url = endpoint_url or None
@@ -35,10 +36,27 @@ class S3Storage(StorageBackend):
         self.public_hostname = public_hostname or None
         self._access_key = access_key or None
         self._secret_key = secret_key or None
+        # Normalize prefix: strip leading slashes (S3 keys are not paths;
+        # a leading "/" produces a phantom empty path segment in the
+        # bucket listing) and ensure a single trailing slash so the
+        # prefix concatenates cleanly with the per-object key.
+        normalized = (prefix or "").strip().lstrip("/")
+        if normalized and not normalized.endswith("/"):
+            normalized += "/"
+        self.prefix = normalized
         # aioboto3 sessions are cheap; we keep one for the lifetime of the
         # process and acquire a fresh client per call (its async context
         # manager is the supported usage pattern).
         self._session = aioboto3.Session()
+
+    def _full_key(self, key: str) -> str:
+        """Prepend the configured prefix to a logical object key.
+
+        The factory passes ``prefix`` as a normalised trailing-slash string
+        (or empty). Concatenation is therefore safe even if the caller
+        accidentally hands us a leading slash on ``key``.
+        """
+        return f"{self.prefix}{key.lstrip('/')}" if self.prefix else key
 
     def _client(self):
         cfg = BotoConfig(signature_version="s3v4", s3={"addressing_style": "virtual"})
@@ -54,7 +72,7 @@ class S3Storage(StorageBackend):
     # ── Multipart ──────────────────────────────────────────────────────────
 
     async def init_multipart(self, key: str, content_type: str | None = None) -> str:
-        kwargs: dict[str, Any] = {"Bucket": self.bucket, "Key": key}
+        kwargs: dict[str, Any] = {"Bucket": self.bucket, "Key": self._full_key(key)}
         if content_type:
             kwargs["ContentType"] = content_type
         async with self._client() as s3:
@@ -73,7 +91,7 @@ class S3Storage(StorageBackend):
                 ClientMethod="upload_part",
                 Params={
                     "Bucket": self.bucket,
-                    "Key": key,
+                    "Key": self._full_key(key),
                     "UploadId": s3_upload_id,
                     "PartNumber": part_number,
                 },
@@ -107,7 +125,7 @@ class S3Storage(StorageBackend):
         async with self._client() as s3:
             await s3.complete_multipart_upload(
                 Bucket=self.bucket,
-                Key=key,
+                Key=self._full_key(key),
                 UploadId=s3_upload_id,
                 MultipartUpload={"Parts": normalized},
             )
@@ -116,7 +134,7 @@ class S3Storage(StorageBackend):
         async with self._client() as s3:
             try:
                 await s3.abort_multipart_upload(
-                    Bucket=self.bucket, Key=key, UploadId=s3_upload_id
+                    Bucket=self.bucket, Key=self._full_key(key), UploadId=s3_upload_id
                 )
             except Exception:  # already aborted / expired — treat as success
                 pass
@@ -125,7 +143,7 @@ class S3Storage(StorageBackend):
 
     async def head(self, key: str) -> dict[str, Any]:
         async with self._client() as s3:
-            resp = await s3.head_object(Bucket=self.bucket, Key=key)
+            resp = await s3.head_object(Bucket=self.bucket, Key=self._full_key(key))
         return {
             "size": int(resp.get("ContentLength") or 0),
             "content_type": resp.get("ContentType"),
@@ -138,7 +156,7 @@ class S3Storage(StorageBackend):
         ttl: int = 3600,
         response_filename: str | None = None,
     ) -> str:
-        params: dict[str, Any] = {"Bucket": self.bucket, "Key": key}
+        params: dict[str, Any] = {"Bucket": self.bucket, "Key": self._full_key(key)}
         if response_filename:
             from urllib.parse import quote as _q
 
@@ -154,14 +172,14 @@ class S3Storage(StorageBackend):
 
     async def server_write(self, key: str, fileobj: IO[bytes], size: int) -> None:
         async with self._client() as s3:
-            await s3.put_object(Bucket=self.bucket, Key=key, Body=fileobj)
+            await s3.put_object(Bucket=self.bucket, Key=self._full_key(key), Body=fileobj)
 
     async def server_read(
         self,
         key: str,
         http_range: tuple[int, int] | None = None,
     ) -> AsyncIterator[bytes]:
-        get_kwargs: dict[str, Any] = {"Bucket": self.bucket, "Key": key}
+        get_kwargs: dict[str, Any] = {"Bucket": self.bucket, "Key": self._full_key(key)}
         if http_range:
             start, end = http_range
             get_kwargs["Range"] = f"bytes={start}-{end if end >= 0 else ''}"
@@ -181,7 +199,7 @@ class S3Storage(StorageBackend):
     async def delete(self, key: str) -> None:
         async with self._client() as s3:
             try:
-                await s3.delete_object(Bucket=self.bucket, Key=key)
+                await s3.delete_object(Bucket=self.bucket, Key=self._full_key(key))
             except Exception:
                 pass
 
@@ -196,7 +214,7 @@ class S3Storage(StorageBackend):
                     await s3.delete_objects(
                         Bucket=self.bucket,
                         Delete={
-                            "Objects": [{"Key": k} for k in batch],
+                            "Objects": [{"Key": self._full_key(k)} for k in batch],
                             "Quiet": True,
                         },
                     )

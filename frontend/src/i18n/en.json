@@ -267,6 +267,8 @@
         "secretKey": "Secret access key",
         "region": "Region",
         "publicHostname": "Public hostname (optional)",
+        "prefix": "Storage path prefix (optional)",
+        "prefixHint": "Subdirectory inside the bucket — e.g. \"yui-drop/uploads\". Leave empty to store at the bucket root. Only affects newly uploaded files.",
         "save": "Save and test connectivity",
         "savedNoMigrate": "Storage saved. Existing local files were not migrated.",
         "change": "Change"

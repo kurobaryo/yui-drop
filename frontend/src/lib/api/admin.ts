@@ -291,6 +291,7 @@ export interface StorageConfigResponse {
     secret_access_key: string;
     region: string;
     public_hostname: string;
+    prefix: string;
   };
 }
 
@@ -308,6 +309,7 @@ export interface StorageConfigRequest {
     secret_access_key: string | null;
     region: string;
     public_hostname: string | null;
+    prefix?: string;
   };
 }
 

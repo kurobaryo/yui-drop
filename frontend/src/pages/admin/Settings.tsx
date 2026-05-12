@@ -280,6 +280,7 @@ interface StorageFormState {
   secret_access_key: string;
   region: string;
   public_hostname: string;
+  prefix: string;
   /** Has the user opened the secret field to type a new value? */
   secretEdited: boolean;
   /** Was a masked secret present on initial load? */
@@ -294,6 +295,7 @@ const EMPTY_STORAGE: StorageFormState = {
   secret_access_key: '',
   region: 'auto',
   public_hostname: '',
+  prefix: '',
   secretEdited: false,
   hadExistingSecret: false,
 };
@@ -319,6 +321,7 @@ function StorageCard() {
       secret_access_key: '',
       region: 'auto',
       public_hostname: '',
+      prefix: '',
     };
     const masked = s3.secret_access_key === '****';
     setForm({
@@ -329,6 +332,7 @@ function StorageCard() {
       secret_access_key: masked ? '****' : '',
       region: s3.region || 'auto',
       public_hostname: s3.public_hostname ?? '',
+      prefix: s3.prefix ?? '',
       secretEdited: false,
       hadExistingSecret: masked,
     });
@@ -374,6 +378,7 @@ function StorageCard() {
         secret_access_key,
         region: form.region.trim() || 'auto',
         public_hostname: form.public_hostname.trim() || null,
+        prefix: form.prefix.trim(),
       },
     });
   }
@@ -532,6 +537,21 @@ function StorageCard() {
                 placeholder="cdn.example.com"
                 autoComplete="off"
               />
+            </label>
+            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="text-[--text-2]">
+                {t('admin.settings.storage.prefix')}
+              </span>
+              <Input
+                inputSize="sm"
+                value={form.prefix}
+                onChange={(e) => setForm({ ...form, prefix: e.target.value })}
+                placeholder="yui-drop/uploads"
+                autoComplete="off"
+              />
+              <span className="text-xs text-[--text-3]">
+                {t('admin.settings.storage.prefixHint')}
+              </span>
             </label>
           </div>
         )}

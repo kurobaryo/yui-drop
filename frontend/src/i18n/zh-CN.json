@@ -266,6 +266,8 @@
         "secretKey": "Secret access key",
         "region": "区域",
         "publicHostname": "公开主机名(可选)",
+        "prefix": "存储路径前缀(可选)",
+        "prefixHint": "存储桶内的子目录 —— 例如 \"yui-drop/uploads\"。留空表示存到桶的根目录。只对新上传的文件生效。",
         "save": "保存并测试连通性",
         "savedNoMigrate": "存储已保存。已有的本地文件未迁移。",
         "change": "修改"

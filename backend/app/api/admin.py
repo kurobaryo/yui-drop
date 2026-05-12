@@ -536,6 +536,10 @@ class S3ConfigRequest(BaseModel):
     secret_access_key: str | None = None
     region: str = "auto"
     public_hostname: str | None = None
+    # Object-key prefix scoped under the bucket — e.g. "yui-drop/uploads"
+    # routes every blob into that subdirectory. Optional; "" means store
+    # at the bucket root.
+    prefix: str = ""
 
 
 class StorageConfigRequest(BaseModel):
