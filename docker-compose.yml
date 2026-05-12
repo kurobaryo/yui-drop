@@ -1,0 +1,35 @@
+# ============================================================================
+# Yui-Drop — single-command deploy
+#
+# Usage:
+#   cp .env.example .env       # then edit secrets
+#   docker compose up -d --build
+# ============================================================================
+
+services:
+  yui-drop:
+    image: yui-drop:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yui-drop
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - yui-drop-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  yui-drop-data:
