@@ -297,8 +297,6 @@ async def resolve_share(
         row.expired_count -= 1
     row.used_count = (row.used_count or 0) + 1
 
-    storage = get_storage()
-
     # Multi-file share: row.kind='multi' + finalized — list its files.
     if row.kind == "multi":
         if not row.finalized:
@@ -319,11 +317,11 @@ async def resolve_share(
         for sf in sfs:
             ct = _guess_content_type(sf.name, sf.suffix)
             force_dl = bool(ct and ct in FORCE_DOWNLOAD_MIMES)
-            url = await storage.get_object_url(
-                sf.file_path,
-                ttl=3600,
-                response_filename=sf.name if force_dl else None,
-            )
+            # Always hand out the same-origin proxy path. Routing the bytes
+            # through our backend (instead of an R2 presigned URL) avoids
+            # the cross-origin CORS wall that breaks <img> previews and
+            # keeps storage credentials server-side.
+            url = f"/api/share/download/{row.code}/{sf.id}"
             files_out.append({
                 "file_id": sf.id,
                 "order": sf.order,
@@ -394,11 +392,11 @@ async def resolve_share(
     # File path
     ct = _guess_content_type(row.name, row.suffix)
     force_dl = bool(ct and ct in FORCE_DOWNLOAD_MIMES)
-    url = await storage.get_object_url(
-        row.file_path,
-        ttl=3600,
-        response_filename=row.name if force_dl else None,
-    )
+    # Same-origin proxy URL. The dedicated /download/{code} route streams
+    # bytes from storage (R2/local) without ever exposing a presigned URL
+    # to the client — restores <img> previews and centralises access
+    # logging.
+    url = f"/api/share/download/{row.code}"
 
     await record_access(
         db,
@@ -458,10 +456,89 @@ async def open_download_stream(key: str):
     return body, head
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# DOWNLOAD-BY-CODE (same-origin proxy)
+# ────────────────────────────────────────────────────────────────────────────
+
+
+async def resolve_download_target(
+    db: AsyncSession,
+    *,
+    code: str,
+    file_id: int | None = None,
+) -> dict[str, Any]:
+    """Resolve a pickup code (and optional file_id) to a streamable storage target.
+
+    Returns ``{key, name, content_type, force_download, size}``.
+
+    Validates soft-delete + time-based expiry but DOES NOT decrement the
+    pickup counter (those counters are owned by :func:`resolve_share`,
+    which the client already hit to obtain the proxy URL). A NotFoundError
+    is raised in any condition that would have caused ``/select`` to
+    refuse the lookup, plus the file_id / file_path consistency checks.
+    """
+    now = datetime.now(tz=UTC)
+    q = (
+        select(FileCode)
+        .where(FileCode.code == code, FileCode.deleted_at.is_(None))
+        .limit(1)
+    )
+    row = (await db.execute(q)).scalars().first()
+    if row is None:
+        raise NotFoundError("code_not_found")
+    if row.expired_at is not None and as_utc(row.expired_at) <= now:
+        raise NotFoundError("code_expired")
+
+    # Multi-file: file_id must be supplied and belong to this share.
+    if row.kind == "multi":
+        if file_id is None:
+            raise NotFoundError("file_id_required")
+        from ..models.share_file import ShareFile
+
+        sf = (
+            await db.execute(
+                select(ShareFile).where(
+                    ShareFile.id == file_id,
+                    ShareFile.share_id == row.id,
+                    ShareFile.state == "complete",
+                ).limit(1)
+            )
+        ).scalars().first()
+        if sf is None:
+            raise NotFoundError("file_not_found")
+        ct = _guess_content_type(sf.name, sf.suffix) or "application/octet-stream"
+        force_dl = ct in FORCE_DOWNLOAD_MIMES
+        return {
+            "key": sf.file_path,
+            "name": sf.name,
+            "content_type": ct,
+            "force_download": force_dl,
+            "size": sf.size,
+        }
+
+    # Single-file share. Text shares have no payload to stream.
+    if row.file_path is None:
+        raise NotFoundError("not_a_file_share")
+    if file_id is not None:
+        # Reject file_id on a non-multi share so /code/<id> can't smuggle.
+        raise NotFoundError("file_id_not_applicable")
+
+    ct = _guess_content_type(row.name, row.suffix) or "application/octet-stream"
+    force_dl = ct in FORCE_DOWNLOAD_MIMES
+    return {
+        "key": row.file_path,
+        "name": row.name or row.code,
+        "content_type": ct,
+        "force_download": force_dl,
+        "size": row.size,
+    }
+
+
 __all__ = [
     "create_text_share",
     "create_simple_file_share",
     "resolve_share",
+    "resolve_download_target",
     "authorize_download_token",
     "open_download_stream",
     "FORCE_DOWNLOAD_MIMES",
