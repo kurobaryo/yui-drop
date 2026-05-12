@@ -41,18 +41,27 @@ export function CodeReady({ c, code, expiry, onReset }: CodeReadyProps) {
         {t('washi.codeReady').toUpperCase()}
       </div>
       <div
+        data-yui="code-ready-num"
         style={{
           fontFamily: '"JetBrains Mono", monospace',
-          fontSize: 72,
+          // Responsive: shrink from 72px to ~10vw on narrow screens so the
+          // 6 digits + per-digit horizontal padding never overflow the card.
+          // The inline @media block in WashiApp also clamps padding on
+          // mobile so the per-digit gap matches the smaller glyphs.
+          fontSize: 'clamp(40px, 11vw, 72px)',
           fontWeight: 600,
           color: c.ink,
           letterSpacing: '0.12em',
           lineHeight: 1,
+          display: 'flex',
+          justifyContent: 'center',
+          flexWrap: 'nowrap',
         }}
       >
         {code.split('').map((d, i) => (
           <span
             key={i}
+            data-yui="code-ready-digit"
             style={{ borderBottom: `2px solid ${c.accent}`, padding: '0 8px' }}
           >
             {d}

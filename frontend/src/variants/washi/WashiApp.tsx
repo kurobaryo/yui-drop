@@ -127,13 +127,36 @@ export function WashiApp() {
     [resolvedDark, palette],
   );
 
+  // Paint the active paper colour onto <html> and <body>. iOS Safari pulls
+  // the page background into the safe-area insets (top notch, home
+  // indicator) when viewport-fit=cover is set — without this the safe
+  // areas render as white bars, which looks like a broken UI on the
+  // dark palettes. Re-run on every palette/mode change.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const prev = {
+      html: document.documentElement.style.background,
+      body: document.body.style.background,
+    };
+    document.documentElement.style.background = c.paper;
+    document.body.style.background = c.paper;
+    return () => {
+      document.documentElement.style.background = prev.html;
+      document.body.style.background = prev.body;
+    };
+  }, [c.paper]);
+
   const rootStyle: CSSProperties = {
     fontFamily:
       '"Noto Sans JP", "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif',
     background: c.paper,
     color: c.ink,
     width: '100%',
-    minHeight: '100%',
+    // 100dvh follows the dynamic viewport: on iOS Safari this expands to
+    // the full visible area when the URL bar collapses, so the page no
+    // longer leaves a white strip at the top/bottom. min-height (not
+    // height) preserves long-content scrolling.
+    minHeight: '100dvh',
     overflow: 'auto',
     position: 'relative',
   };
@@ -169,9 +192,11 @@ export function WashiApp() {
           [data-yui="modal-card"] { max-height: 92vh !important; }
           [data-yui="settings-label"] { display: none; }
           [data-yui="stamp-wrap"] { display: none !important; }
+          [data-yui="code-ready-digit"] { padding: 0 4px !important; }
         }
         @media (max-width: 420px) {
           [data-yui="code-cell"] { font-size: 22px !important; }
+          [data-yui="code-ready-digit"] { padding: 0 2px !important; }
         }
       `}</style>
       <PaperTexture color={c.ink} />
