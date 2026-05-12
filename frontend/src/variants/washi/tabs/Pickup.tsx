@@ -16,13 +16,22 @@ import { PickupModal } from './PickupModal';
 export interface PickupProps {
   c: WashiColors;
   prefillCode?: string | null;
+  /** When true, auto-fire the resolve once the cells are filled by prefill.
+   * Set false for ?code= query-string prefills (IDOR-style guard: the user
+   * must explicitly click "Pick up" to confirm intent). */
+  autoSubmitOnPrefill?: boolean;
   /** Called after the modal opens so the parent can clear the deep-link query. */
   onPrefillConsumed?: () => void;
 }
 
 type PickupState = 'idle' | 'loading' | 'error' | 'success';
 
-export function Pickup({ c, prefillCode, onPrefillConsumed }: PickupProps) {
+export function Pickup({
+  c,
+  prefillCode,
+  autoSubmitOnPrefill = true,
+  onPrefillConsumed,
+}: PickupProps) {
   const { t } = useTranslation();
   const [state, setState] = useState<PickupState>('idle');
   const [item, setItem] = useState<ShareSelectResponse | null>(null);
@@ -63,13 +72,17 @@ export function Pickup({ c, prefillCode, onPrefillConsumed }: PickupProps) {
 
   const cin = useCodeInput(6, submit);
 
-  // Deep-link prefill: when /s/:code or /v/:code lands here, fill cells and fire submit.
+  // Deep-link prefill: when /s/:code or /v/:code lands here, fill cells and
+  // (depending on the source) auto-submit. For ?code= query-string prefills
+  // we skip the auto-submit so the user must explicitly tap "Pick up".
   useEffect(() => {
     if (!prefillCode) return;
     const clean = prefillCode.replace(/[^0-9]/g, '').slice(0, 6);
     if (clean.length !== 6) return;
     cin.setValue(clean);
-    void submit(clean);
+    if (autoSubmitOnPrefill) {
+      void submit(clean);
+    }
     onPrefillConsumed?.();
     // submit is stable enough — eslint deps disabled here on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
