@@ -29,15 +29,24 @@ from .config import settings
 def real_client_ip(request: Request) -> str:
     """Resolve the originating client IP from a (possibly proxied) request.
 
-    Honours X-Forwarded-For (first hop) then X-Real-IP, finally falling
-    back to ``request.client.host`` via slowapi's helper.
+    Walks ``X-Forwarded-For`` right-to-left and returns the first entry that
+    parses as a valid IPv4/IPv6 address. Cloudflare's orange-cloud appends
+    its own edge IP at the end of XFF, so the rightmost-compliant value is
+    the closest hop we can trust. Falls back to ``X-Real-IP`` and finally to
+    ``request.client.host``.
+
+    See :mod:`app.core.request_ip` for the audit-toggle-aware variant used
+    when writing AccessLog rows.
     """
+    # Local import to avoid a cycle (request_ip imports SettingsKV which
+    # transitively pulls in db wiring; rate_limit is loaded earlier).
+    from .request_ip import _parse_xff
+
     xff = request.headers.get("x-forwarded-for")
     if xff:
-        for part in xff.split(","):
-            ip = part.strip()
-            if ip:
-                return ip
+        parsed = _parse_xff(xff)
+        if parsed:
+            return parsed
     xri = request.headers.get("x-real-ip")
     if xri:
         return xri.strip()
