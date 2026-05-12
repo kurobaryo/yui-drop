@@ -169,9 +169,11 @@ export function WashiApp() {
           [data-yui="modal-card"] { max-height: 92vh !important; }
           [data-yui="settings-label"] { display: none; }
           [data-yui="stamp-wrap"] { display: none !important; }
+          [data-yui="code-ready-digit"] { padding: 0 4px !important; }
         }
         @media (max-width: 420px) {
           [data-yui="code-cell"] { font-size: 22px !important; }
+          [data-yui="code-ready-digit"] { padding: 0 2px !important; }
         }
       `}</style>
       <PaperTexture color={c.ink} />
