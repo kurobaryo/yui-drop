@@ -1,15 +1,16 @@
 /**
  * App — top-level router.
  *
- * BrowserRouter + Routes; admin section is a nested layout with its own
- * children. ToastProvider is mounted here so toasts work on every page.
+ * Public surface: `/` (WashiApp), plus deep-link short-code routes
+ * `/s/:code` and `/v/:code` which hand the prefilled code to WashiApp so it
+ * opens the pickup modal with that code resolved. `/m/:code` is kept for
+ * multi-share short links; it likewise reuses WashiApp.
+ *
+ * Admin surface (`/admin/*`) is unchanged.
  */
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import Home from './pages/Home';
-import ShortLink from './pages/ShortLink';
-import Viewer from './pages/Viewer';
-import MultiViewer from './pages/MultiViewer';
 import NotFound from './pages/NotFound';
 import AdminLogin from './pages/admin/Login';
 import AdminLayout from './pages/admin/Layout';
@@ -24,9 +25,10 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/s/:code" element={<ShortLink />} />
-        <Route path="/v/:code" element={<Viewer />} />
-        <Route path="/m/:code" element={<MultiViewer />} />
+        {/* Deep links — all funnel into WashiApp via Home with `:code` param. */}
+        <Route path="/s/:code" element={<Home />} />
+        <Route path="/v/:code" element={<Home />} />
+        <Route path="/m/:code" element={<Home />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
