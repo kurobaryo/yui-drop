@@ -217,3 +217,50 @@ export async function patchAdminSettings(
   );
   return data;
 }
+
+// ── Storage backend (H.6) ─────────────────────────────────────────────────
+/**
+ * Shape returned by `GET /api/admin/storage`. ``secret_access_key`` is always
+ * masked as ``"****"`` when something is stored, and the empty string when
+ * nothing is yet on file. The wire never sees the plaintext after save.
+ */
+export interface StorageConfigResponse {
+  backend: 'local' | 's3' | null;
+  s3?: {
+    endpoint_url: string;
+    bucket_name: string;
+    access_key_id: string;
+    secret_access_key: string;
+    region: string;
+    public_hostname: string;
+  };
+}
+
+/**
+ * Shape accepted by `POST /api/admin/storage`. For ``secret_access_key``:
+ *   - ``null``  → keep the existing encrypted value on the server.
+ *   - string    → replace; the server encrypts before storing.
+ */
+export interface StorageConfigRequest {
+  backend: 'local' | 's3';
+  s3?: {
+    endpoint_url: string;
+    bucket_name: string;
+    access_key_id: string;
+    secret_access_key: string | null;
+    region: string;
+    public_hostname: string | null;
+  };
+}
+
+export async function getAdminStorage(): Promise<StorageConfigResponse> {
+  const { data } = await api.get<StorageConfigResponse>('/admin/storage');
+  return data;
+}
+
+export async function postAdminStorage(
+  body: StorageConfigRequest,
+): Promise<StorageConfigResponse> {
+  const { data } = await api.post<StorageConfigResponse>('/admin/storage', body);
+  return data;
+}
