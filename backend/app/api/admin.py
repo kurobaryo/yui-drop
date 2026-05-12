@@ -13,8 +13,10 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from typing import Annotated, Any
+from urllib.parse import quote as urlquote
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +33,7 @@ from ..services.admin import (
     get_admin_settings,
     get_file,
     get_file_by_code,
+    get_file_row_by_code,
     list_access_log_for_code,
     list_files,
     list_logs,
@@ -41,6 +44,7 @@ from ..services.admin import (
 )
 from ..services.admin_storage import read_storage_config, save_storage_config
 from ..services.common import ServiceError, record_access
+from ..services.share import open_download_stream
 from .deps import require_admin
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -395,6 +399,127 @@ async def admin_file_access_log(
 ) -> dict[str, Any]:
     items = await list_access_log_for_code(db, code=code, limit=limit)
     return ok({"items": items, "code": code})
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET /api/admin/files/{code}/content   — text payload for the admin drawer
+# GET /api/admin/files/{code}/download  — binary stream for the admin drawer
+#
+# Both are admin-only and DO NOT touch ``used_count`` / ``expired_count`` and
+# DO NOT emit a ``SHARE_RETRIEVE`` access_log row. Every call writes an
+# ``admin_action`` row tagged ``extra.reason='admin_preview'`` instead, so the
+# audit trail clearly separates admin inspection from real visitor traffic.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/files/{code}/content")
+async def admin_get_file_content(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    """Return the plaintext payload of a text share for the admin drawer.
+
+    Responds 404 for non-text shares so the caller can fall back to the
+    download endpoint. The share row's ``used_count``/``expired_count`` are
+    left untouched — admin previews never decrement quotas.
+    """
+    try:
+        row = await get_file_row_by_code(db, code)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    is_text = row.text is not None and row.file_path is None
+    if not is_text:
+        raise HTTPException(status_code=404, detail="not_text_share")
+
+    await record_access(
+        db,
+        action=AccessLogAction.ADMIN_ACTION,
+        code=row.code,
+        ip=real_client_ip(request),
+        ua=_ua(request),
+        extra={"event": "admin.file.preview", "reason": "admin_preview", "kind": "text"},
+    )
+    await db.commit()
+
+    return ok(
+        {
+            "code": row.code,
+            "text": row.text,
+            "size": row.size,
+            "kind": "text",
+            "mime": "text/plain",
+        }
+    )
+
+
+@router.get("/files/{code}/download")
+async def admin_download_file(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> StreamingResponse:
+    """Stream a binary share's bytes for the admin drawer's "Download" button.
+
+    Unlike the public retrieval flow, this path goes directly to the
+    storage backend, does not mint a short-lived signed URL, does not
+    decrement ``expired_count``, does not bump ``used_count``, and emits
+    one ``admin_action`` audit row tagged ``extra.reason='admin_preview'``.
+    The intent is to give admins an inspection channel that does not
+    pollute the share's own audit trail.
+
+    Returns 404 when the share is a text-only or unfinished multi-file share,
+    or when the underlying object has been GC'd.
+    """
+    try:
+        row = await get_file_row_by_code(db, code)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    if row.kind == "multi":
+        # Multi-file shares are made up of N storage objects; the admin
+        # drawer is for single-payload shares only. Direct admins to the
+        # share-files explorer for multi shares (future work).
+        raise HTTPException(status_code=400, detail="multi_share_not_supported")
+    if row.file_path is None:
+        raise HTTPException(status_code=404, detail="no_binary_payload")
+
+    try:
+        body, head = await open_download_stream(row.file_path)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    await record_access(
+        db,
+        action=AccessLogAction.ADMIN_ACTION,
+        code=row.code,
+        ip=real_client_ip(request),
+        ua=_ua(request),
+        extra={
+            "event": "admin.file.preview",
+            "reason": "admin_preview",
+            "kind": "download",
+        },
+    )
+    await db.commit()
+
+    display_name = row.name or row.code
+    headers: dict[str, str] = {}
+    if head.get("size") is not None:
+        headers["content-length"] = str(head["size"])
+    # Always force ``attachment`` so the admin browser never tries to
+    # render an arbitrary blob inline (e.g. an HTML upload).
+    headers["content-disposition"] = (
+        f'attachment; filename="{display_name}"; '
+        f"filename*=UTF-8''{urlquote(display_name)}"
+    )
+    # Mark the response so the caller can tell it came through the
+    # admin-preview path rather than the public retrieval one.
+    headers["x-admin-preview"] = "1"
+    return StreamingResponse(body, media_type="application/octet-stream", headers=headers)
 
 
 # ────────────────────────────────────────────────────────────────────────────

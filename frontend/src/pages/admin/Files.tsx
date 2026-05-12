@@ -18,6 +18,8 @@ import {
   emptyRecycleBin,
   getFileByCode,
   getFileAccessLog,
+  getFileContent,
+  downloadFileAsAdmin,
   type AdminFileRow,
   type AdminFileAccessLogItem,
 } from '@/lib/api/admin';
@@ -408,6 +410,15 @@ function FileDetailDrawer({
     queryFn: () => getFileAccessLog(code!, 200),
     enabled: open,
   });
+  // Text content is admin-only and only fetched for text shares. The
+  // endpoint emits an `admin_action` audit row, never a `share_retrieve`,
+  // so previewing in the admin UI does not pollute the visitor audit
+  // trail. Binary shares fall back to the explicit Download button.
+  const content = useQuery({
+    queryKey: ['admin', 'file-content', code],
+    queryFn: () => getFileContent(code!),
+    enabled: open && !!detail.data?.is_text,
+  });
 
   const row = detail.data;
   const deleted = !!row?.deleted_at;
@@ -417,6 +428,11 @@ function FileDetailDrawer({
     : expired
     ? t('admin.files.statusExpired')
     : t('admin.files.statusActive');
+
+  // Aggregate download stats from the access log.
+  const fetchEvents = (logs.data?.items ?? []).filter(
+    (it) => it.action === 'share_retrieve',
+  );
 
   return (
     <Drawer
@@ -440,6 +456,18 @@ function FileDetailDrawer({
         </div>
       ) : (
         <div className="flex flex-col gap-5 p-4">
+          {/* Download-count callout: surface the headline number above the
+              metadata grid so it's the first thing the admin notices. */}
+          <DownloadCountCallout
+            used={row.used_count}
+            limit={row.expired_count}
+            distinctIps={
+              new Set(
+                fetchEvents.map((e) => e.ip).filter((ip): ip is string => !!ip),
+              ).size
+            }
+          />
+
           {/* Metadata block ------------------------------------------- */}
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
             <MetaRow label={t('admin.files.drawer.meta.code')}>
@@ -480,6 +508,26 @@ function FileDetailDrawer({
               <span className="break-all">{row.created_by_ua ?? '—'}</span>
             </MetaRow>
           </div>
+
+          {/* Content preview / download ------------------------------- */}
+          <section>
+            <h3 className="mb-2 text-xs uppercase tracking-wider text-[--text-2]">
+              {row.is_text
+                ? t('admin.files.drawer.contentPreview')
+                : t('admin.files.drawer.binaryPayload')}
+            </h3>
+            {row.is_text ? (
+              <TextPreview
+                loading={content.isLoading}
+                text={content.data?.text}
+              />
+            ) : (
+              <BinaryDownload
+                code={row.code}
+                fallbackName={row.name ?? row.code}
+              />
+            )}
+          </section>
 
           {/* Access log table ----------------------------------------- */}
           <section>
@@ -543,23 +591,235 @@ function MetaRow({
   );
 }
 
+/**
+ * Headline counter shown at the top of the drawer. The maintainer asked
+ * for "download count" to be prominent — this badge plus the per-row
+ * highlighting in the access-log table cover both halves of the request.
+ */
+function DownloadCountCallout({
+  used,
+  limit,
+  distinctIps,
+}: {
+  used: number;
+  limit: number;
+  distinctIps: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-md border border-[--border] bg-[--bg-2] px-4 py-3">
+      <div className="flex flex-col">
+        <span className="text-[10px] uppercase tracking-wider text-[--text-2]">
+          {t('admin.files.drawer.downloads')}
+        </span>
+        <span className="text-2xl font-semibold text-[--text-1]">
+          {used}
+          {limit > 0 ? (
+            <span className="ml-1 text-sm font-normal text-[--text-2]">
+              / {limit}
+            </span>
+          ) : (
+            <span className="ml-1 text-sm font-normal text-[--text-2]">
+              / ∞
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="flex flex-col">
+        <span className="text-[10px] uppercase tracking-wider text-[--text-2]">
+          {t('admin.files.drawer.distinctIps')}
+        </span>
+        <span className="text-2xl font-semibold text-[--text-1]">
+          {distinctIps}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Read-only, monospace, scrollable preview of a text share with a Copy
+ * button. The text comes from the admin-only `/content` endpoint which
+ * does not bump `used_count`.
+ */
+function TextPreview({
+  loading,
+  text,
+}: {
+  loading: boolean;
+  text: string | undefined;
+}) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    if (text == null) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error(t('admin.files.drawer.copyFailed'));
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-6">
+        <Spinner />
+      </div>
+    );
+  }
+  if (text == null) {
+    return (
+      <div className="py-6 text-center text-xs text-[--text-muted]">
+        {t('admin.files.drawer.contentUnavailable')}
+      </div>
+    );
+  }
+  return (
+    <div className="relative">
+      <pre className="max-h-[40vh] overflow-auto rounded-md border border-[--border] bg-[--bg-2] p-3 font-mono text-xs leading-relaxed text-[--text-1]">
+        {text}
+      </pre>
+      <Button
+        size="sm"
+        variant="outline"
+        className="absolute right-2 top-2"
+        onClick={() => void copy()}
+      >
+        {copied
+          ? t('admin.files.drawer.copied')
+          : t('admin.files.drawer.copy')}
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * "Download" button for binary shares. Streams the bytes through the
+ * admin-only endpoint, which writes one `admin_action` audit row tagged
+ * `extra.reason='admin_preview'` and leaves `used_count` untouched.
+ */
+function BinaryDownload({
+  code,
+  fallbackName,
+}: {
+  code: string;
+  fallbackName: string;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+
+  async function go() {
+    setBusy(true);
+    try {
+      await downloadFileAsAdmin(code, fallbackName);
+    } catch (e) {
+      toast.error((e as Error)?.message ?? '—');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <Button
+        size="sm"
+        variant="primary"
+        loading={busy}
+        onClick={() => void go()}
+      >
+        {t('admin.files.drawer.download')}
+      </Button>
+      <span className="text-xs text-[--text-2]">
+        {t('admin.files.drawer.downloadHint')}
+      </span>
+    </div>
+  );
+}
+
+// Visual tokens for the access-log action column. Each row is colour-coded
+// so an admin can tell at a glance which events are share creations
+// (uploads), which are real visitor fetches, and which are admin actions
+// — including the admin's own preview clicks (extra.reason ===
+// 'admin_preview').
+function actionVisual(action: string, reason: string | null): {
+  label: string;
+  icon: string;
+  className: string;
+  tKey: string;
+} {
+  switch (action) {
+    case 'share_create':
+      return {
+        label: 'Create',
+        icon: '↑',
+        className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        tKey: 'admin.files.drawer.actionCreate',
+      };
+    case 'share_retrieve':
+      return {
+        label: 'Retrieve',
+        icon: '↓',
+        className: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+        tKey: 'admin.files.drawer.actionRetrieve',
+      };
+    case 'admin_action':
+      if (reason === 'admin_preview') {
+        return {
+          label: 'Admin preview',
+          icon: '👁',
+          className:
+            'bg-amber-500/10 text-amber-600 dark:text-amber-400 italic',
+          tKey: 'admin.files.drawer.actionAdminPreview',
+        };
+      }
+      return {
+        label: 'Admin',
+        icon: '⚙',
+        className:
+          'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+        tKey: 'admin.files.drawer.actionAdmin',
+      };
+    default:
+      return {
+        label: action,
+        icon: '•',
+        className: 'bg-[--bg-2] text-[--text-2]',
+        tKey: '',
+      };
+  }
+}
+
 function AccessLogRow({ item }: { item: AdminFileAccessLogItem }) {
   const { t } = useTranslation();
   const ua = item.ua ?? '';
   const truncated = ua.length > 60 ? `${ua.slice(0, 60)}…` : ua;
-  const actionLabel =
-    item.action === 'SHARE_CREATE'
-      ? t('admin.files.drawer.actionCreate')
-      : item.action === 'SHARE_RETRIEVE'
-      ? t('admin.files.drawer.actionRetrieve')
-      : item.action;
+  const reason =
+    typeof item.extra === 'object' && item.extra !== null
+      ? ((item.extra as Record<string, unknown>).reason as string | undefined) ??
+        null
+      : null;
+  const v = actionVisual(item.action, reason);
+  const label = v.tKey ? t(v.tKey) : v.label;
 
   return (
     <tr>
       <td className="whitespace-nowrap px-2 py-1.5 text-[--text-2]">
         {formatTime(item.ts)}
       </td>
-      <td className="px-2 py-1.5">{actionLabel}</td>
+      <td className="px-2 py-1.5">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium',
+            v.className,
+          )}
+        >
+          <span aria-hidden>{v.icon}</span>
+          {label}
+        </span>
+      </td>
       <td className="px-2 py-1.5 font-mono text-[--text-2]">
         {item.ip ?? '—'}
       </td>

@@ -134,6 +134,8 @@ export interface AdminFileAccessLogItem {
   ip: string | null;
   ua: string | null;
   status_code: number | null;
+  /** Free-form metadata blob. Contains ``event`` and ``reason`` keys. */
+  extra: Record<string, unknown> | null;
 }
 export interface AdminFileAccessLogResponse {
   items: AdminFileAccessLogItem[];
@@ -148,6 +150,62 @@ export async function getFileAccessLog(
     { params: { limit } },
   );
   return data;
+}
+
+/**
+ * Shape returned by `GET /api/admin/files/{code}/content`.
+ *
+ * This endpoint is admin-only and gated by the same Bearer-token middleware
+ * as the rest of `/admin/*`. It does not bump `used_count` or decrement
+ * `expired_count` on the underlying share row — admin previews never
+ * pollute the public-facing audit trail.
+ */
+export interface AdminFileContent {
+  code: string;
+  text: string;
+  size: number | null;
+  kind: 'text';
+  mime: string;
+}
+export async function getFileContent(code: string): Promise<AdminFileContent> {
+  const { data } = await api.get<AdminFileContent>(
+    `/admin/files/${encodeURIComponent(code)}/content`,
+  );
+  return data;
+}
+
+/**
+ * Fetch the admin-only binary download as a Blob, then trigger a browser
+ * "Save As" via a transient object URL. Using fetch (rather than a plain
+ * `<a download>`) keeps the Bearer token in the `Authorization` header
+ * instead of leaking it through a query string in browser history /
+ * server logs. The endpoint emits exactly one `admin_action` audit row
+ * tagged `extra.reason='admin_preview'`; it does not increment the
+ * share's `used_count`.
+ */
+export async function downloadFileAsAdmin(
+  code: string,
+  fallbackName: string,
+): Promise<void> {
+  const resp = await api.get<Blob>(
+    `/admin/files/${encodeURIComponent(code)}/download`,
+    { responseType: 'blob' },
+  );
+  // Extract filename from Content-Disposition when present; otherwise
+  // fall back to the share's recorded name.
+  const cd =
+    (resp.headers['content-disposition'] as string | undefined) ?? '';
+  const m = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/.exec(cd);
+  const name = decodeURIComponent(m?.[1] ?? m?.[2] ?? fallbackName);
+  const url = URL.createObjectURL(resp.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Defer revoke so Safari has time to start the download.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ── Logs ──────────────────────────────────────────────────────────────────

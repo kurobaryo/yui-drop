@@ -22,6 +22,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
+from ..core.request_ip import AUDIT_IP_KEY, coerce_bool
 from ..core.security import hash_password, verify_password
 from ..models.access_log import AccessLog, AccessLogAction
 from ..models.file_code import FileCode
@@ -251,6 +252,24 @@ async def get_file_by_code(db: AsyncSession, code: str) -> dict[str, Any]:
     return out
 
 
+async def get_file_row_by_code(db: AsyncSession, code: str) -> FileCode:
+    """Return the underlying ``FileCode`` row for ``code`` (active preferred).
+
+    Used by the admin content/download paths which need the raw payload
+    rather than the projected dict ``get_file_by_code`` returns.
+    """
+    res = await db.execute(
+        select(FileCode)
+        .where(FileCode.code == code)
+        .order_by(FileCode.deleted_at.is_(None).desc(), FileCode.id.desc())
+        .limit(1)
+    )
+    row = res.scalars().first()
+    if row is None:
+        raise NotFoundError("file_not_found")
+    return row
+
+
 async def list_access_log_for_code(
     db: AsyncSession, *, code: str, limit: int = 200
 ) -> list[dict[str, Any]]:
@@ -269,6 +288,10 @@ async def list_access_log_for_code(
             "ip": r.ip,
             "ua": r.ua,
             "status_code": r.status_code,
+            # ``extra`` carries the fine-grained ``event`` discriminator and
+            # any per-action metadata. The drawer uses ``extra.reason`` to
+            # distinguish an admin preview from a real visitor fetch.
+            "extra": r.extra,
         }
         for r in rows
     ]
@@ -567,8 +590,8 @@ async def get_admin_settings(db: AsyncSession) -> dict[str, Any]:
     if "storage.s3.secret_access_key" in safe_kv and safe_kv["storage.s3.secret_access_key"]:
         safe_kv["storage.s3.secret_access_key"] = "****"
     # Default audit toggle = True when the row is absent.
-    audit_ip = kv.get("audit.log_access_ip")
-    audit_ip_on = True if audit_ip is None else bool(audit_ip)
+    audit_ip = kv.get(AUDIT_IP_KEY)
+    audit_ip_on = coerce_bool(audit_ip, default=True)
     return {
         "kv": safe_kv,
         "env": {
@@ -624,6 +647,20 @@ async def patch_admin_settings(
                 )
             await _kv_set(db, "turnstile_enabled", wants_on)
             applied["turnstile_enabled"] = wants_on
+            continue
+        # Audit-IP toggle. The public API accepts the friendly underscore
+        # form (``audit_log_access_ip``) because that is what
+        # ``GET /admin/settings`` exposes in its ``env`` block. Internally we
+        # store the canonical dotted key from ``AUDIT_IP_KEY`` so that the
+        # reader in ``record_access`` and ``_audit_toggle_enabled`` finds it.
+        # We also accept the dotted form on the wire for symmetry. Values
+        # are normalised through ``coerce_bool`` and stored as a native
+        # JSON boolean, matching the round-trip behaviour the
+        # ``turnstile_enabled`` row already relies on.
+        if key in {"audit_log_access_ip", AUDIT_IP_KEY}:
+            normalised = coerce_bool(val, default=True)
+            await _kv_set(db, AUDIT_IP_KEY, normalised)
+            applied[AUDIT_IP_KEY] = normalised
             continue
         # Default: opaque JSON-blob upsert.
         await _kv_set(db, key, val)
