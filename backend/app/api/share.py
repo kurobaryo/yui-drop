@@ -156,8 +156,15 @@ async def share_download(
     # Always attachment for the local-backed download path — keeps inert in browsers.
     from urllib.parse import quote as _q
 
+    # ASCII fallback for the legacy `filename=` parameter (HTTP/1.1 headers
+    # are latin-1, so CJK there crashes starlette). Real UTF-8 name lives in
+    # the RFC 5987 `filename*` parameter.
+    _ascii = display_name.encode("ascii", "replace").decode("ascii").replace("?", "_")
+    if not _ascii.strip("_") or _ascii != display_name:
+        _ascii = "download"
+    _ascii = _ascii.replace('"', "").replace("\\", "").replace("\r", "").replace("\n", "")
     headers["content-disposition"] = (
-        f'attachment; filename="{display_name}"; filename*=UTF-8\'\'{_q(display_name)}'
+        f'attachment; filename="{_ascii}"; filename*=UTF-8\'\'{_q(display_name)}'
     )
     return StreamingResponse(body, media_type="application/octet-stream", headers=headers)
 
@@ -202,10 +209,20 @@ async def _stream_share_payload(
 
     from urllib.parse import quote as _q
 
+    # ASCII-only fallback for the legacy `filename=` parameter (HTTP/1.1
+    # headers are latin-1 by spec, so CJK/emoji here crash starlette with
+    # UnicodeEncodeError). Modern clients pick `filename*` (RFC 5987) which
+    # carries the real UTF-8 name; keep an ASCII placeholder for the rest.
+    ascii_name = display_name.encode("ascii", "replace").decode("ascii").replace("?", "_")
+    if not ascii_name.strip("_") or ascii_name != display_name:
+        ascii_name = f"download-{code}"
+    # Strip characters that would break the quoted-string form.
+    ascii_name = ascii_name.replace('"', "").replace("\\", "").replace("\r", "").replace("\n", "")
+
     disposition = "attachment" if force_dl else "inline"
     headers: dict[str, str] = {
         "content-disposition": (
-            f'{disposition}; filename="{display_name}"; '
+            f'{disposition}; filename="{ascii_name}"; '
             f"filename*=UTF-8''{_q(display_name)}"
         ),
         # Same-origin proxy bytes are inherently cacheable per-code; let
