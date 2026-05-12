@@ -33,6 +33,13 @@
     "expireMonth": "1 个月",
     "expireCount": "取件 N 次后",
     "expireForever": "永久",
+    "expireMode": {
+      "date": "按日期",
+      "pickups": "按取件次数"
+    },
+    "expireDays_other": "天",
+    "expireNeverDate": "永久",
+    "expireNeverPickups": "无限次",
     "count": "取件次数",
     "upload": "上传",
     "uploading": "上传中…",

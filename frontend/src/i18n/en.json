@@ -33,6 +33,14 @@
     "expireMonth": "1 month",
     "expireCount": "After N pickups",
     "expireForever": "Never",
+    "expireMode": {
+      "date": "Date",
+      "pickups": "Pickups"
+    },
+    "expireDays_one": "day",
+    "expireDays_other": "days",
+    "expireNeverDate": "Forever",
+    "expireNeverPickups": "Never",
     "count": "Pickups",
     "upload": "Upload",
     "uploading": "Uploading…",

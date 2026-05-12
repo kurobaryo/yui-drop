@@ -33,6 +33,13 @@
     "expireMonth": "1か月",
     "expireCount": "N回受け取り後",
     "expireForever": "無期限",
+    "expireMode": {
+      "date": "日付で",
+      "pickups": "受け取り回数で"
+    },
+    "expireDays_other": "日",
+    "expireNeverDate": "無期限",
+    "expireNeverPickups": "無制限",
     "count": "受け取り回数",
     "upload": "アップロード",
     "uploading": "アップロード中…",
