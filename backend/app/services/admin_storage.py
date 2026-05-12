@@ -31,6 +31,7 @@ STORAGE_KEYS = (
     "storage.s3.access_key_id",
     "storage.s3.region",
     "storage.s3.public_hostname",
+    "storage.s3.prefix",
     SECRET_KV_KEY,
 )
 
@@ -65,6 +66,7 @@ async def read_storage_config(db: AsyncSession) -> dict[str, Any]:
             "secret_access_key": MASK if raw.get(SECRET_KV_KEY) else "",
             "region": raw.get("storage.s3.region") or "auto",
             "public_hostname": raw.get("storage.s3.public_hostname") or "",
+            "prefix": raw.get("storage.s3.prefix") or "",
         },
     }
 
@@ -186,6 +188,11 @@ async def save_storage_config(
         await _kv_set_one(
             db, "storage.s3.public_hostname", str(s3.get("public_hostname") or "")
         )
+        # Normalise prefix on the way in: strip leading slashes (S3 keys
+        # are not paths), but keep the user-supplied form otherwise so
+        # what they typed is what they see on the next read.
+        prefix_in = str(s3.get("prefix") or "").strip().lstrip("/")
+        await _kv_set_one(db, "storage.s3.prefix", prefix_in)
         if new_secret is not None:
             await _kv_set_one(db, SECRET_KV_KEY, encrypt_secret(effective_secret))
     else:

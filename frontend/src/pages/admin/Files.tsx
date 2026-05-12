@@ -5,7 +5,7 @@
  *
  * Clicking the code cell (or anywhere on the row that isn't an action
  * button) opens a right-side drawer showing the full FileCode metadata
- * plus the share's access log. See `FileDetailDrawer` below.
+ * plus the share's access log. See `FileDetailModal` below.
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,7 +28,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
-import { Drawer } from '@/components/ui/Drawer';
+import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { humanBytes, formatTime, isExpired } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -296,7 +296,7 @@ export default function AdminFiles() {
         />
       )}
 
-      <FileDetailDrawer
+      <FileDetailModal
         code={activeCode}
         onClose={() => setActiveCode(null)}
       />
@@ -388,7 +388,7 @@ function EditExpiryModal({
 }
 
 // ─── File detail drawer (G.4) ───────────────────────────────────────────
-function FileDetailDrawer({
+function FileDetailModal({
   code,
   onClose,
 }: {
@@ -435,7 +435,7 @@ function FileDetailDrawer({
   );
 
   return (
-    <Drawer
+    <Modal
       open={open}
       onClose={onClose}
       ariaLabel={t('admin.files.drawer.title')}
@@ -572,7 +572,7 @@ function FileDetailDrawer({
           </section>
         </div>
       )}
-    </Drawer>
+    </Modal>
   );
 }
 

@@ -45,6 +45,7 @@ class ResolvedStorageConfig:
     s3_secret_access_key: str
     s3_region: str
     s3_public_hostname: str
+    s3_prefix: str = ""
 
     @classmethod
     def from_env(cls) -> ResolvedStorageConfig:
@@ -56,6 +57,7 @@ class ResolvedStorageConfig:
             s3_secret_access_key=settings.s3_secret_access_key,
             s3_region=settings.s3_region or "auto",
             s3_public_hostname=settings.s3_public_hostname,
+            s3_prefix=getattr(settings, "s3_prefix", "") or "",
         )
 
 
@@ -67,8 +69,10 @@ _KV_TO_FIELD: dict[str, str] = {
     "storage.s3.access_key_id": "s3_access_key_id",
     "storage.s3.region": "s3_region",
     "storage.s3.public_hostname": "s3_public_hostname",
+    "storage.s3.prefix": "s3_prefix",
 }
-SECRET_KV_KEY = "storage.s3.secret_access_key"  # AES-GCM encrypted
+# AES-GCM encrypted secret access key.
+SECRET_KV_KEY = "storage.s3.secret_access_key"
 
 
 async def _kv_overlay(db: AsyncSession) -> dict[str, Any]:
@@ -116,6 +120,7 @@ def _build_from_config(cfg: ResolvedStorageConfig) -> StorageBackend:
             secret_key=cfg.s3_secret_access_key or None,
             region=cfg.s3_region or "auto",
             public_hostname=cfg.s3_public_hostname or None,
+            prefix=cfg.s3_prefix or "",
         )
     if backend == "onedrive":
         from .onedrive import OneDriveStorage
