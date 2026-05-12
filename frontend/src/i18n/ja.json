@@ -339,7 +339,10 @@
     "of": "/",
     "remaining": "残り",
     "tagBrand": "ファイル宅配ボックス",
-    "stampSubtitle": "ファイル宅配ボックス"
+    "stampSubtitle": "ファイル宅配ボックス",
+    "preview_pdf": "PDF プレビュー",
+    "copy_link": "リンクをコピー",
+    "loading": "読み込み中…"
   },
   "common": {
     "copy": "コピー",
