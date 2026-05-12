@@ -4,7 +4,7 @@
  * uses one settings UI for desktop and mobile alike). On mobile the
  * "Settings" label is hidden via the `[data-yui="settings-label"]` rule.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { WashiColors, WashiMode, WashiPaletteName } from './palettes';
@@ -26,23 +26,42 @@ export function MobileMenu({ c, palette, setPalette, mode, setMode, lang, setLan
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
+  // While the settings modal is open we override the html/body background
+  // with a near-black tone so the iOS status-bar / home-indicator safe areas
+  // render the same colour as the modal backdrop. Without this, the body
+  // continues to paint the palette `paper` colour (set by WashiApp) and the
+  // safe-area edges visibly differ from the dark modal vignette.
+  useEffect(() => {
+    if (!open) return;
+    const htmlEl = document.documentElement;
+    const bodyEl = document.body;
+    const prevHtmlBg = htmlEl.style.background;
+    const prevBodyBg = bodyEl.style.background;
+    htmlEl.style.background = '#0a0a0a';
+    bodyEl.style.background = '#0a0a0a';
+    return () => {
+      htmlEl.style.background = prevHtmlBg;
+      bodyEl.style.background = prevBodyBg;
+    };
+  }, [open]);
+
   const modal =
     open &&
     typeof document !== 'undefined' &&
     createPortal(
       <>
-        {/* Solid backdrop that fully covers the viewport including the iOS
-            safe-area; using a solid colour (not a transparent tint over the
-            paper) keeps the status-bar and home-indicator areas the same
-            colour as the modal vignette below. */}
+        {/* Solid-tone backdrop covering the viewport including iOS safe areas.
+            Using pure black with alpha (not c.ink, which is the *text* colour
+            and flips to a light tone in dark mode) so the status-bar and home-
+            indicator regions read as the same vignette as the modal halo,
+            regardless of palette or mode. */}
         <div
           onClick={() => setOpen(false)}
           style={{
             position: 'fixed',
             inset: 0,
             zIndex: 9000,
-            background: c.ink,
-            opacity: 0.78,
+            background: 'rgba(0, 0, 0, 0.55)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             animation: 'yuiFade .2s ease-out',
