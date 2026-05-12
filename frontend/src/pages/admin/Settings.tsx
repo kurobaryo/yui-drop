@@ -13,7 +13,11 @@ import { useTranslation } from 'react-i18next';
 import {
   getAdminSettings,
   patchAdminSettings,
+  getAdminStorage,
+  postAdminStorage,
   type AdminSettingsResponse,
+  type StorageConfigResponse,
+  type StorageConfigRequest,
 } from '@/lib/api/admin';
 import { ApiError } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
@@ -27,12 +31,14 @@ interface FormState {
   newPassword: string;
   confirmPassword: string;
   turnstileEnabled: boolean;
+  auditLogAccessIp: boolean;
 }
 
 const EMPTY: FormState = {
   newPassword: '',
   confirmPassword: '',
   turnstileEnabled: false,
+  auditLogAccessIp: true,
 };
 
 export default function AdminSettings() {
@@ -54,6 +60,7 @@ export default function AdminSettings() {
       newPassword: '',
       confirmPassword: '',
       turnstileEnabled: data.env.turnstile_enabled,
+      auditLogAccessIp: data.env.audit_log_access_ip ?? true,
     });
   }, [data]);
 
@@ -88,6 +95,10 @@ export default function AdminSettings() {
 
     if (form.turnstileEnabled !== data.env.turnstile_enabled) {
       updates.turnstile_enabled = form.turnstileEnabled;
+    }
+
+    if (form.auditLogAccessIp !== (data.env.audit_log_access_ip ?? true)) {
+      updates.audit_log_access_ip = form.auditLogAccessIp;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -207,12 +218,40 @@ export default function AdminSettings() {
           </label>
         </Card>
 
+        {/* ── Audit logging (G.3) ──────────────────────────────────── */}
+        <Card>
+          <div className="mb-2 text-xs uppercase tracking-wider text-[--text-2]">
+            {t('admin.settings.audit.title')}
+          </div>
+          <label className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="text-sm text-[--text-1]">
+                {t('admin.settings.audit.logAccessIp.label')}
+              </div>
+              <div className="mt-1 text-xs text-[--text-muted]">
+                {t('admin.settings.audit.logAccessIp.desc')}
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={form.auditLogAccessIp}
+              onChange={(e) =>
+                setForm({ ...form, auditLogAccessIp: e.target.checked })
+              }
+            />
+          </label>
+        </Card>
+
         <div className="flex items-center justify-end">
           <Button type="submit" variant="primary" loading={save.isPending}>
             {t('admin.settings.save')}
           </Button>
         </div>
       </form>
+
+      {/* ── Storage backend (H.6) — submits independently from the form above. */}
+      <StorageCard />
     </div>
   );
 }
@@ -223,5 +262,286 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <dt className="text-[--text-2]">{label}</dt>
       <dd className="text-[--text-1] font-mono text-xs">{value}</dd>
     </div>
+  );
+}
+
+// ─── Storage backend card (H.6) ──────────────────────────────────────────
+//
+// Renders a Local/S3 radio. When S3 is selected we expose six inputs; the
+// secret_access_key has a masked pattern — initially shown as "****" with a
+// "Change" button, and only sent on the wire when the user explicitly chose
+// to replace it. `null` on submit means "keep existing encrypted value".
+
+interface StorageFormState {
+  backend: 'local' | 's3';
+  endpoint_url: string;
+  bucket_name: string;
+  access_key_id: string;
+  secret_access_key: string;
+  region: string;
+  public_hostname: string;
+  /** Has the user opened the secret field to type a new value? */
+  secretEdited: boolean;
+  /** Was a masked secret present on initial load? */
+  hadExistingSecret: boolean;
+}
+
+const EMPTY_STORAGE: StorageFormState = {
+  backend: 'local',
+  endpoint_url: '',
+  bucket_name: '',
+  access_key_id: '',
+  secret_access_key: '',
+  region: 'auto',
+  public_hostname: '',
+  secretEdited: false,
+  hadExistingSecret: false,
+};
+
+function StorageCard() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'storage'],
+    queryFn: getAdminStorage,
+  });
+
+  const [form, setForm] = useState<StorageFormState>(EMPTY_STORAGE);
+
+  // Sync form when server data first arrives / changes.
+  useEffect(() => {
+    if (!data) return;
+    const s3 = data.s3 ?? {
+      endpoint_url: '',
+      bucket_name: '',
+      access_key_id: '',
+      secret_access_key: '',
+      region: 'auto',
+      public_hostname: '',
+    };
+    const masked = s3.secret_access_key === '****';
+    setForm({
+      backend: (data.backend ?? 'local') as 'local' | 's3',
+      endpoint_url: s3.endpoint_url ?? '',
+      bucket_name: s3.bucket_name ?? '',
+      access_key_id: s3.access_key_id ?? '',
+      secret_access_key: masked ? '****' : '',
+      region: s3.region || 'auto',
+      public_hostname: s3.public_hostname ?? '',
+      secretEdited: false,
+      hadExistingSecret: masked,
+    });
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: (body: StorageConfigRequest) => postAdminStorage(body),
+    onSuccess: (next: StorageConfigResponse) => {
+      qc.setQueryData(['admin', 'storage'], next);
+      toast.success(t('admin.settings.storage.savedNoMigrate'));
+      // Reset secret-edit state after a successful save: the server now has
+      // the new (or unchanged) value, so the field goes back to masked.
+      setForm((f) => ({
+        ...f,
+        secret_access_key: next.s3?.secret_access_key === '****' ? '****' : '',
+        secretEdited: false,
+        hadExistingSecret: next.s3?.secret_access_key === '****',
+      }));
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof ApiError ? e.message : (e as Error)?.message ?? '—';
+      toast.error(msg);
+    },
+  });
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (form.backend === 'local') {
+      save.mutate({ backend: 'local' });
+      return;
+    }
+    // When backend = s3, send the secret only if the user opened the field
+    // to change it; otherwise null = keep existing.
+    const secret_access_key = form.secretEdited
+      ? form.secret_access_key
+      : null;
+    save.mutate({
+      backend: 's3',
+      s3: {
+        endpoint_url: form.endpoint_url.trim(),
+        bucket_name: form.bucket_name.trim(),
+        access_key_id: form.access_key_id.trim(),
+        secret_access_key,
+        region: form.region.trim() || 'auto',
+        public_hostname: form.public_hostname.trim() || null,
+      },
+    });
+  }
+
+  if (isLoading || !data) {
+    return (
+      <Card>
+        <div className="flex items-center justify-center py-6">
+          <Spinner />
+        </div>
+      </Card>
+    );
+  }
+
+  const isS3 = form.backend === 's3';
+
+  return (
+    <form onSubmit={onSubmit}>
+      <Card>
+        <div className="mb-3 text-xs uppercase tracking-wider text-[--text-2]">
+          {t('admin.settings.storage.title')}
+        </div>
+
+        {/* Backend radio */}
+        <div
+          role="radiogroup"
+          aria-label="storage-backend"
+          className="mb-4 flex flex-wrap items-center gap-4 text-sm"
+        >
+          {(['local', 's3'] as const).map((b) => (
+            <label key={b} className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="storage-backend"
+                value={b}
+                checked={form.backend === b}
+                onChange={() => setForm({ ...form, backend: b })}
+              />
+              <span className="text-[--text-1]">
+                {t(`admin.settings.storage.${b}`)}
+              </span>
+            </label>
+          ))}
+        </div>
+
+        {/* S3 fields */}
+        {isS3 && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-[--text-2]">
+                {t('admin.settings.storage.endpoint')}
+              </span>
+              <Input
+                inputSize="sm"
+                value={form.endpoint_url}
+                onChange={(e) =>
+                  setForm({ ...form, endpoint_url: e.target.value })
+                }
+                placeholder="https://<accountid>.r2.cloudflarestorage.com"
+                autoComplete="off"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-[--text-2]">
+                {t('admin.settings.storage.bucket')}
+              </span>
+              <Input
+                inputSize="sm"
+                value={form.bucket_name}
+                onChange={(e) =>
+                  setForm({ ...form, bucket_name: e.target.value })
+                }
+                autoComplete="off"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-[--text-2]">
+                {t('admin.settings.storage.accessKey')}
+              </span>
+              <Input
+                inputSize="sm"
+                value={form.access_key_id}
+                onChange={(e) =>
+                  setForm({ ...form, access_key_id: e.target.value })
+                }
+                autoComplete="off"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-[--text-2]">
+                {t('admin.settings.storage.secretKey')}
+              </span>
+              {!form.secretEdited && form.hadExistingSecret ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    inputSize="sm"
+                    value="****"
+                    disabled
+                    className="flex-1"
+                    readOnly
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        secret_access_key: '',
+                        secretEdited: true,
+                      })
+                    }
+                  >
+                    {t('admin.settings.storage.change')}
+                  </Button>
+                </div>
+              ) : (
+                <Input
+                  inputSize="sm"
+                  type="password"
+                  value={form.secret_access_key}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      secret_access_key: e.target.value,
+                      secretEdited: true,
+                    })
+                  }
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                />
+              )}
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-[--text-2]">
+                {t('admin.settings.storage.region')}
+              </span>
+              <Input
+                inputSize="sm"
+                value={form.region}
+                onChange={(e) => setForm({ ...form, region: e.target.value })}
+                placeholder="auto"
+                autoComplete="off"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-[--text-2]">
+                {t('admin.settings.storage.publicHostname')}
+              </span>
+              <Input
+                inputSize="sm"
+                value={form.public_hostname}
+                onChange={(e) =>
+                  setForm({ ...form, public_hostname: e.target.value })
+                }
+                placeholder="cdn.example.com"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center justify-end">
+          <Button type="submit" variant="primary" loading={save.isPending}>
+            {t('admin.settings.storage.save')}
+          </Button>
+        </div>
+      </Card>
+    </form>
   );
 }

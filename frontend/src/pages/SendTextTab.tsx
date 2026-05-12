@@ -4,30 +4,21 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, RotateCcw } from 'lucide-react';
-import { shareText, type ExpireStyle } from '@/lib/api/share';
+import { shareText } from '@/lib/api/share';
 import { ApiError } from '@/lib/api';
 import { usePublicConfig } from '@/lib/hooks/usePublicConfig';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
+import {
+  ExpiryPicker,
+  DEFAULT_EXPIRY,
+  toExpireRequest,
+  type ExpiryValue,
+} from '@/components/ui/ExpiryPicker';
 import { copyToClipboard } from '@/lib/clipboard';
 import { toast } from '@/components/ui/Toast';
 import { pushRecent } from '@/lib/recent';
 import { humanBytes } from '@/lib/format';
 import { cn } from '@/lib/cn';
-
-interface ExpireChoice {
-  value: number;
-  style: ExpireStyle;
-  labelKey: string;
-}
-
-const EXPIRE_CHOICES: ExpireChoice[] = [
-  { value: 1, style: 'day', labelKey: 'sendFile.expireDay' },
-  { value: 1, style: 'week', labelKey: 'sendFile.expireWeek' },
-  { value: 1, style: 'month', labelKey: 'sendFile.expireMonth' },
-  { value: 5, style: 'count', labelKey: 'sendFile.expireCount' },
-  { value: 0, style: 'forever', labelKey: 'sendFile.expireForever' },
-];
 
 // Approximate byte size of a UTF-8 string without spinning up a TextEncoder
 // on every keystroke. The encoder is cheap, so let's just use it.
@@ -41,7 +32,7 @@ export default function SendTextTab() {
   const config = usePublicConfig();
 
   const [text, setText] = useState('');
-  const [choiceIdx, setChoiceIdx] = useState(0);
+  const [expiry, setExpiry] = useState<ExpiryValue>(DEFAULT_EXPIRY);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ code: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,14 +42,13 @@ export default function SendTextTab() {
 
   async function submit() {
     if (submitting || !text || overLimit) return;
-    const choice = EXPIRE_CHOICES[choiceIdx]!;
+    const req = toExpireRequest(expiry);
     setSubmitting(true);
     setError(null);
     try {
       const res = await shareText({
         text,
-        expire_value: choice.value,
-        expire_style: choice.style,
+        ...req,
       });
       setResult({ code: res.code });
       pushRecent({
@@ -148,21 +138,8 @@ export default function SendTextTab() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[--text-2]">{t('sendFile.expire')}</span>
-          <Select
-            value={choiceIdx}
-            onChange={(e) => setChoiceIdx(Number(e.target.value))}
-            disabled={submitting}
-          >
-            {EXPIRE_CHOICES.map((c, i) => (
-              <option key={i} value={i}>
-                {t(c.labelKey)}
-              </option>
-            ))}
-          </Select>
-        </label>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
+        <ExpiryPicker value={expiry} onChange={setExpiry} disabled={submitting} />
         <div className="flex items-end">
           <Button
             variant="primary"

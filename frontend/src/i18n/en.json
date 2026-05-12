@@ -4,8 +4,10 @@
     "tagline": "Drop. Code. Done."
   },
   "hero": {
-    "badge": "🔒 Encrypted · Anonymous",
+    "badge": "Anonymous · No account needed",
     "title": "Drop. Code. Done.",
+    "titleLine1": "Drop your files.",
+    "titleLine2": "Get a pickup code.",
     "subtitle": "Quick file share."
   },
   "tabs": {
@@ -31,6 +33,14 @@
     "expireMonth": "1 month",
     "expireCount": "After N pickups",
     "expireForever": "Never",
+    "expireMode": {
+      "date": "Date",
+      "pickups": "Pickups"
+    },
+    "expireDays_one": "day",
+    "expireDays_other": "days",
+    "expireNeverDate": "Forever",
+    "expireNeverPickups": "Never",
     "count": "Pickups",
     "upload": "Upload",
     "uploading": "Uploading…",
@@ -65,11 +75,12 @@
     "tooLong": "Text too long (max {{max}})."
   },
   "recent": {
-    "title": "Recent shares (this device)",
+    "title": "My recent shares · This device only",
     "empty": "No recent shares yet.",
-    "footnote": "Only shares started from this device are remembered locally.",
+    "footnote": "Only saved on this device.",
     "expired": "expired",
     "clear": "Clear",
+    "viewAll": "View all",
     "code": "Code",
     "kindFile": "File",
     "kindText": "Text",
@@ -87,6 +98,8 @@
   },
   "footer": {
     "credit": "© {{year}} · Inspired by FileCodeBox",
+    "docs": "Docs",
+    "github": "GitHub",
     "admin": "Admin"
   },
   "theme": {
@@ -167,7 +180,35 @@
       "save": "Save",
       "cancel": "Cancel",
       "page": "Page {{page}} / {{total}}",
-      "empty": "No files."
+      "empty": "No files.",
+      "drawer": {
+        "title": "Share details",
+        "accessLog": "Access log",
+        "noLog": "No access events yet.",
+        "actionCreate": "Created",
+        "actionRetrieve": "Retrieved",
+        "close": "Close",
+        "meta": {
+          "code": "Code",
+          "name": "Name",
+          "size": "Size",
+          "kind": "Kind",
+          "created": "Created at",
+          "expires": "Expires at",
+          "usage": "Used / limit",
+          "status": "Status",
+          "storage": "Storage backend",
+          "filePath": "File path / key",
+          "createdByIp": "Created from IP",
+          "createdByUa": "Created with UA"
+        },
+        "col": {
+          "ts": "Timestamp",
+          "action": "Action",
+          "ip": "IP",
+          "ua": "UA"
+        }
+      }
     },
     "logs": {
       "title": "Logs",
@@ -196,7 +237,28 @@
       "confirmPassword": "Confirm new password",
       "passwordMismatch": "Passwords don't match.",
       "save": "Save changes",
-      "saved": "Saved."
+      "saved": "Saved.",
+      "audit": {
+        "title": "Audit logging",
+        "logAccessIp": {
+          "label": "Log access IP",
+          "desc": "If off, share access logs will omit the requester IP (UA is still recorded)."
+        }
+      },
+      "storage": {
+        "title": "Storage backend",
+        "local": "Local disk",
+        "s3": "S3 / R2 / MinIO",
+        "endpoint": "Endpoint URL",
+        "bucket": "Bucket",
+        "accessKey": "Access key ID",
+        "secretKey": "Secret access key",
+        "region": "Region",
+        "publicHostname": "Public hostname (optional)",
+        "save": "Save and test connectivity",
+        "savedNoMigrate": "Storage saved. Existing local files were not migrated.",
+        "change": "Change"
+      }
     }
   },
   "notFound": {

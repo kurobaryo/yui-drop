@@ -4,8 +4,10 @@
     "tagline": "ファイル宅配ロッカー"
   },
   "hero": {
-    "badge": "🔒 暗号化 · 匿名",
+    "badge": "匿名 · アカウント不要",
     "title": "ファイル宅配ロッカー",
+    "titleLine1": "ファイルを投入。",
+    "titleLine2": "受け取りコードを取得。",
     "subtitle": "すばやく共有。"
   },
   "tabs": {
@@ -31,6 +33,13 @@
     "expireMonth": "1か月",
     "expireCount": "N回受け取り後",
     "expireForever": "無期限",
+    "expireMode": {
+      "date": "日付で",
+      "pickups": "受け取り回数で"
+    },
+    "expireDays_other": "日",
+    "expireNeverDate": "無期限",
+    "expireNeverPickups": "無制限",
     "count": "受け取り回数",
     "upload": "アップロード",
     "uploading": "アップロード中…",
@@ -65,11 +74,12 @@
     "tooLong": "テキストが長すぎます(上限 {{max}})。"
   },
   "recent": {
-    "title": "最近の共有(このデバイス)",
+    "title": "最近の共有 · このデバイスのみ",
     "empty": "まだ共有履歴はありません。",
-    "footnote": "このデバイスからの共有のみローカルに記録されます。",
+    "footnote": "このデバイスにのみ保存。",
     "expired": "期限切れ",
     "clear": "クリア",
+    "viewAll": "すべて表示",
     "code": "コード",
     "kindFile": "ファイル",
     "kindText": "テキスト",
@@ -87,6 +97,8 @@
   },
   "footer": {
     "credit": "© {{year}} · FileCodeBox にインスパイア",
+    "docs": "ドキュメント",
+    "github": "GitHub",
     "admin": "管理"
   },
   "theme": {
@@ -167,7 +179,35 @@
       "save": "保存",
       "cancel": "キャンセル",
       "page": "{{page}} / {{total}} ページ",
-      "empty": "ファイルはありません。"
+      "empty": "ファイルはありません。",
+      "drawer": {
+        "title": "共有の詳細",
+        "accessLog": "アクセスログ",
+        "noLog": "アクセス記録はまだありません。",
+        "actionCreate": "作成",
+        "actionRetrieve": "受け取り",
+        "close": "閉じる",
+        "meta": {
+          "code": "コード",
+          "name": "名前",
+          "size": "サイズ",
+          "kind": "種別",
+          "created": "作成日時",
+          "expires": "期限",
+          "usage": "使用回数 / 上限",
+          "status": "ステータス",
+          "storage": "ストレージバックエンド",
+          "filePath": "ファイルパス / キー",
+          "createdByIp": "作成元 IP",
+          "createdByUa": "作成元 UA"
+        },
+        "col": {
+          "ts": "時刻",
+          "action": "動作",
+          "ip": "IP",
+          "ua": "UA"
+        }
+      }
     },
     "logs": {
       "title": "アクセスログ",
@@ -196,7 +236,28 @@
       "confirmPassword": "新しいパスワード(確認)",
       "passwordMismatch": "パスワードが一致しません。",
       "save": "保存",
-      "saved": "保存しました。"
+      "saved": "保存しました。",
+      "audit": {
+        "title": "監査ログ",
+        "logAccessIp": {
+          "label": "アクセス IP を記録",
+          "desc": "オフにすると、共有アクセスログからリクエスト元の IP を除外します(UA は記録されます)。"
+        }
+      },
+      "storage": {
+        "title": "ストレージバックエンド",
+        "local": "ローカルディスク",
+        "s3": "S3 / R2 / MinIO",
+        "endpoint": "エンドポイント URL",
+        "bucket": "バケット",
+        "accessKey": "アクセスキー ID",
+        "secretKey": "シークレットキー",
+        "region": "リージョン",
+        "publicHostname": "公開ホスト名(任意)",
+        "save": "保存して接続を確認",
+        "savedNoMigrate": "ストレージを保存しました。既存のローカルファイルは移行されません。",
+        "change": "変更"
+      }
     }
   },
   "notFound": {

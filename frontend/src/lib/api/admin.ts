@@ -110,6 +110,46 @@ export async function emptyRecycleBin(): Promise<{ deleted: number }> {
   return data;
 }
 
+// ── File detail by code (G.4) ─────────────────────────────────────────────
+/**
+ * Shape returned by `GET /api/admin/files/{code}`. Mirrors the row that
+ * powers the list view but with a couple of drawer-only extras
+ * (`file_path`, `storage_backend`) and the audit columns always present.
+ */
+export interface AdminFileDetail extends AdminFileRow {
+  file_path: string | null;
+  storage_backend: string | null;
+}
+
+export async function getFileByCode(code: string): Promise<AdminFileDetail> {
+  const { data } = await api.get<AdminFileDetail>(
+    `/admin/files/${encodeURIComponent(code)}`,
+  );
+  return data;
+}
+
+export interface AdminFileAccessLogItem {
+  ts: string | null;
+  action: string;
+  ip: string | null;
+  ua: string | null;
+  status_code: number | null;
+}
+export interface AdminFileAccessLogResponse {
+  items: AdminFileAccessLogItem[];
+  code: string;
+}
+export async function getFileAccessLog(
+  code: string,
+  limit = 200,
+): Promise<AdminFileAccessLogResponse> {
+  const { data } = await api.get<AdminFileAccessLogResponse>(
+    `/admin/files/${encodeURIComponent(code)}/access-log`,
+    { params: { limit } },
+  );
+  return data;
+}
+
 // ── Logs ──────────────────────────────────────────────────────────────────
 export interface AdminLogRow {
   id: number;
@@ -160,6 +200,8 @@ export interface AdminSettingsResponse {
     max_upload_bytes: number;
     max_text_bytes: number;
     pickup_code_length: number;
+    /** G.3 toggle. Defaults to true on the backend when the kv row is absent. */
+    audit_log_access_ip: boolean;
   };
 }
 export async function getAdminSettings(): Promise<AdminSettingsResponse> {
@@ -173,5 +215,52 @@ export async function patchAdminSettings(
     '/admin/settings',
     updates,
   );
+  return data;
+}
+
+// ── Storage backend (H.6) ─────────────────────────────────────────────────
+/**
+ * Shape returned by `GET /api/admin/storage`. ``secret_access_key`` is always
+ * masked as ``"****"`` when something is stored, and the empty string when
+ * nothing is yet on file. The wire never sees the plaintext after save.
+ */
+export interface StorageConfigResponse {
+  backend: 'local' | 's3' | null;
+  s3?: {
+    endpoint_url: string;
+    bucket_name: string;
+    access_key_id: string;
+    secret_access_key: string;
+    region: string;
+    public_hostname: string;
+  };
+}
+
+/**
+ * Shape accepted by `POST /api/admin/storage`. For ``secret_access_key``:
+ *   - ``null``  → keep the existing encrypted value on the server.
+ *   - string    → replace; the server encrypts before storing.
+ */
+export interface StorageConfigRequest {
+  backend: 'local' | 's3';
+  s3?: {
+    endpoint_url: string;
+    bucket_name: string;
+    access_key_id: string;
+    secret_access_key: string | null;
+    region: string;
+    public_hostname: string | null;
+  };
+}
+
+export async function getAdminStorage(): Promise<StorageConfigResponse> {
+  const { data } = await api.get<StorageConfigResponse>('/admin/storage');
+  return data;
+}
+
+export async function postAdminStorage(
+  body: StorageConfigRequest,
+): Promise<StorageConfigResponse> {
+  const { data } = await api.post<StorageConfigResponse>('/admin/storage', body);
   return data;
 }

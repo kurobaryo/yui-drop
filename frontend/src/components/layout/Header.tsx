@@ -18,7 +18,7 @@ export function Header() {
         'border-b border-[--border]',
       )}
     >
-      <div className="mx-auto flex h-full max-w-5xl items-center justify-between px-4 md:px-6">
+      <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4 md:px-6">
         <Link
           to="/"
           className={cn(

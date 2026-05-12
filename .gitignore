@@ -23,6 +23,8 @@ htmlcov/
 .coverage.*
 coverage.xml
 *.cover
+# uv lockfile — not committed in this repo (mirrors absence on main).
+uv.lock
 
 # Node
 node_modules/
