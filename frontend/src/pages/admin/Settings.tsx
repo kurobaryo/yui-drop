@@ -15,9 +15,15 @@ import {
   patchAdminSettings,
   getAdminStorage,
   postAdminStorage,
+  getAdminTurnstile,
+  putAdminTurnstile,
+  getAdminUploads,
+  putAdminUploads,
   type AdminSettingsResponse,
   type StorageConfigResponse,
   type StorageConfigRequest,
+  type TurnstileConfigResponse,
+  type UploadLimitsResponse,
 } from '@/lib/api/admin';
 import { ApiError } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
@@ -252,6 +258,12 @@ export default function AdminSettings() {
 
       {/* ── Storage backend (H.6) — submits independently from the form above. */}
       <StorageCard />
+
+      {/* ── Turnstile keys (#6) — independent card, own save button. */}
+      <TurnstileCard />
+
+      {/* ── Upload limits + chunk toggle (#7/#8) — independent card. */}
+      <UploadLimitsCard />
     </div>
   );
 }
@@ -559,6 +571,345 @@ function StorageCard() {
         <div className="mt-4 flex items-center justify-end">
           <Button type="submit" variant="primary" loading={save.isPending}>
             {t('admin.settings.storage.save')}
+          </Button>
+        </div>
+      </Card>
+    </form>
+  );
+}
+
+// ─── Turnstile keys card (#6) ────────────────────────────────────────────
+//
+// Reads /admin/turnstile and exposes:
+//   - enabled toggle (mirrors the toggle in the main form for visibility)
+//   - site_key input
+//   - secret_key input with the same readOnly + "Change" pattern as the
+//     storage secret. Empty string on submit means "keep existing".
+
+interface TurnstileFormState {
+  enabled: boolean;
+  site_key: string;
+  secret_key: string;
+  secretEdited: boolean;
+  hadExistingSecret: boolean;
+}
+
+const EMPTY_TURNSTILE: TurnstileFormState = {
+  enabled: false,
+  site_key: '',
+  secret_key: '',
+  secretEdited: false,
+  hadExistingSecret: false,
+};
+
+function TurnstileCard() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'turnstile'],
+    queryFn: getAdminTurnstile,
+  });
+
+  const [form, setForm] = useState<TurnstileFormState>(EMPTY_TURNSTILE);
+
+  useEffect(() => {
+    if (!data) return;
+    setForm({
+      enabled: data.enabled,
+      site_key: data.site_key ?? '',
+      secret_key: data.secret_key_set ? '••••••••' : '',
+      secretEdited: false,
+      hadExistingSecret: data.secret_key_set,
+    });
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      putAdminTurnstile({
+        enabled: form.enabled,
+        site_key: form.site_key,
+        // Only send a new secret if the user explicitly opened the field.
+        secret_key: form.secretEdited ? form.secret_key : '',
+      }),
+    onSuccess: (next: TurnstileConfigResponse) => {
+      qc.setQueryData(['admin', 'turnstile'], next);
+      toast.success(t('admin.settings.saved'));
+      setForm({
+        enabled: next.enabled,
+        site_key: next.site_key ?? '',
+        secret_key: next.secret_key_set ? '••••••••' : '',
+        secretEdited: false,
+        hadExistingSecret: next.secret_key_set,
+      });
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof ApiError ? e.message : (e as Error)?.message ?? '—';
+      toast.error(msg);
+    },
+  });
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    save.mutate();
+  }
+
+  if (isLoading || !data) {
+    return (
+      <Card>
+        <div className="flex items-center justify-center py-6">
+          <Spinner />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <Card>
+        <div className="mb-3 text-xs uppercase tracking-wider text-[--text-2]">
+          Turnstile
+        </div>
+
+        <label className="mb-4 flex items-center justify-between gap-3">
+          <span className="text-sm text-[--text-1]">Enabled</span>
+          <input
+            type="checkbox"
+            checked={form.enabled}
+            onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+          />
+        </label>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-[--text-2]">Site key</span>
+            <Input
+              inputSize="sm"
+              value={form.site_key}
+              onChange={(e) => setForm({ ...form, site_key: e.target.value })}
+              placeholder="0x4AAAAAAA…"
+              autoComplete="off"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-[--text-2]">Secret key</span>
+            {!form.secretEdited && form.hadExistingSecret ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="password"
+                  inputSize="sm"
+                  value="••••••••"
+                  className="flex-1"
+                  readOnly
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      secret_key: '',
+                      secretEdited: true,
+                    })
+                  }
+                >
+                  Change
+                </Button>
+              </div>
+            ) : form.secretEdited ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="password"
+                  inputSize="sm"
+                  value={form.secret_key}
+                  onChange={(e) =>
+                    setForm({ ...form, secret_key: e.target.value })
+                  }
+                  autoComplete="new-password"
+                  placeholder="0x4AAAAAAA…"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      secret_key: form.hadExistingSecret ? '••••••••' : '',
+                      secretEdited: false,
+                    })
+                  }
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Input
+                type="password"
+                inputSize="sm"
+                value={form.secret_key}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    secret_key: e.target.value,
+                    secretEdited: true,
+                  })
+                }
+                autoComplete="new-password"
+                placeholder="0x4AAAAAAA…"
+              />
+            )}
+          </label>
+        </div>
+
+        <div className="mt-4 flex items-center justify-end">
+          <Button type="submit" variant="primary" loading={save.isPending}>
+            {t('admin.settings.save')}
+          </Button>
+        </div>
+      </Card>
+    </form>
+  );
+}
+
+// ─── Upload limits card (#7 / #8) ────────────────────────────────────────
+
+interface UploadLimitsFormState {
+  simple_upload_max_bytes: number;
+  chunk_upload_max_bytes: number;
+  multi_total_max_bytes: number;
+  chunk_upload_enabled: boolean;
+}
+
+function bytesToReadable(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '0';
+  if (n >= 1024 * 1024 * 1024) {
+    return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+  if (n >= 1024 * 1024) {
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (n >= 1024) {
+    return `${(n / 1024).toFixed(1)} KB`;
+  }
+  return `${n} B`;
+}
+
+function UploadLimitsCard() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'uploads'],
+    queryFn: getAdminUploads,
+  });
+
+  const [form, setForm] = useState<UploadLimitsFormState>({
+    simple_upload_max_bytes: 0,
+    chunk_upload_max_bytes: 0,
+    multi_total_max_bytes: 0,
+    chunk_upload_enabled: true,
+  });
+
+  useEffect(() => {
+    if (!data) return;
+    setForm({
+      simple_upload_max_bytes: data.simple_upload_max_bytes,
+      chunk_upload_max_bytes: data.chunk_upload_max_bytes,
+      multi_total_max_bytes: data.multi_total_max_bytes,
+      chunk_upload_enabled: data.chunk_upload_enabled,
+    });
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: () => putAdminUploads(form),
+    onSuccess: (next: UploadLimitsResponse) => {
+      qc.setQueryData(['admin', 'uploads'], next);
+      toast.success(t('admin.settings.saved'));
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof ApiError ? e.message : (e as Error)?.message ?? '—';
+      toast.error(msg);
+    },
+  });
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    save.mutate();
+  }
+
+  if (isLoading || !data) {
+    return (
+      <Card>
+        <div className="flex items-center justify-center py-6">
+          <Spinner />
+        </div>
+      </Card>
+    );
+  }
+
+  const numberRow = (
+    label: string,
+    key: keyof Omit<UploadLimitsFormState, 'chunk_upload_enabled'>,
+  ) => (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="text-[--text-2]">{label}</span>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          inputSize="sm"
+          min={1}
+          value={String(form[key])}
+          onChange={(e) =>
+            setForm({ ...form, [key]: Number(e.target.value) || 0 })
+          }
+          className="flex-1 max-w-[240px]"
+        />
+        <span className="text-xs text-[--text-3]">
+          ≈ {bytesToReadable(form[key])}
+        </span>
+      </div>
+    </label>
+  );
+
+  return (
+    <form onSubmit={onSubmit}>
+      <Card>
+        <div className="mb-3 text-xs uppercase tracking-wider text-[--text-2]">
+          Upload limits
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          {numberRow('simple_upload_max_bytes', 'simple_upload_max_bytes')}
+          {numberRow('chunk_upload_max_bytes', 'chunk_upload_max_bytes')}
+          {numberRow('multi_total_max_bytes', 'multi_total_max_bytes')}
+        </div>
+
+        <label className="mt-4 flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <div className="text-sm text-[--text-1]">
+              Enable chunked upload (≥ 5MB files)
+            </div>
+            <div className="mt-1 text-xs text-[--text-muted]">
+              When off, the server rejects chunked init and the browser
+              refuses files at or above the simple upload limit.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={form.chunk_upload_enabled}
+            onChange={(e) =>
+              setForm({ ...form, chunk_upload_enabled: e.target.checked })
+            }
+          />
+        </label>
+
+        <div className="mt-4 flex items-center justify-end">
+          <Button type="submit" variant="primary" loading={save.isPending}>
+            {t('admin.settings.save')}
           </Button>
         </div>
       </Card>

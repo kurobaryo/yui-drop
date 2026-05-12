@@ -324,3 +324,59 @@ export async function postAdminStorage(
   const { data } = await api.post<StorageConfigResponse>('/admin/storage', body);
   return data;
 }
+
+// ── Turnstile config (admin) ──────────────────────────────────────────────
+export interface TurnstileConfigResponse {
+  enabled: boolean;
+  site_key: string;
+  secret_key_set: boolean;
+}
+
+export interface TurnstileConfigRequest {
+  enabled?: boolean;
+  site_key?: string;
+  // Empty string ⇒ keep existing on the server.
+  secret_key?: string;
+}
+
+export async function getAdminTurnstile(): Promise<TurnstileConfigResponse> {
+  const { data } = await api.get<TurnstileConfigResponse>('/admin/turnstile');
+  return data;
+}
+
+export async function putAdminTurnstile(
+  body: TurnstileConfigRequest,
+): Promise<TurnstileConfigResponse> {
+  const { data } = await api.put<TurnstileConfigResponse>(
+    '/admin/turnstile',
+    body,
+  );
+  return data;
+}
+
+// ── Upload limits (admin) ─────────────────────────────────────────────────
+export interface UploadLimitsResponse {
+  simple_upload_max_bytes: number;
+  chunk_upload_max_bytes: number;
+  multi_total_max_bytes: number;
+  chunk_upload_enabled: boolean;
+}
+
+export interface UploadLimitsRequest {
+  simple_upload_max_bytes?: number;
+  chunk_upload_max_bytes?: number;
+  multi_total_max_bytes?: number;
+  chunk_upload_enabled?: boolean;
+}
+
+export async function getAdminUploads(): Promise<UploadLimitsResponse> {
+  const { data } = await api.get<UploadLimitsResponse>('/admin/uploads');
+  return data;
+}
+
+export async function putAdminUploads(
+  body: UploadLimitsRequest,
+): Promise<UploadLimitsResponse> {
+  const { data } = await api.put<UploadLimitsResponse>('/admin/uploads', body);
+  return data;
+}
