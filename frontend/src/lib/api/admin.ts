@@ -160,6 +160,8 @@ export interface AdminSettingsResponse {
     max_upload_bytes: number;
     max_text_bytes: number;
     pickup_code_length: number;
+    /** G.3 toggle. Defaults to true on the backend when the kv row is absent. */
+    audit_log_access_ip: boolean;
   };
 }
 export async function getAdminSettings(): Promise<AdminSettingsResponse> {

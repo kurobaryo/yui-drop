@@ -4,8 +4,10 @@
     "tagline": "文件快递柜"
   },
   "hero": {
-    "badge": "🔒 安全加密 · 匿名",
+    "badge": "匿名 · 无需账号",
     "title": "文件快递柜",
+    "titleLine1": "丢入文件。",
+    "titleLine2": "取得取件码。",
     "subtitle": "快速分享"
   },
   "tabs": {
@@ -65,11 +67,12 @@
     "tooLong": "文本过长(上限 {{max}})。"
   },
   "recent": {
-    "title": "最近分享(本设备)",
+    "title": "我的最近分享 · 仅本设备",
     "empty": "暂无分享记录。",
-    "footnote": "仅记录本设备发起的分享。",
+    "footnote": "仅保存在本设备。",
     "expired": "已过期",
     "clear": "清空",
+    "viewAll": "查看全部",
     "code": "取件码",
     "kindFile": "文件",
     "kindText": "文字",
@@ -87,6 +90,8 @@
   },
   "footer": {
     "credit": "© {{year}} · 灵感来自 FileCodeBox",
+    "docs": "文档",
+    "github": "GitHub",
     "admin": "管理"
   },
   "theme": {
@@ -167,7 +172,35 @@
       "save": "保存",
       "cancel": "取消",
       "page": "第 {{page}} / {{total}} 页",
-      "empty": "暂无文件。"
+      "empty": "暂无文件。",
+      "drawer": {
+        "title": "分享详情",
+        "accessLog": "访问日志",
+        "noLog": "暂无访问记录。",
+        "actionCreate": "创建",
+        "actionRetrieve": "取件",
+        "close": "关闭",
+        "meta": {
+          "code": "取件码",
+          "name": "名称",
+          "size": "大小",
+          "kind": "类型",
+          "created": "创建时间",
+          "expires": "过期时间",
+          "usage": "已用 / 上限",
+          "status": "状态",
+          "storage": "存储后端",
+          "filePath": "文件路径 / 键",
+          "createdByIp": "创建来源 IP",
+          "createdByUa": "创建客户端 UA"
+        },
+        "col": {
+          "ts": "时间",
+          "action": "动作",
+          "ip": "IP",
+          "ua": "UA"
+        }
+      }
     },
     "logs": {
       "title": "访问日志",
@@ -196,7 +229,28 @@
       "confirmPassword": "确认新密码",
       "passwordMismatch": "两次密码不一致。",
       "save": "保存修改",
-      "saved": "已保存。"
+      "saved": "已保存。",
+      "audit": {
+        "title": "审计日志",
+        "logAccessIp": {
+          "label": "记录访问 IP",
+          "desc": "关闭后,分享访问日志将省略请求方 IP（UA 仍记录）。"
+        }
+      },
+      "storage": {
+        "title": "存储后端",
+        "local": "本地磁盘",
+        "s3": "S3 / R2 / MinIO",
+        "endpoint": "Endpoint URL",
+        "bucket": "存储桶",
+        "accessKey": "Access key ID",
+        "secretKey": "Secret access key",
+        "region": "区域",
+        "publicHostname": "公开主机名(可选)",
+        "save": "保存并测试连通性",
+        "savedNoMigrate": "存储已保存。已有的本地文件未迁移。",
+        "change": "修改"
+      }
     }
   },
   "notFound": {

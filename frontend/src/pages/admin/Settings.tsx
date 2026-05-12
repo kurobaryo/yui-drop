@@ -27,12 +27,14 @@ interface FormState {
   newPassword: string;
   confirmPassword: string;
   turnstileEnabled: boolean;
+  auditLogAccessIp: boolean;
 }
 
 const EMPTY: FormState = {
   newPassword: '',
   confirmPassword: '',
   turnstileEnabled: false,
+  auditLogAccessIp: true,
 };
 
 export default function AdminSettings() {
@@ -54,6 +56,7 @@ export default function AdminSettings() {
       newPassword: '',
       confirmPassword: '',
       turnstileEnabled: data.env.turnstile_enabled,
+      auditLogAccessIp: data.env.audit_log_access_ip ?? true,
     });
   }, [data]);
 
@@ -88,6 +91,10 @@ export default function AdminSettings() {
 
     if (form.turnstileEnabled !== data.env.turnstile_enabled) {
       updates.turnstile_enabled = form.turnstileEnabled;
+    }
+
+    if (form.auditLogAccessIp !== (data.env.audit_log_access_ip ?? true)) {
+      updates.audit_log_access_ip = form.auditLogAccessIp;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -202,6 +209,31 @@ export default function AdminSettings() {
               disabled={!canEnableTurnstile}
               onChange={(e) =>
                 setForm({ ...form, turnstileEnabled: e.target.checked })
+              }
+            />
+          </label>
+        </Card>
+
+        {/* ── Audit logging (G.3) ──────────────────────────────────── */}
+        <Card>
+          <div className="mb-2 text-xs uppercase tracking-wider text-[--text-2]">
+            {t('admin.settings.audit.title')}
+          </div>
+          <label className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="text-sm text-[--text-1]">
+                {t('admin.settings.audit.logAccessIp.label')}
+              </div>
+              <div className="mt-1 text-xs text-[--text-muted]">
+                {t('admin.settings.audit.logAccessIp.desc')}
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={form.auditLogAccessIp}
+              onChange={(e) =>
+                setForm({ ...form, auditLogAccessIp: e.target.checked })
               }
             />
           </label>
