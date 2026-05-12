@@ -31,14 +31,20 @@ export function MobileMenu({ c, palette, setPalette, mode, setMode, lang, setLan
     typeof document !== 'undefined' &&
     createPortal(
       <>
+        {/* Solid backdrop that fully covers the viewport including the iOS
+            safe-area; using a solid colour (not a transparent tint over the
+            paper) keeps the status-bar and home-indicator areas the same
+            colour as the modal vignette below. */}
         <div
           onClick={() => setOpen(false)}
           style={{
             position: 'fixed',
             inset: 0,
             zIndex: 9000,
-            background: `${c.ink}66`,
-            backdropFilter: 'blur(6px)',
+            background: c.ink,
+            opacity: 0.78,
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
             animation: 'yuiFade .2s ease-out',
           }}
         />
@@ -53,15 +59,15 @@ export function MobileMenu({ c, palette, setPalette, mode, setMode, lang, setLan
             transform: 'translate(-50%, -50%)',
             width: 'min(92vw, 420px)',
             background: c.paper,
-            padding: '22px 24px',
+            padding: '20px 22px',
             border: `1px solid ${c.soft}`,
-            borderRadius: 16,
-            boxShadow: `0 30px 80px ${c.ink}50`,
+            borderRadius: 18,
+            boxShadow: `0 30px 80px ${c.ink}80`,
             display: 'flex',
             flexDirection: 'column',
-            gap: 22,
+            gap: 18,
             animation: 'yuiPop .22s cubic-bezier(.22,.61,.36,1)',
-            maxHeight: '88vh',
+            maxHeight: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px)',
             overflowY: 'auto',
             color: c.ink,
             fontFamily: '"Noto Sans JP", "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif',
