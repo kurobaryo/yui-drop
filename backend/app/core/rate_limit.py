@@ -29,19 +29,31 @@ from .config import settings
 def real_client_ip(request: Request) -> str:
     """Resolve the originating client IP from a (possibly proxied) request.
 
-    Walks ``X-Forwarded-For`` right-to-left and returns the first entry that
-    parses as a valid IPv4/IPv6 address. Cloudflare's orange-cloud appends
-    its own edge IP at the end of XFF, so the rightmost-compliant value is
-    the closest hop we can trust. Falls back to ``X-Real-IP`` and finally to
-    ``request.client.host``.
+    Resolution order:
+
+    1. ``CF-Connecting-IP`` — Cloudflare populates this with the visitor IP
+       on every request that traverses the orange cloud. Single value, so
+       no walking is required, and intermediate proxies do not modify it.
+    2. ``X-Forwarded-For`` — left-to-right, returns the first entry that
+       parses as a valid IPv4/IPv6 address. The leftmost value is the
+       address closest to the original client; later entries are
+       successive proxy hops, so picking the rightmost would
+       systematically pick a downstream proxy IP rather than the visitor.
+    3. ``X-Real-IP`` — single-value fallback set by some reverse proxies.
+    4. The peer address of the immediate TCP connection.
 
     See :mod:`app.core.request_ip` for the audit-toggle-aware variant used
     when writing AccessLog rows.
     """
     # Local import to avoid a cycle (request_ip imports SettingsKV which
     # transitively pulls in db wiring; rate_limit is loaded earlier).
-    from .request_ip import _parse_xff
+    from .request_ip import _parse_single_ip, _parse_xff
 
+    cf = request.headers.get("cf-connecting-ip")
+    if cf:
+        parsed = _parse_single_ip(cf)
+        if parsed:
+            return parsed
     xff = request.headers.get("x-forwarded-for")
     if xff:
         parsed = _parse_xff(xff)
