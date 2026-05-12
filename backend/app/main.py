@@ -174,6 +174,21 @@ async def lifespan(app: FastAPI):
     await its cancellation so structured logs flush cleanly.
     """
     app.state.startup_time = datetime.now(tz=UTC)
+
+    # Prime the storage singleton from settings_kv so we pick up the admin-
+    # configured backend (e.g. S3/R2) instead of caching env-only defaults on
+    # the first request.
+    try:
+        from .db.session import get_db
+        from .storage.factory import reload_storage
+
+        async for _db in get_db():
+            await reload_storage(db=_db)
+            break
+        log.info("app.lifespan.storage_primed")
+    except Exception:
+        log.exception("app.lifespan.storage_prime_failed")
+
     sweeper_task = asyncio.create_task(sweeper_loop(), name="retention-sweeper")
     log.info("app.lifespan.start", started_at=app.state.startup_time.isoformat())
     try:
