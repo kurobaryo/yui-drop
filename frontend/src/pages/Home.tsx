@@ -40,10 +40,16 @@ export default function Home() {
           >
             <span>{t('hero.badge')}</span>
           </div>
-          <h1 className="mt-5 text-4xl font-bold tracking-tight">
+          <h1
+            className="mt-5 font-bold tracking-tight"
+            style={{ fontSize: 'clamp(2rem, 4.5vw, 4.5rem)', lineHeight: 1.1 }}
+          >
             <ShinyText>{t('hero.title')}</ShinyText>
           </h1>
-          <p className="mt-2 text-[--text-2]">
+          <p
+            className="mt-2 text-[--text-2]"
+            style={{ fontSize: 'clamp(1rem, 1.6vw, 1.5rem)', lineHeight: 1.4 }}
+          >
             <SplitText>{t('hero.subtitle')}</SplitText>
           </p>
         </section>
