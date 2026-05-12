@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Globe, Check } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { SUPPORTED_LANGS, type SupportedLang } from '@/i18n';
+import { normalizeLang } from '@/i18n/normalize';
 
 const LANG_LABELS: Record<SupportedLang, string> = {
   en: 'English',
@@ -15,19 +16,11 @@ const LANG_LABELS: Record<SupportedLang, string> = {
   ja: '日本語',
 };
 
-function normalize(code: string): SupportedLang {
-  // Strip region for matching ("zh" → "zh-CN", "en-US" → "en").
-  const base = code.split('-')[0]!;
-  if (code === 'zh-CN' || base === 'zh') return 'zh-CN';
-  if (base === 'ja') return 'ja';
-  return 'en';
-}
-
 export function LangSwitcher() {
   const { i18n, t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
-  const current = normalize(i18n.language || 'en');
+  const current = normalizeLang(i18n.language || 'en');
 
   // Close on outside click / Escape.
   useEffect(() => {
