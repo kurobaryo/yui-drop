@@ -30,6 +30,8 @@ from ..services.admin import (
     empty_recycle_bin,
     get_admin_settings,
     get_file,
+    get_file_by_code,
+    list_access_log_for_code,
     list_files,
     list_logs,
     patch_admin_settings,
@@ -37,6 +39,7 @@ from ..services.admin import (
     restore_file,
     verify_admin_password,
 )
+from ..services.admin_storage import read_storage_config, save_storage_config
 from ..services.common import ServiceError, record_access
 from .deps import require_admin
 
@@ -359,4 +362,93 @@ async def admin_patch_settings(
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET /api/admin/files/{code}         — single FileCode row by pickup code
+# GET /api/admin/files/{code}/access-log
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/files/{code}")
+async def admin_get_file_by_code(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    try:
+        out = await get_file_by_code(db, code)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+@router.get("/files/{code}/access-log")
+async def admin_file_access_log(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+    limit: int = Query(default=200, ge=1, le=500),
+) -> dict[str, Any]:
+    items = await list_access_log_for_code(db, code=code, limit=limit)
+    return ok({"items": items, "code": code})
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET  /api/admin/storage  — read current storage config (secret masked)
+# POST /api/admin/storage  — save + reload after ping
+# ────────────────────────────────────────────────────────────────────────────
+
+
+class S3ConfigRequest(BaseModel):
+    endpoint_url: str = ""
+    bucket_name: str = ""
+    access_key_id: str = ""
+    # None = keep existing encrypted value; "" = explicit empty (will 422).
+    secret_access_key: str | None = None
+    region: str = "auto"
+    public_hostname: str | None = None
+
+
+class StorageConfigRequest(BaseModel):
+    backend: str = Field(..., pattern="^(local|s3)$")
+    s3: S3ConfigRequest | None = None
+
+
+@router.get("/storage")
+async def admin_get_storage(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    out = await read_storage_config(db)
+    return ok(out)
+
+
+@router.post("/storage")
+async def admin_save_storage(
+    request: Request,
+    body: StorageConfigRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    try:
+        out = await save_storage_config(
+            db,
+            backend=body.backend,
+            s3=body.s3.model_dump() if body.s3 is not None else None,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await record_access(
+        db,
+        action=AccessLogAction.ADMIN_ACTION,
+        ip=real_client_ip(request),
+        ua=_ua(request),
+        extra={"event": "admin.storage.save", "backend": body.backend},
+    )
+    await db.commit()
     return ok(out)

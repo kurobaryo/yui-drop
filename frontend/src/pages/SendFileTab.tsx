@@ -29,28 +29,18 @@ import {
 import { ApiError } from '@/lib/api';
 import { usePublicConfig } from '@/lib/hooks/usePublicConfig';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
+import {
+  ExpiryPicker,
+  DEFAULT_EXPIRY,
+  toExpireRequest,
+  type ExpiryValue,
+} from '@/components/ui/ExpiryPicker';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { copyToClipboard } from '@/lib/clipboard';
 import { toast } from '@/components/ui/Toast';
 import { pushRecent } from '@/lib/recent';
 import { humanBytes, humanSpeed, humanDuration } from '@/lib/format';
-import type { ExpireStyle } from '@/lib/api/share';
 import { cn } from '@/lib/cn';
-
-interface ExpireChoice {
-  value: number;
-  style: ExpireStyle;
-  labelKey: string;
-}
-
-const EXPIRE_CHOICES: ExpireChoice[] = [
-  { value: 1, style: 'day', labelKey: 'sendFile.expireDay' },
-  { value: 1, style: 'week', labelKey: 'sendFile.expireWeek' },
-  { value: 1, style: 'month', labelKey: 'sendFile.expireMonth' },
-  { value: 5, style: 'count', labelKey: 'sendFile.expireCount' },
-  { value: 0, style: 'forever', labelKey: 'sendFile.expireForever' },
-];
 
 const DEFAULT_MAX_FILES = 50;
 
@@ -101,6 +91,7 @@ async function entryToFiles(entry: FsEntry): Promise<File[]> {
           () => resolve([]),
         );
       });
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const batch = await readBatch();
       if (!batch || batch.length === 0) break;
@@ -149,7 +140,7 @@ export default function SendFileTab() {
   const maxFiles = config.max_files_per_share ?? DEFAULT_MAX_FILES;
 
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [choiceIdx, setChoiceIdx] = useState(0);
+  const [expiry, setExpiry] = useState<ExpiryValue>(DEFAULT_EXPIRY);
   const [dragOver, setDragOver] = useState(false);
 
   const [uploading, setUploading] = useState(false);
@@ -240,7 +231,7 @@ export default function SendFileTab() {
       setError(valErr);
       return;
     }
-    const choice = EXPIRE_CHOICES[choiceIdx]!;
+    const exp = toExpireRequest(expiry);
     setUploading(true);
     setOverallProgress(0);
     setError(null);
@@ -253,8 +244,8 @@ export default function SendFileTab() {
 
     const handle = uploadFiles({
       files: filesSnapshot,
-      expireValue: choice.value,
-      expireStyle: choice.style,
+      expireValue: exp.expire_value,
+      expireStyle: exp.expire_style,
       storageBackend: (config.storage_backend ?? 'local') as StorageBackend,
       onFileProgress: (idx, f01) => {
         setQueue((prev) =>
@@ -538,20 +529,11 @@ export default function SendFileTab() {
       )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[--text-2]">{t('sendFile.expire')}</span>
-          <Select
-            value={choiceIdx}
-            onChange={(e) => setChoiceIdx(Number(e.target.value))}
-            disabled={uploading}
-          >
-            {EXPIRE_CHOICES.map((c, i) => (
-              <option key={i} value={i}>
-                {t(c.labelKey)}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <ExpiryPicker
+          value={expiry}
+          onChange={setExpiry}
+          disabled={uploading}
+        />
         <div className="flex items-end">
           {uploading ? (
             <Button variant="outline" size="md" onClick={cancel}>

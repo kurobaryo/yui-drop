@@ -293,7 +293,7 @@ export default function MultiViewer() {
   return (
     <>
       <Header />
-      <main className="mx-auto max-w-5xl px-4 md:px-6 py-6">
+      <main className="mx-auto max-w-6xl px-4 md:px-6 py-6">
         <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-[--border] pb-3">
           <div className="min-w-0 flex-1">
             <div className="font-mono text-[--text-2]">#{res.code}</div>

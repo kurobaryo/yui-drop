@@ -40,6 +40,47 @@ configure_logging()
 log = get_logger(__name__)
 
 
+# ── Startup guard: SECRETS_KEY ──────────────────────────────────────────────
+
+
+def _require_secrets_key_or_die() -> None:
+    """Refuse to start without a usable ``SECRETS_KEY``.
+
+    The key is needed any time the admin saves S3/R2 credentials through the
+    admin UI (we AES-GCM-encrypt the secret access key before writing it to
+    ``settings_kv``). We validate eagerly at startup so operators see a clear
+    error before the first request, regardless of which storage backend is
+    initially active — switching to S3 at runtime would otherwise fail with
+    a confusing decrypt error on the next admin save.
+    """
+    key_b64 = settings.secrets_key or ""
+    if not key_b64:
+        raise RuntimeError(
+            "SECRETS_KEY is empty. Generate one with "
+            "`python -c \"import secrets, base64; "
+            "print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())\"` "
+            "and set it in your environment."
+        )
+    # Light sanity check: the value must decode to 32 bytes. We do it here
+    # rather than in pydantic so the error path goes through configure_logging
+    # and shows up in structured logs.
+    import base64 as _b64
+    padded = key_b64 + "=" * (-len(key_b64) % 4)
+    try:
+        raw = _b64.urlsafe_b64decode(padded.encode())
+    except Exception as exc:
+        raise RuntimeError(
+            "SECRETS_KEY is not valid base64url. Re-generate it."
+        ) from exc
+    if len(raw) != 32:
+        raise RuntimeError(
+            f"SECRETS_KEY must decode to 32 bytes (got {len(raw)}). Re-generate it."
+        )
+
+
+_require_secrets_key_or_die()
+
+
 # ── Security headers middleware ─────────────────────────────────────────────
 
 

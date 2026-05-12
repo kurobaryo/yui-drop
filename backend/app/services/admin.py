@@ -233,6 +233,47 @@ async def get_file(db: AsyncSession, file_id: int) -> dict[str, Any]:
     return _row_summary(row, include_audit=True)
 
 
+async def get_file_by_code(db: AsyncSession, code: str) -> dict[str, Any]:
+    """Single FileCode row resolved by its pickup code (active row preferred)."""
+    res = await db.execute(
+        select(FileCode)
+        .where(FileCode.code == code)
+        .order_by(FileCode.deleted_at.is_(None).desc(), FileCode.id.desc())
+        .limit(1)
+    )
+    row = res.scalars().first()
+    if row is None:
+        raise NotFoundError("file_not_found")
+    out = _row_summary(row, include_audit=True)
+    # Surface a couple of extra fields useful for the admin drawer.
+    out["file_path"] = row.file_path
+    out["storage_backend"] = settings.storage_backend
+    return out
+
+
+async def list_access_log_for_code(
+    db: AsyncSession, *, code: str, limit: int = 200
+) -> list[dict[str, Any]]:
+    """Return up to ``limit`` AccessLog rows for ``code``, newest first."""
+    res = await db.execute(
+        select(AccessLog)
+        .where(AccessLog.code == code)
+        .order_by(AccessLog.ts.desc())
+        .limit(max(1, min(500, limit)))
+    )
+    rows = res.scalars().all()
+    return [
+        {
+            "ts": as_utc(r.ts).isoformat() if r.ts else None,
+            "action": r.action.value if isinstance(r.action, AccessLogAction) else r.action,
+            "ip": r.ip,
+            "ua": r.ua,
+            "status_code": r.status_code,
+        }
+        for r in rows
+    ]
+
+
 # ── File mutations ──────────────────────────────────────────────────────────
 
 
@@ -522,6 +563,12 @@ async def get_admin_settings(db: AsyncSession) -> dict[str, Any]:
     """Return settings_kv (minus secrets) plus a public env summary."""
     kv = await _kv_all(db)
     safe_kv = {k: v for k, v in kv.items() if k not in _REDACTED_SETTINGS_KEYS}
+    # storage.s3.secret_access_key is at-rest-encrypted; always mask it on the wire.
+    if "storage.s3.secret_access_key" in safe_kv and safe_kv["storage.s3.secret_access_key"]:
+        safe_kv["storage.s3.secret_access_key"] = "****"
+    # Default audit toggle = True when the row is absent.
+    audit_ip = kv.get("audit.log_access_ip")
+    audit_ip_on = True if audit_ip is None else bool(audit_ip)
     return {
         "kv": safe_kv,
         "env": {
@@ -534,6 +581,7 @@ async def get_admin_settings(db: AsyncSession) -> dict[str, Any]:
             "max_upload_bytes": settings.max_upload_bytes,
             "max_text_bytes": settings.max_text_bytes,
             "pickup_code_length": settings.pickup_code_length,
+            "audit_log_access_ip": audit_ip_on,
         },
     }
 

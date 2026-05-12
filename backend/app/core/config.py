@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     jwt_ttl_days: int = 30
+    # AES-256-GCM key for at-rest secrets in settings_kv. Base64url-encoded,
+    # must decode to exactly 32 bytes. Generate with:
+    #   python -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+    secrets_key: str = ""
 
     # ── Database ────────────────────────────────────────────────────────────
     database_url: str = "sqlite+aiosqlite:///./data/yui-drop.db"

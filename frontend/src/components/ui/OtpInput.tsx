@@ -178,8 +178,13 @@ export function OtpInput({
           onPaste={(e) => handlePaste(i, e)}
           onFocus={(e) => e.currentTarget.select()}
           aria-invalid={hasError || undefined}
+          style={{
+            width: 'clamp(2.75rem, 5vw, 3.75rem)',
+            height: 'clamp(2.75rem, 5vw, 3.75rem)',
+            fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)',
+          }}
           className={cn(
-            'h-12 w-10 md:h-14 md:w-12 text-center text-xl md:text-2xl font-mono',
+            'text-center font-mono',
             'rounded-md bg-[--bg-1] text-[--text-1]',
             'border border-[--border]',
             'transition-colors duration-150',

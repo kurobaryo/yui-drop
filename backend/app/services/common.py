@@ -114,11 +114,26 @@ async def record_access(
     status_code: int = 200,
     extra: dict[str, Any] | None = None,
 ) -> None:
-    """Append one AccessLog row. Caller is responsible for commit semantics."""
+    """Append one AccessLog row. Caller is responsible for commit semantics.
+
+    Honours the ``audit.log_access_ip`` admin toggle (default on): when the
+    toggle is off, ``ip`` is forced to ``None`` on the written row. UA is
+    always recorded.
+    """
+    masked_ip = ip
+    if masked_ip is not None:
+        # Read the toggle lazily — keep the helper cheap when the row is absent.
+        from ..core.request_ip import AUDIT_IP_KEY  # local import avoids a cycle
+        from ..models.settings_kv import SettingsKV
+
+        row_kv = await db.get(SettingsKV, AUDIT_IP_KEY)
+        if row_kv is not None and row_kv.value is False:
+            masked_ip = None
+
     row = AccessLog(
         action=action,
         code=code,
-        ip=ip,
+        ip=masked_ip,
         ua=ua,
         status_code=status_code,
         extra=extra,

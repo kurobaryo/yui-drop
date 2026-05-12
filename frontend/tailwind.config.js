@@ -10,13 +10,21 @@ export default {
     extend: {
       fontFamily: {
         sans: [
+          'Inter',
           '-apple-system',
           'BlinkMacSystemFont',
           '"Segoe UI"',
           'system-ui',
           'sans-serif',
         ],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+        mono: [
+          '"JetBrains Mono"',
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'monospace',
+        ],
       },
       fontSize: {
         xs: ['12px', { lineHeight: '1.5' }],
