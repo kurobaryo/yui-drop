@@ -248,6 +248,14 @@ def create_app() -> FastAPI:
     app.include_router(presign_api.router)
     app.include_router(admin_api.router)
 
+    # Short-link redirect. Sits *before* the SPA fallback so /s/{code} is
+    # answered with a 302 to /?code=… rather than falling through to
+    # index.html (which would also work via client routing — the redirect
+    # exists so the visible URL after the click matches what the SPA shows).
+    from .api import shortlink as shortlink_api  # noqa: E402 — local import
+
+    app.include_router(shortlink_api.router)
+
     # ── SPA fallback ────────────────────────────────────────────────────────
     # If a built frontend bundle sits next to the backend (``../../frontend-dist``
     # relative to this file), serve it: /assets via StaticFiles, every other

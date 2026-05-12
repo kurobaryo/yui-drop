@@ -299,8 +299,22 @@ export function WashiApp() {
           }}
         >
           <span style={{ display: 'flex', gap: 16, marginLeft: 'auto' }}>
-            <a style={{ color: c.sub, textDecoration: 'none' }}>{t('washi.docs')}</a>
-            <a style={{ color: c.sub, textDecoration: 'none' }}>GitHub</a>
+            <a
+              href="https://github.com/kurobaryo/yui-drop#readme"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: c.sub, textDecoration: 'none' }}
+            >
+              {t('washi.docs')}
+            </a>
+            <a
+              href="https://github.com/kurobaryo/yui-drop"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: c.sub, textDecoration: 'none' }}
+            >
+              GitHub
+            </a>
             <a href="/admin" style={{ color: c.sub, textDecoration: 'none' }}>
               {t('washi.admin')}
             </a>

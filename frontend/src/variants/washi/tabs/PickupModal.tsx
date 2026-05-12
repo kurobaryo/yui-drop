@@ -24,13 +24,30 @@ export interface PickupModalProps {
 
 type Classified = 'image' | 'pdf' | 'video' | 'audio' | 'text' | 'other';
 
+// MIME types we treat as text even though their primary type isn't ``text/``.
+// Keeps the in-modal <pre> preview working for the common code/config formats
+// that servers usually label as ``application/*``.
+const TEXT_LIKE_MIMES = new Set<string>([
+  'application/json',
+  'application/yaml',
+  'application/x-yaml',
+  'application/xml',
+  'text/xml',
+  'application/javascript',
+  'text/javascript',
+  'application/typescript',
+  'text/csv',
+]);
+
 function classify(ct: string | null | undefined): Classified {
   if (!ct) return 'other';
-  if (ct.startsWith('image/')) return 'image';
-  if (ct === 'application/pdf') return 'pdf';
-  if (ct.startsWith('video/')) return 'video';
-  if (ct.startsWith('audio/')) return 'audio';
-  if (ct.startsWith('text/')) return 'text';
+  const lc = ct.split(';')[0]!.trim().toLowerCase();
+  if (lc.startsWith('image/')) return 'image';
+  if (lc === 'application/pdf') return 'pdf';
+  if (lc.startsWith('video/')) return 'video';
+  if (lc.startsWith('audio/')) return 'audio';
+  if (lc.startsWith('text/')) return 'text';
+  if (TEXT_LIKE_MIMES.has(lc)) return 'text';
   return 'other';
 }
 
@@ -270,11 +287,13 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
           ) : isPdf && item.url ? (
             <iframe
               src={item.url}
-              title={name}
+              title={name || t('washi.preview_pdf')}
               style={{
+                display: 'block',
                 width: '100%',
-                height: 480,
-                border: 'none',
+                height: 'min(80vh, 800px)',
+                border: `1px solid ${c.soft}`,
+                borderRadius: 12,
                 background: c.paper,
               }}
             />
