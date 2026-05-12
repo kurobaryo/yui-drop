@@ -1,11 +1,19 @@
 """Parse the requesting client IP, honouring an admin-controlled audit toggle.
 
 Rules:
-* If ``X-Forwarded-For`` is present, walk it right-to-left and return the
-  first entry that parses as a valid IPv4/IPv6 address. Cloudflare's
-  orange-cloud appends its own edge IP at the end, so picking the
-  rightmost-compliant value gives us the closest hop we can trust.
-* If no XFF header (or every candidate fails to parse), fall back to
+* If the ``CF-Connecting-IP`` header is present and parses as a valid
+  IPv4/IPv6 address, return it. Cloudflare populates this header with the
+  original visitor IP on every request that traverses the orange cloud,
+  and unlike ``X-Forwarded-For`` it is not appended-to by intermediate
+  proxies — so it survives any number of nginx hops without further
+  walking.
+* Otherwise, if ``X-Forwarded-For`` is present, walk it left-to-right and
+  return the first entry that parses as a valid address. The leftmost
+  value is the address closest to the original client; later entries
+  are proxy hops added by each layer (CF edge → our nginx → docker), so
+  picking the rightmost would systematically pick the closest proxy
+  rather than the visitor.
+* If neither header yields a usable value, fall back to
   ``request.client.host``.
 * If the admin has set ``settings_kv['audit.log_access_ip'] = false``, return
   ``None`` instead of the parsed IP. The AccessLog row is still written
@@ -72,8 +80,15 @@ def coerce_bool(value: Any, *, default: bool = True) -> bool:
 
 
 def _parse_xff(raw: str) -> str | None:
-    """Return the rightmost valid IP in a comma-separated XFF header, or None."""
-    for candidate in reversed([c.strip() for c in raw.split(",")]):
+    """Return the leftmost valid IP in a comma-separated XFF header, or None.
+
+    The leftmost value is the address closest to the original client.
+    Each proxy hop on the request path appends its own perceived peer
+    address to the right, so walking left-to-right and returning the
+    first parseable entry skips garbage tokens while still surfacing
+    the visitor IP rather than a downstream proxy hop.
+    """
+    for candidate in [c.strip() for c in raw.split(",")]:
         if not candidate:
             continue
         try:
@@ -84,8 +99,31 @@ def _parse_xff(raw: str) -> str | None:
     return None
 
 
+def _parse_single_ip(raw: str) -> str | None:
+    """Return ``raw`` stripped if it parses as a valid IP, else ``None``."""
+    candidate = raw.strip()
+    if not candidate:
+        return None
+    try:
+        ipaddress.ip_address(candidate)
+        return candidate
+    except ValueError:
+        return None
+
+
 def _raw_client_ip(request: Request) -> str | None:
-    """Return the rightmost-compliant XFF IP, or request.client.host as fallback."""
+    """Resolve the originating client IP from headers, with CF preference.
+
+    Resolution order:
+        1. ``CF-Connecting-IP`` — Cloudflare's single-value visitor header.
+        2. Leftmost valid entry in ``X-Forwarded-For``.
+        3. ``request.client.host``.
+    """
+    cf = request.headers.get("CF-Connecting-IP")
+    if cf:
+        parsed = _parse_single_ip(cf)
+        if parsed:
+            return parsed
     raw = request.headers.get("X-Forwarded-For")
     if raw:
         parsed = _parse_xff(raw)
@@ -123,6 +161,7 @@ __all__ = [
     "client_ip",
     "coerce_bool",
     "_parse_xff",
+    "_parse_single_ip",
     "_raw_client_ip",
     "_audit_toggle_enabled",
     "AUDIT_IP_KEY",
