@@ -40,6 +40,37 @@ export function ThemeSwitcher() {
 
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const closeTimer = useRef<number | null>(null);
+
+  function openNow() {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setOpen(true);
+  }
+
+  function scheduleClose() {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+    }
+    // 200ms grace period: lets the cursor cross the gap between the
+    // collapsed capsule and the expanded popover without the menu vanishing.
+    closeTimer.current = window.setTimeout(() => {
+      setOpen(false);
+      closeTimer.current = null;
+    }, 200);
+  }
+
+  // Clear any pending close timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current !== null) {
+        clearTimeout(closeTimer.current);
+        closeTimer.current = null;
+      }
+    };
+  }, []);
 
   // Close on outside click / Escape.
   useEffect(() => {
@@ -67,8 +98,8 @@ export function ThemeSwitcher() {
     <div
       ref={wrapRef}
       className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={openNow}
+      onMouseLeave={scheduleClose}
     >
       {/* Collapsed capsule: 56×24, accent dot + mode icon. */}
       <button
