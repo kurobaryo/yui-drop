@@ -340,7 +340,10 @@
     "of": "of",
     "remaining": "left",
     "tagBrand": "FILE LOCKER",
-    "stampSubtitle": "FILE LOCKER"
+    "stampSubtitle": "FILE LOCKER",
+    "preview_pdf": "PDF preview",
+    "copy_link": "Copy link",
+    "loading": "Loading…"
   },
   "common": {
     "copy": "Copy",

@@ -14,6 +14,8 @@ import { fmtSize, expiryShort } from '../utils';
 export function Recent({ c }: { c: WashiColors }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<RecentEntry[]>([]);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = () => setItems(loadRecent());
@@ -38,6 +40,22 @@ export function Recent({ c }: { c: WashiColors }) {
 
   const onCopy = (code: string) => {
     void navigator.clipboard?.writeText(code);
+    setCopiedCode(code);
+    window.setTimeout(() => {
+      setCopiedCode((cur) => (cur === code ? null : cur));
+    }, 1500);
+  };
+
+  const onCopyLink = (code: string) => {
+    const origin =
+      typeof window !== 'undefined' && window.location
+        ? window.location.origin
+        : '';
+    void navigator.clipboard?.writeText(`${origin}/s/${code}`);
+    setCopiedLink(code);
+    window.setTimeout(() => {
+      setCopiedLink((cur) => (cur === code ? null : cur));
+    }, 1500);
   };
 
   return (
@@ -151,13 +169,35 @@ export function Recent({ c }: { c: WashiColors }) {
                   background: 'transparent',
                   border: `1px solid ${c.soft}`,
                   borderRadius: 4,
-                  color: c.sub,
+                  color: copiedCode === item.code ? c.accent : c.sub,
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                   fontSize: 11,
+                  whiteSpace: 'nowrap',
                 }}
               >
-                ⎘ {t('washi.copy')}
+                {copiedCode === item.code
+                  ? '✓ ' + t('washi.copied')
+                  : '⎘ ' + t('washi.copy')}
+              </button>
+              <button
+                data-yui="recent-copy"
+                onClick={() => onCopyLink(item.code)}
+                style={{
+                  padding: '6px 10px',
+                  background: 'transparent',
+                  border: `1px solid ${c.soft}`,
+                  borderRadius: 4,
+                  color: copiedLink === item.code ? c.accent : c.sub,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: 11,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {copiedLink === item.code
+                  ? '✓ ' + t('washi.copied')
+                  : '⎘ ' + t('washi.copy_link')}
               </button>
             </div>
           );

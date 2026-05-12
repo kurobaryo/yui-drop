@@ -24,13 +24,30 @@ export interface PickupModalProps {
 
 type Classified = 'image' | 'pdf' | 'video' | 'audio' | 'text' | 'other';
 
+// MIME types we treat as text even though their primary type isn't ``text/``.
+// Keeps the in-modal <pre> preview working for the common code/config formats
+// that servers usually label as ``application/*``.
+const TEXT_LIKE_MIMES = new Set<string>([
+  'application/json',
+  'application/yaml',
+  'application/x-yaml',
+  'application/xml',
+  'text/xml',
+  'application/javascript',
+  'text/javascript',
+  'application/typescript',
+  'text/csv',
+]);
+
 function classify(ct: string | null | undefined): Classified {
   if (!ct) return 'other';
-  if (ct.startsWith('image/')) return 'image';
-  if (ct === 'application/pdf') return 'pdf';
-  if (ct.startsWith('video/')) return 'video';
-  if (ct.startsWith('audio/')) return 'audio';
-  if (ct.startsWith('text/')) return 'text';
+  const lc = ct.split(';')[0]!.trim().toLowerCase();
+  if (lc.startsWith('image/')) return 'image';
+  if (lc === 'application/pdf') return 'pdf';
+  if (lc.startsWith('video/')) return 'video';
+  if (lc.startsWith('audio/')) return 'audio';
+  if (lc.startsWith('text/')) return 'text';
+  if (TEXT_LIKE_MIMES.has(lc)) return 'text';
   return 'other';
 }
 
@@ -55,6 +72,10 @@ function expiresLabel(expiredAt: string | null | undefined): string {
 export function PickupModal({ c, item, onClose }: PickupModalProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [pdfLoaded, setPdfLoaded] = useState(false);
+  const [textLoading, setTextLoading] = useState(false);
   const [textBody, setTextBody] = useState<string | null>(
     item.kind === 'text' ? item.text ?? '' : null,
   );
@@ -79,6 +100,7 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
     if (!item.url) return;
     if (classify(item.content_type) !== 'text') return;
     let cancelled = false;
+    setTextLoading(true);
     fetch(item.url)
       .then((r) => r.text())
       .then((body) => {
@@ -86,6 +108,9 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
       })
       .catch(() => {
         if (!cancelled) setTextBody(null);
+      })
+      .finally(() => {
+        if (!cancelled) setTextLoading(false);
       });
     return () => {
       cancelled = true;
@@ -113,6 +138,26 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
     }
   };
 
+  const copyShareLink = async () => {
+    try {
+      const origin =
+        typeof window !== 'undefined' && window.location
+          ? window.location.origin
+          : '';
+      await navigator.clipboard?.writeText(`${origin}/s/${item.code}`);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const skeletonStyle = {
+    background: c.soft,
+    borderRadius: 8,
+    animation: 'pulse 1.4s ease-in-out infinite',
+  } as const;
+
   const totalSize =
     item.kind === 'multi'
       ? item.total_size ?? 0
@@ -135,7 +180,7 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
       onClick={onClose}
       data-yui="modal-shell"
     >
-      <style>{`@keyframes yui-pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}`}</style>
+      <style>{`@keyframes yui-pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}} @keyframes pulse{0%,100%{opacity:.5}50%{opacity:.9}}`}</style>
       <div
         onClick={(e) => e.stopPropagation()}
         data-yui="modal-card"
@@ -239,45 +284,86 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
                 background: `repeating-conic-gradient(${c.ink}08 0% 25%, transparent 0% 50%) 50%/16px 16px`,
               }}
             >
-              <img
-                src={item.url}
-                alt={name}
+              <div style={{ position: 'relative', width: '100%', maxWidth: 560 }}>
+                {!imageLoaded && (
+                  <div style={{ ...skeletonStyle, width: '100%', height: 240 }} />
+                )}
+                <img
+                  src={item.url}
+                  alt={name}
+                  onLoad={() => setImageLoaded(true)}
+                  style={{
+                    display: imageLoaded ? 'block' : 'none',
+                    margin: '0 auto',
+                    maxWidth: '100%',
+                    maxHeight: 380,
+                    borderRadius: 8,
+                    boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+                  }}
+                />
+              </div>
+            </div>
+          ) : isText ? (
+            textLoading && textBody == null ? (
+              <div
                 style={{
-                  maxWidth: '100%',
+                  padding: '20px 24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                {[95, 80, 90, 70, 85, 60, 75].map((w, i) => (
+                  <div
+                    key={i}
+                    style={{ ...skeletonStyle, height: 14, width: `${w}%` }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <pre
+                style={{
+                  margin: 0,
+                  padding: '20px 24px',
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontSize: 12.5,
+                  lineHeight: 1.7,
+                  color: c.ink,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
                   maxHeight: 380,
-                  borderRadius: 8,
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+                  overflow: 'auto',
+                }}
+              >
+                {textBody ?? ''}
+              </pre>
+            )
+          ) : isPdf && item.url ? (
+            <div style={{ position: 'relative', width: '100%' }}>
+              {!pdfLoaded && (
+                <div
+                  style={{
+                    ...skeletonStyle,
+                    width: '100%',
+                    height: 'min(80vh, 800px)',
+                    borderRadius: 12,
+                  }}
+                />
+              )}
+              <iframe
+                src={item.url}
+                title={name || t('washi.preview_pdf')}
+                onLoad={() => setPdfLoaded(true)}
+                style={{
+                  display: pdfLoaded ? 'block' : 'none',
+                  width: '100%',
+                  height: 'min(80vh, 800px)',
+                  border: `1px solid ${c.soft}`,
+                  borderRadius: 12,
+                  background: c.paper,
                 }}
               />
             </div>
-          ) : isText ? (
-            <pre
-              style={{
-                margin: 0,
-                padding: '20px 24px',
-                fontFamily: '"JetBrains Mono", monospace',
-                fontSize: 12.5,
-                lineHeight: 1.7,
-                color: c.ink,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                maxHeight: 380,
-                overflow: 'auto',
-              }}
-            >
-              {textBody ?? ''}
-            </pre>
-          ) : isPdf && item.url ? (
-            <iframe
-              src={item.url}
-              title={name}
-              style={{
-                width: '100%',
-                height: 480,
-                border: 'none',
-                background: c.paper,
-              }}
-            />
           ) : isVideo && item.url ? (
             <video src={item.url} controls style={{ width: '100%', maxHeight: 480, background: 'black' }} />
           ) : isAudio && item.url ? (
@@ -434,25 +520,43 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
               )}
             </>
           ) : item.kind === 'file' && item.url ? (
-            <a
-              href={item.url}
-              download={item.name ?? undefined}
-              style={{
-                padding: '10px 22px',
-                background: c.accent,
-                color: c.paper,
-                border: 'none',
-                borderRadius: 999,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontWeight: 600,
-                fontSize: 14,
-                boxShadow: `0 6px 16px ${c.accent}40`,
-                textDecoration: 'none',
-              }}
-            >
-              ↓  {t('washi.tabPickup')}
-            </a>
+            <>
+              <button
+                type="button"
+                onClick={copyShareLink}
+                style={{
+                  padding: '10px 16px',
+                  background: 'transparent',
+                  color: c.ink,
+                  border: `1px solid ${c.soft}`,
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: 13,
+                }}
+              >
+                {linkCopied ? '✓ ' + t('washi.copied') : '⎘  ' + t('washi.copy_link')}
+              </button>
+              <a
+                href={item.url}
+                download={item.name ?? undefined}
+                style={{
+                  padding: '10px 22px',
+                  background: c.accent,
+                  color: c.paper,
+                  border: 'none',
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  boxShadow: `0 6px 16px ${c.accent}40`,
+                  textDecoration: 'none',
+                }}
+              >
+                ↓  {t('washi.tabPickup')}
+              </a>
+            </>
           ) : null}
         </div>
       </div>

@@ -339,7 +339,10 @@
     "of": "/",
     "remaining": "剩余",
     "tagBrand": "文件快递柜",
-    "stampSubtitle": "文件 快递柜"
+    "stampSubtitle": "文件 快递柜",
+    "preview_pdf": "PDF 预览",
+    "copy_link": "复制链接",
+    "loading": "加载中…"
   },
   "common": {
     "copy": "复制",

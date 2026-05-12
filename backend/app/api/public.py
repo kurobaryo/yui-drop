@@ -67,3 +67,24 @@ async def public_config() -> dict[str, Any]:
             ),
         }
     )
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET /api/config/upload — public, read-only upload limits.
+#
+# Exposes the four knobs the SPA needs to choose between simple / chunked /
+# presigned strategies (#7 + #8). These are NOT secrets: the same numbers
+# would be revealed indirectly by a single rejected upload, so giving the
+# UI a way to fail fast is a strict win.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/config/upload")
+async def public_upload_config(
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Return the admin-tunable upload limits + chunked-upload switch."""
+    from ..services.admin_uploads import resolve_upload_limits
+
+    out = await resolve_upload_limits(db)
+    return ok(out)

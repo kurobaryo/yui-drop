@@ -76,12 +76,30 @@ async def init_chunk_upload(
     ip: str | None,
     ua: str | None,
 ) -> dict[str, Any]:
+    # Admin-tunable: chunked-upload kill switch + total-bytes cap. Local
+    # import to avoid a circular dependency on the services package.
+    from .admin_uploads import resolve_upload_limits
+
+    _limits = await resolve_upload_limits(db)
+    if not _limits["chunk_upload_enabled"]:
+        raise ServiceError(
+            "chunk_upload_disabled",
+            code=4030,
+            http_status=403,
+            detail={"message": "chunk upload disabled"},
+        )
+    chunk_cap = int(_limits["chunk_upload_max_bytes"])
+    if file_size > chunk_cap:
+        raise ServiceError(
+            "file_too_large", code=4133, http_status=413,
+            detail={"max_bytes": chunk_cap},
+        )
     if file_size > settings.max_upload_bytes:
         raise ServiceError(
             "file_too_large", code=4133, http_status=413,
             detail={"max_bytes": settings.max_upload_bytes},
         )
-    if chunk_size <= 0 or chunk_size > settings.max_upload_bytes:
+    if chunk_size <= 0 or chunk_size > chunk_cap:
         raise ServiceError("invalid_chunk_size", code=4002, http_status=400)
 
     total_chunks = max(1, (file_size + chunk_size - 1) // chunk_size) if file_size > 0 else 1
