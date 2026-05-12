@@ -69,9 +69,9 @@ class Settings(BaseSettings):
 
     # ── Limits & rate limiting ─────────────────────────────────────────────
     pickup_code_length: int = Field(default=6, ge=5, le=8)
-    rate_limit_upload_per_min: int = 5
-    rate_limit_upload_per_hour: int = 30
-    rate_limit_upload_per_day: int = 200
+    rate_limit_upload_per_min: int = 30
+    rate_limit_upload_per_hour: int = 300
+    rate_limit_upload_per_day: int = 2000
     rate_limit_retrieve_fails_per_hour: int = 20
     retrieve_ban_duration_min: int = 60
     rate_limit_login_per_5min: int = 10
