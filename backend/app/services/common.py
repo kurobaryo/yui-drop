@@ -123,11 +123,16 @@ async def record_access(
     masked_ip = ip
     if masked_ip is not None:
         # Read the toggle lazily — keep the helper cheap when the row is absent.
-        from ..core.request_ip import AUDIT_IP_KEY  # local import avoids a cycle
+        # Local imports avoid a circular dependency through the model layer.
+        from ..core.request_ip import AUDIT_IP_KEY, coerce_bool
         from ..models.settings_kv import SettingsKV
 
         row_kv = await db.get(SettingsKV, AUDIT_IP_KEY)
-        if row_kv is not None and row_kv.value is False:
+        if row_kv is not None and not coerce_bool(row_kv.value, default=True):
+            # Toggle is explicitly off — drop the IP. ``coerce_bool`` accepts
+            # both native booleans and the historical string representations
+            # ("true"/"false"/"1"/"0") so that any prior write format keeps
+            # working after the fix.
             masked_ip = None
 
     row = AccessLog(
