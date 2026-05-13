@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 from ..db.session import get_db
 from ..schemas import ok
+from ..services.admin_turnstile import resolve_turnstile_config
 from ..storage.factory import resolve_storage_config
 
 router = APIRouter(prefix="/api", tags=["public"])
@@ -49,6 +50,15 @@ async def public_config(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     env-only ``settings.storage_backend`` would lie until the next restart.
     """
     storage_cfg = await resolve_storage_config(db)
+    ts_cfg = await resolve_turnstile_config(db)
+    # Mirror the existing site-key emission rule: only advertise the turnstile
+    # surface when all three pieces (toggle on, public site key, server-side
+    # secret) are in hand. Otherwise the SPA can't render the widget anyway,
+    # so emit ``False`` for the per-action flags and let the frontend skip
+    # both the widget and the token plumbing.
+    ts_fully_configured = bool(
+        ts_cfg.get("enabled") and ts_cfg.get("site_key") and ts_cfg.get("secret_key")
+    )
     return ok(
         {
             "appName": settings.app_name,
@@ -71,6 +81,15 @@ async def public_config(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
                 settings.turnstile_site_key
                 if (settings.turnstile_site_key and settings.turnstile_secret_key)
                 else None
+            ),
+            # Per-action gating advertised to the SPA. When turnstile is not
+            # fully configured we surface ``False`` so the frontend skips the
+            # widget instead of rendering a broken challenge.
+            "turnstileProtectUpload": (
+                bool(ts_cfg.get("protect_upload")) if ts_fully_configured else False
+            ),
+            "turnstileProtectPickup": (
+                bool(ts_cfg.get("protect_pickup")) if ts_fully_configured else False
             ),
         }
     )
