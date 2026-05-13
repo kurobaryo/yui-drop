@@ -48,7 +48,6 @@ export function Pickup({
   const [state, setState] = useState<PickupState>('idle');
   const [item, setItem] = useState<ShareSelectResponse | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileWidgetHandle | null>(null);
   const lastSubmitted = useRef<string>('');
 
@@ -58,22 +57,37 @@ export function Pickup({
   );
 
   const resetTurnstile = () => {
-    setTurnstileToken(null);
     turnstileRef.current?.reset();
   };
 
   const submit = async (code: string) => {
     if (code.length !== 6) return;
     if (lastSubmitted.current === code && state === 'loading') return;
-    if (turnstileGated && !turnstileToken) {
-      toast.error(t('turnstile.required'));
-      return;
-    }
     lastSubmitted.current = code;
     setState('loading');
     setErrMsg(null);
+
+    // Resolve a Turnstile token at submit time (invisible-on-submit mode).
+    let resolvedToken: string | undefined;
+    if (turnstileGated) {
+      try {
+        resolvedToken = await turnstileRef.current?.executeAndWaitForToken();
+      } catch {
+        toast.error(t('turnstile.required'));
+        setErrMsg(t('turnstile.required'));
+        setState('error');
+        return;
+      }
+      if (!resolvedToken) {
+        toast.error(t('turnstile.required'));
+        setErrMsg(t('turnstile.required'));
+        setState('error');
+        return;
+      }
+    }
+
     try {
-      const res = await shareSelect(code, turnstileToken);
+      const res = await shareSelect(code, resolvedToken ?? null);
       pushRecent({
         code: res.code,
         kind: res.kind,
@@ -108,9 +122,9 @@ export function Pickup({
   };
 
   const cin = useCodeInput(6, (val) => {
-    // Auto-submit only fires when no Turnstile gate is in the way. Otherwise
-    // the user has to press the button after solving the challenge.
-    if (turnstileGated && !turnstileToken) return;
+    // Auto-submit when 6th digit is typed. With invisible-on-submit Turnstile
+    // the challenge will fire inside submit() and award a token (silently on
+    // trusted IPs, with a popup on suspicious ones).
     void submit(val);
   });
 
@@ -122,7 +136,7 @@ export function Pickup({
     const clean = prefillCode.replace(/[^0-9]/g, '').slice(0, 6);
     if (clean.length !== 6) return;
     cin.setValue(clean);
-    if (autoSubmitOnPrefill && (!turnstileGated || !!turnstileToken)) {
+    if (autoSubmitOnPrefill) {
       void submit(clean);
     }
     onPrefillConsumed?.();
@@ -130,8 +144,7 @@ export function Pickup({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillCode]);
 
-  const canSubmit =
-    cin.complete && state !== 'loading' && (!turnstileGated || !!turnstileToken);
+  const canSubmit = cin.complete && state !== 'loading';
 
   return (
     <div>
@@ -221,13 +234,15 @@ export function Pickup({
         </button>
       </div>
       {turnstileGated && config.turnstileSiteKey && (
-        <div style={{ marginTop: 14 }}>
+        /* Invisible widget; challenge fires on submit, not on mount. */
+        <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
           <TurnstileWidget
             ref={turnstileRef}
+            mode="invisible-on-submit"
             siteKey={config.turnstileSiteKey}
-            onVerify={(token) => setTurnstileToken(token)}
-            onExpire={() => setTurnstileToken(null)}
-            onError={() => setTurnstileToken(null)}
+              onVerify={() => {}}
+              onExpire={() => {}}
+              onError={() => {}}
           />
         </div>
       )}

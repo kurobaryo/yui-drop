@@ -35,7 +35,6 @@ export function SendText({ c }: { c: WashiColors }) {
   const [code, setCode] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileWidgetHandle | null>(null);
 
   const turnstileGated = Boolean(
@@ -44,25 +43,38 @@ export function SendText({ c }: { c: WashiColors }) {
   );
 
   const resetTurnstile = () => {
-    setTurnstileToken(null);
     turnstileRef.current?.reset();
   };
 
   const submit = async () => {
     if (!text || submitting) return;
-    if (turnstileGated && !turnstileToken) {
-      toast.error(t('turnstile.required'));
-      return;
-    }
     const { expire_value, expire_style } = expiryToApi(expiry);
     setSubmitting(true);
     setError(null);
+
+    // Resolve a Turnstile token at submit time (invisible-on-submit mode).
+    let resolvedToken: string | undefined;
+    if (turnstileGated) {
+      try {
+        resolvedToken = await turnstileRef.current?.executeAndWaitForToken();
+      } catch {
+        toast.error(t('turnstile.required'));
+        setSubmitting(false);
+        return;
+      }
+      if (!resolvedToken) {
+        toast.error(t('turnstile.required'));
+        setSubmitting(false);
+        return;
+      }
+    }
+
     try {
       const res = await shareText({
         text,
         expire_value,
         expire_style,
-        ...(turnstileToken ? { turnstile_token: turnstileToken } : {}),
+        ...(resolvedToken ? { turnstile_token: resolvedToken } : {}),
       });
       pushRecent({
         code: res.code,
@@ -105,7 +117,7 @@ export function SendText({ c }: { c: WashiColors }) {
     );
   }
 
-  const canSubmit = !!text && !submitting && (!turnstileGated || !!turnstileToken);
+  const canSubmit = !!text && !submitting;
 
   return (
     <div
@@ -158,13 +170,15 @@ export function SendText({ c }: { c: WashiColors }) {
       <div>
         <Expiry c={c} expiry={expiry} setExpiry={setExpiry} />
         {turnstileGated && config.turnstileSiteKey && (
-          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+          /* Invisible widget; challenge fires on submit, not on mount. */
+          <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
             <TurnstileWidget
               ref={turnstileRef}
+              mode="invisible-on-submit"
               siteKey={config.turnstileSiteKey}
-              onVerify={(token) => setTurnstileToken(token)}
-              onExpire={() => setTurnstileToken(null)}
-              onError={() => setTurnstileToken(null)}
+              onVerify={() => {}}
+              onExpire={() => {}}
+              onError={() => {}}
             />
           </div>
         )}
