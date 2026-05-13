@@ -16,6 +16,11 @@ class ShareTextRequest(BaseModel):
     text: str = Field(..., min_length=1)
     expire_value: int = Field(default=1, ge=1)
     expire_style: ExpireStyle = "day"
+    # Cloudflare Turnstile cf-turnstile-response token. Optional on the wire
+    # so legacy clients keep working when the admin has the upload gate off;
+    # the route checks the toggle and rejects with 4003 when the gate is on
+    # and the token is missing/invalid.
+    turnstile_token: str | None = None
 
 
 class ShareTextResponse(BaseModel):
@@ -39,6 +44,8 @@ class ShareSelectRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: str = Field(..., min_length=5, max_length=8)
+    # Cloudflare Turnstile token for the pickup gate — see ShareTextRequest.
+    turnstile_token: str | None = None
 
 
 class ShareFileItem(BaseModel):
