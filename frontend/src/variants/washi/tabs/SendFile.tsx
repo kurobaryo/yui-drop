@@ -9,8 +9,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { shareFileMultipart } from '@/lib/api/share';
-import { uploadFiles, type StorageBackend } from '@/lib/uploader';
+import { uploadFile, uploadFiles, type StorageBackend } from '@/lib/uploader';
 import { ApiError } from '@/lib/api';
 import { pushRecent } from '@/lib/recent';
 import { usePublicConfig } from '@/lib/hooks/usePublicConfig';
@@ -80,16 +79,20 @@ export function SendFile({ c }: SendFileProps) {
     try {
       if (files.length === 1) {
         const f = files[0]!;
-        const res = await shareFileMultipart(
-          f,
-          expire_value,
-          expire_style,
-          (loaded, total) => {
-            setProgress(total > 0 ? (loaded / total) * 100 : 0);
-          },
-          undefined,
-          turnstileToken,
-        );
+        // Route through the strategy picker so files above the simple-upload
+        // threshold use R2 presigned direct upload (or server-proxied chunked
+        // when the backend isn't S3). A single oversized multipart POST would
+        // either time out at the reverse proxy or never report progress.
+        const handle = uploadFile({
+          file: f,
+          expireValue: expire_value,
+          expireStyle: expire_style,
+          storageBackend: (config.storage_backend ?? 'local') as StorageBackend,
+          onProgress: (frac) => setProgress(frac * 100),
+          turnstileToken: turnstileToken ?? undefined,
+        });
+        abortRef.current = handle.abort;
+        const res = await handle.promise;
         pushRecent({
           code: res.code,
           kind: 'file',
@@ -97,7 +100,7 @@ export function SendFile({ c }: SendFileProps) {
           size: res.size,
           type: f.type || null,
           created_at: new Date().toISOString(),
-          expires_at: res.expired_at,
+          expires_at: null,
         });
         setCode(res.code);
         setStage('done');
