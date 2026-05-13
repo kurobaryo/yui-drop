@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.rate_limit import limiter, real_client_ip, upload_limit
@@ -14,6 +15,7 @@ from ..schemas.presign import (
     PresignInitRequest,
     PresignSignPartRequest,
 )
+from ..services.admin_turnstile import resolve_turnstile_config
 from ..services.common import ServiceError
 from ..services.presign import (
     abort_presign_upload,
@@ -22,6 +24,7 @@ from ..services.presign import (
     init_presign_upload,
     sign_presign_part,
 )
+from ..services.turnstile import verify_turnstile
 
 router = APIRouter(prefix="/api/presign", tags=["presign"])
 
@@ -37,6 +40,31 @@ def _service_to_http(exc: ServiceError) -> HTTPException:
     )
 
 
+async def _turnstile_gate_upload(
+    request: Request,
+    db: AsyncSession,
+    token: str | None,
+) -> JSONResponse | None:
+    """4003 envelope if turnstile.protect_upload is on and verify fails.
+
+    Skips verification when turnstile is disabled, ``protect_upload`` is off,
+    or no secret is configured — matching the safety-net semantics used by
+    the share / chunked endpoints.
+    """
+    cfg = await resolve_turnstile_config(db)
+    if not cfg.get("enabled") or not cfg.get("protect_upload"):
+        return None
+    if not cfg.get("secret_key"):
+        return None
+    ok_ = await verify_turnstile(token or "", remote_ip=real_client_ip(request), db=db)
+    if not ok_:
+        return JSONResponse(
+            status_code=400,
+            content={"code": 4003, "message": "turnstile_failed"},
+        )
+    return None
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # POST /api/presign/init
 # ────────────────────────────────────────────────────────────────────────────
@@ -49,7 +77,10 @@ async def presign_init(
     response: Response,
     body: PresignInitRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict[str, Any]:
+) -> Any:
+    gate = await _turnstile_gate_upload(request, db, body.turnstile_token)
+    if gate is not None:
+        return gate
     try:
         out = await init_presign_upload(
             db,

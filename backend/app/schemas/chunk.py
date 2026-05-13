@@ -18,6 +18,9 @@ class ChunkInitRequest(BaseModel):
     content_type: str | None = None
     expire_value: int = Field(default=1, ge=1)
     expire_style: ExpireStyle = "day"
+    # Cloudflare Turnstile token for the upload gate. Optional on the wire;
+    # the route enforces only when turnstile is enabled + protect_upload is on.
+    turnstile_token: str | None = None
 
 
 class ChunkInitResponse(BaseModel):
