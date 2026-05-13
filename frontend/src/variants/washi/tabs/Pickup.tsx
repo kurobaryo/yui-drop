@@ -53,9 +53,8 @@ export function Pickup({
   const lastSubmitted = useRef<string>('');
 
   const turnstileGated = Boolean(
-    config.turnstile_enabled &&
-      config.turnstileProtectPickup &&
-      config.turnstile_site_key,
+          config.turnstileProtectPickup &&
+      config.turnstileSiteKey,
   );
 
   const resetTurnstile = () => {
@@ -221,11 +220,11 @@ export function Pickup({
           {state === 'loading' ? '…' : `${t('washi.pickupBtn')}  →`}
         </button>
       </div>
-      {turnstileGated && config.turnstile_site_key && (
+      {turnstileGated && config.turnstileSiteKey && (
         <div style={{ marginTop: 14 }}>
           <TurnstileWidget
             ref={turnstileRef}
-            siteKey={config.turnstile_site_key}
+            siteKey={config.turnstileSiteKey}
             onVerify={(token) => setTurnstileToken(token)}
             onExpire={() => setTurnstileToken(null)}
             onError={() => setTurnstileToken(null)}
