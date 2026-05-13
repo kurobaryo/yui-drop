@@ -111,8 +111,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # sha256 hash if you ship a CSP linter to your CI.
         # challenges.cloudflare.com is whitelisted for Cloudflare Turnstile
         # (api.js loader + token verification XHR + the challenge iframe).
+        # *.r2.cloudflarestorage.com is whitelisted so the browser can PUT
+        # large files directly to R2 via presigned URLs without the request
+        # being silently blocked by CSP (the symptom is a Network Error in
+        # the SPA with zero progress and no console output).
         "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; "
-        "connect-src 'self' https://challenges.cloudflare.com; "
+        "connect-src 'self' https://challenges.cloudflare.com https://*.r2.cloudflarestorage.com; "
         "frame-src 'self' https://challenges.cloudflare.com; "
         "font-src 'self' data:; "
         "frame-ancestors 'self'; "
