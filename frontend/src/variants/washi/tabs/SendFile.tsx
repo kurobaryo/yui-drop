@@ -14,6 +14,11 @@ import { uploadFiles, type StorageBackend } from '@/lib/uploader';
 import { ApiError } from '@/lib/api';
 import { pushRecent } from '@/lib/recent';
 import { usePublicConfig } from '@/lib/hooks/usePublicConfig';
+import { toast } from '@/components/ui/Toast';
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from '@/components/TurnstileWidget';
 import type { WashiColors } from '../palettes';
 import { Expiry } from '../parts/Expiry';
 import { Progress } from '../parts/Progress';
@@ -37,7 +42,20 @@ export function SendFile({ c }: SendFileProps) {
   const [progress, setProgress] = useState(0); // 0..100
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileWidgetHandle | null>(null);
   const abortRef = useRef<(() => void) | null>(null);
+
+  const turnstileGated = Boolean(
+    config.turnstile_enabled &&
+      config.turnstileProtectUpload &&
+      config.turnstile_site_key,
+  );
+
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    turnstileRef.current?.reset();
+  };
 
   useEffect(() => () => abortRef.current?.(), []);
 
@@ -51,6 +69,10 @@ export function SendFile({ c }: SendFileProps) {
 
   const onForge = async () => {
     if (!files.length || stage === 'uploading') return;
+    if (turnstileGated && !turnstileToken) {
+      toast.error(t('turnstile.required'));
+      return;
+    }
     const { expire_value, expire_style } = expiryToApi(expiry);
     setStage('uploading');
     setProgress(0);
@@ -66,6 +88,8 @@ export function SendFile({ c }: SendFileProps) {
           (loaded, total) => {
             setProgress(total > 0 ? (loaded / total) * 100 : 0);
           },
+          undefined,
+          turnstileToken,
         );
         pushRecent({
           code: res.code,
@@ -85,6 +109,7 @@ export function SendFile({ c }: SendFileProps) {
           expireStyle: expire_style,
           storageBackend: (config.storage_backend ?? 'local') as StorageBackend,
           onOverallProgress: (f01) => setProgress(f01 * 100),
+          turnstileToken: turnstileToken ?? undefined,
         });
         abortRef.current = handle.abort;
         const res = await handle.promise;
@@ -102,9 +127,18 @@ export function SendFile({ c }: SendFileProps) {
         setCode(res.code);
         setStage('done');
       }
+      // Single-use token consumed; clear in case the user sends another.
+      resetTurnstile();
     } catch (e) {
-      if (e instanceof ApiError) setError(e.message || t('washi.notFound'));
-      else setError((e as Error)?.message || t('washi.notFound'));
+      if (e instanceof ApiError) {
+        if (e.code === 4003) {
+          toast.error(t('turnstile.failed'));
+          resetTurnstile();
+        }
+        setError(e.message || t('washi.notFound'));
+      } else {
+        setError((e as Error)?.message || t('washi.notFound'));
+      }
       setStage('error');
     } finally {
       abortRef.current = null;
@@ -240,25 +274,44 @@ export function SendFile({ c }: SendFileProps) {
 
       <div>
         <Expiry c={c} expiry={expiry} setExpiry={setExpiry} />
-        <button
-          onClick={() => void onForge()}
-          disabled={!files.length || stage === 'uploading'}
-          style={{
-            marginTop: 20,
-            width: '100%',
-            padding: '14px 18px',
-            background: files.length && stage !== 'uploading' ? c.accent : c.soft,
-            color: files.length && stage !== 'uploading' ? c.paper : c.sub,
-            border: 'none',
-            borderRadius: 8,
-            cursor: files.length && stage !== 'uploading' ? 'pointer' : 'not-allowed',
-            fontFamily: 'inherit',
-            fontWeight: 600,
-            fontSize: 15,
-          }}
-        >
-          {stage === 'uploading' ? t('washi.forging') : `${t('washi.forge')}  →`}
-        </button>
+        {turnstileGated && config.turnstile_site_key && (
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+            <TurnstileWidget
+              ref={turnstileRef}
+              siteKey={config.turnstile_site_key}
+              onVerify={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken(null)}
+              onError={() => setTurnstileToken(null)}
+            />
+          </div>
+        )}
+        {(() => {
+          const canSubmit =
+            !!files.length &&
+            stage !== 'uploading' &&
+            (!turnstileGated || !!turnstileToken);
+          return (
+            <button
+              onClick={() => void onForge()}
+              disabled={!canSubmit}
+              style={{
+                marginTop: 20,
+                width: '100%',
+                padding: '14px 18px',
+                background: canSubmit ? c.accent : c.soft,
+                color: canSubmit ? c.paper : c.sub,
+                border: 'none',
+                borderRadius: 8,
+                cursor: canSubmit ? 'pointer' : 'not-allowed',
+                fontFamily: 'inherit',
+                fontWeight: 600,
+                fontSize: 15,
+              }}
+            >
+              {stage === 'uploading' ? t('washi.forging') : `${t('washi.forge')}  →`}
+            </button>
+          );
+        })()}
       </div>
     </div>
   );
