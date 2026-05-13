@@ -146,7 +146,7 @@ export default function AdminSettings() {
             value={humanBytes(data.env.max_upload_bytes)}
           />
           <Row
-            label={t('admin.settings.turnstile')}
+            label={t('admin.settings.turnstile.label')}
             value={
               data.env.turnstile_enabled
                 ? 'enabled'
@@ -205,7 +205,7 @@ export default function AdminSettings() {
           <label className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm text-[--text-1]">
-                {t('admin.settings.turnstile')}
+                {t('admin.settings.turnstile.label')}
               </div>
               {!canEnableTurnstile && (
                 <div className="text-xs text-[--text-muted]">
@@ -592,6 +592,9 @@ interface TurnstileFormState {
   secret_key: string;
   secretEdited: boolean;
   hadExistingSecret: boolean;
+  protect_upload: boolean;
+  protect_pickup: boolean;
+  protect_admin_login: boolean;
 }
 
 const EMPTY_TURNSTILE: TurnstileFormState = {
@@ -600,6 +603,9 @@ const EMPTY_TURNSTILE: TurnstileFormState = {
   secret_key: '',
   secretEdited: false,
   hadExistingSecret: false,
+  protect_upload: false,
+  protect_pickup: false,
+  protect_admin_login: false,
 };
 
 function TurnstileCard() {
@@ -621,6 +627,9 @@ function TurnstileCard() {
       secret_key: data.secret_key_set ? '••••••••' : '',
       secretEdited: false,
       hadExistingSecret: data.secret_key_set,
+      protect_upload: data.protect_upload ?? false,
+      protect_pickup: data.protect_pickup ?? false,
+      protect_admin_login: data.protect_admin_login ?? false,
     });
   }, [data]);
 
@@ -631,6 +640,9 @@ function TurnstileCard() {
         site_key: form.site_key,
         // Only send a new secret if the user explicitly opened the field.
         secret_key: form.secretEdited ? form.secret_key : '',
+        protect_upload: form.protect_upload,
+        protect_pickup: form.protect_pickup,
+        protect_admin_login: form.protect_admin_login,
       }),
     onSuccess: (next: TurnstileConfigResponse) => {
       qc.setQueryData(['admin', 'turnstile'], next);
@@ -641,6 +653,9 @@ function TurnstileCard() {
         secret_key: next.secret_key_set ? '••••••••' : '',
         secretEdited: false,
         hadExistingSecret: next.secret_key_set,
+        protect_upload: next.protect_upload ?? false,
+        protect_pickup: next.protect_pickup ?? false,
+        protect_admin_login: next.protect_admin_login ?? false,
       });
     },
     onError: (e: unknown) => {
@@ -761,6 +776,52 @@ function TurnstileCard() {
                 placeholder="0x4AAAAAAA…"
               />
             )}
+          </label>
+        </div>
+
+        {/* Per-action protection toggles. Grayed out unless the master
+            Enabled switch above is on, since the backend short-circuits when
+            disabled. `protect_admin_login` is wire-stable but the backend
+            doesn't enforce it yet — disabled with a "coming soon" hint. */}
+        <div className="mt-4 flex flex-col gap-2 border-t border-[--border-1] pt-4">
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-[--text-1]">
+              {t('admin.settings.turnstile.protectUpload')}
+            </span>
+            <input
+              type="checkbox"
+              disabled={!form.enabled}
+              checked={form.protect_upload}
+              onChange={(e) =>
+                setForm({ ...form, protect_upload: e.target.checked })
+              }
+            />
+          </label>
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-[--text-1]">
+              {t('admin.settings.turnstile.protectPickup')}
+            </span>
+            <input
+              type="checkbox"
+              disabled={!form.enabled}
+              checked={form.protect_pickup}
+              onChange={(e) =>
+                setForm({ ...form, protect_pickup: e.target.checked })
+              }
+            />
+          </label>
+          <label className="flex items-center justify-between gap-3 text-sm opacity-60">
+            <span className="text-[--text-1]">
+              {t('admin.settings.turnstile.protectAdminLogin')}
+            </span>
+            <input
+              type="checkbox"
+              disabled
+              checked={form.protect_admin_login}
+              onChange={(e) =>
+                setForm({ ...form, protect_admin_login: e.target.checked })
+              }
+            />
           </label>
         </div>
 

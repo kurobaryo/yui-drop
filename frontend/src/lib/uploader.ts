@@ -55,6 +55,8 @@ export interface UploadOptions {
   storageBackend: StorageBackend;
   /** Fired with fraction in [0, 1]. */
   onProgress?: (fraction: number) => void;
+  /** Cloudflare Turnstile token; required only when admin set protect_upload. */
+  turnstileToken?: string;
 }
 
 // 5 MiB simple-vs-chunked threshold, 1 MiB chunk size for server-proxied.
@@ -180,6 +182,7 @@ export function uploadFile(opts: UploadOptions): UploadHandle {
         opts.expireStyle,
         (loaded, total) => opts.onProgress?.(total > 0 ? loaded / total : 0),
         controller.signal,
+        opts.turnstileToken ?? null,
       );
       return resultFromShare(res);
     }
@@ -215,6 +218,7 @@ async function runChunked(
     content_type: opts.file.type || null,
     expire_value: opts.expireValue,
     expire_style: opts.expireStyle,
+    turnstile_token: opts.turnstileToken ?? null,
   });
   onSession(init.upload_id);
   const total = init.total_chunks;
@@ -265,6 +269,7 @@ async function runPresigned(
     content_type: opts.file.type || null,
     expire_value: opts.expireValue,
     expire_style: opts.expireStyle,
+    turnstile_token: opts.turnstileToken ?? null,
   });
   onSession(init.upload_id);
 
@@ -314,6 +319,10 @@ export interface UploadFilesOptions {
   onOverallProgress?: (fraction: number) => void;
   /** Per-file lifecycle marker. */
   onFileState?: (index: number, state: UploadFileState) => void;
+  /** Cloudflare Turnstile token; required only when admin set protect_upload.
+   * Sent on the first hop (`/share/multi/init`); subsequent per-file calls
+   * are authenticated by the returned `upload_token`. */
+  turnstileToken?: string;
 }
 
 export interface UploadFilesResult {
@@ -359,6 +368,7 @@ export function uploadFiles(opts: UploadFilesOptions): UploadFilesHandle {
       declared_total_size: totalBytes,
       expire_value: opts.expireValue,
       expire_style: opts.expireStyle,
+      turnstile_token: opts.turnstileToken ?? null,
     });
 
     let doneTotalBytes = 0;

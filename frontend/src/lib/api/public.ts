@@ -12,6 +12,12 @@ export interface PublicConfig {
   storage_backend: 'local' | 's3' | 'onedrive' | 'webdav';
   turnstile_enabled: boolean;
   turnstile_site_key?: string | null;
+  /** Per-action protection flags. The maintainer added these alongside the
+   * master `turnstile_enabled` switch so individual flows (upload / pickup)
+   * can be gated independently. Backend fills these in via /api/config —
+   * frontend just trusts whatever it gets and defaults to `false`. */
+  turnstileProtectUpload: boolean;
+  turnstileProtectPickup: boolean;
   /** Optional list of allowed expiry styles surfaced by the server. */
   expire_styles?: string[];
   /** Optional multi-file caps; if absent, fall back to max_upload_bytes. */
@@ -28,6 +34,8 @@ export const DEFAULT_CONFIG: PublicConfig = {
   pickup_code_length: 6,
   storage_backend: 'local',
   turnstile_enabled: false,
+  turnstileProtectUpload: false,
+  turnstileProtectPickup: false,
 };
 
 export async function getConfig(): Promise<PublicConfig> {
