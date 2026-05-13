@@ -24,7 +24,7 @@ from ..models.settings_kv import SettingsKV
 
 ENABLED_KEY = "turnstile_enabled"
 SITE_KEY = "turnstile_site_key"
-SECRET_KEY_ENC="turnst..._enc"
+SECRET_KEY_ENC = "turnstile_secret_key_enc"
 
 # Per-action protection flags (settings_kv). Defaults:
 #   protect_upload       = True   (text / chunked-complete / presign-init)
