@@ -76,11 +76,11 @@ async def public_config(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
                 {"value": 1, "style": "count"},
                 {"value": 10, "style": "count"},
             ],
-            # Turnstile site key only when both env keys are present.
+            # Turnstile site key — pulled from settings_kv overlay (admin
+            # UI is the source of truth) and only advertised when the full
+            # config is in place (toggle on + site_key + secret_key).
             "turnstileSiteKey": (
-                settings.turnstile_site_key
-                if (settings.turnstile_site_key and settings.turnstile_secret_key)
-                else None
+                ts_cfg.get("site_key") if ts_fully_configured else None
             ),
             # Per-action gating advertised to the SPA. When turnstile is not
             # fully configured we surface ``False`` so the frontend skips the
