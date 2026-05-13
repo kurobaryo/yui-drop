@@ -241,7 +241,12 @@
       "title": "Settings",
       "env": "Environment",
       "storageBackend": "Storage backend",
-      "turnstile": "Turnstile (challenge)",
+      "turnstile": {
+        "label": "Turnstile (challenge)",
+        "protectUpload": "Protect upload",
+        "protectPickup": "Protect pickup",
+        "protectAdminLogin": "Protect admin login (coming soon)"
+      },
       "appName": "App name",
       "maxUpload": "Max upload",
       "rotatePassword": "Rotate admin password",
@@ -364,5 +369,10 @@
     "now": "just now",
     "ago": "{{value}} {{unit}} ago",
     "in": "in {{value}} {{unit}}"
+  },
+  "turnstile": {
+    "verifying": "Verifying…",
+    "failed": "Verification failed, please try again.",
+    "required": "Please complete verification first."
   }
 }

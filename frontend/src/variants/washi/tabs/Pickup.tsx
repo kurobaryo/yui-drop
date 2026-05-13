@@ -3,12 +3,23 @@
  * `shareSelect` and opens a `<PickupModal>` with whatever the server hands
  * back. Deep links (`/s/:code`, `/v/:code`) get routed here with a
  * `prefillCode` from `WashiApp`, which auto-fires the resolve.
+ *
+ * When the admin enables Turnstile + `protect_pickup`, the widget renders
+ * above the pickup button. Auto-submit on prefill is suppressed when a
+ * verification is still required — the user must explicitly tap "Pick up"
+ * after solving the challenge.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { shareSelect, type ShareSelectResponse } from '@/lib/api/share';
 import { ApiError } from '@/lib/api';
 import { pushRecent } from '@/lib/recent';
+import { usePublicConfig } from '@/lib/hooks/usePublicConfig';
+import { toast } from '@/components/ui/Toast';
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from '@/components/TurnstileWidget';
 import type { WashiColors } from '../palettes';
 import { useCodeInput } from '../utils';
 import { PickupModal } from './PickupModal';
@@ -33,19 +44,37 @@ export function Pickup({
   onPrefillConsumed,
 }: PickupProps) {
   const { t } = useTranslation();
+  const config = usePublicConfig();
   const [state, setState] = useState<PickupState>('idle');
   const [item, setItem] = useState<ShareSelectResponse | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileWidgetHandle | null>(null);
   const lastSubmitted = useRef<string>('');
+
+  const turnstileGated = Boolean(
+    config.turnstile_enabled &&
+      config.turnstileProtectPickup &&
+      config.turnstile_site_key,
+  );
+
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    turnstileRef.current?.reset();
+  };
 
   const submit = async (code: string) => {
     if (code.length !== 6) return;
     if (lastSubmitted.current === code && state === 'loading') return;
+    if (turnstileGated && !turnstileToken) {
+      toast.error(t('turnstile.required'));
+      return;
+    }
     lastSubmitted.current = code;
     setState('loading');
     setErrMsg(null);
     try {
-      const res = await shareSelect(code);
+      const res = await shareSelect(code, turnstileToken);
       pushRecent({
         code: res.code,
         kind: res.kind,
@@ -59,10 +88,19 @@ export function Pickup({
       });
       setItem(res);
       setState('success');
+      // Token spent. Re-arm in case the user looks up another code.
+      resetTurnstile();
     } catch (e) {
       if (e instanceof ApiError) {
-        if (e.httpStatus === 404 || e.code === 4040) setErrMsg(t('washi.notFound'));
-        else setErrMsg(e.message || t('washi.notFound'));
+        if (e.code === 4003) {
+          toast.error(t('turnstile.failed'));
+          resetTurnstile();
+          setErrMsg(t('turnstile.failed'));
+        } else if (e.httpStatus === 404 || e.code === 4040) {
+          setErrMsg(t('washi.notFound'));
+        } else {
+          setErrMsg(e.message || t('washi.notFound'));
+        }
       } else {
         setErrMsg(t('washi.notFound'));
       }
@@ -70,7 +108,12 @@ export function Pickup({
     }
   };
 
-  const cin = useCodeInput(6, submit);
+  const cin = useCodeInput(6, (val) => {
+    // Auto-submit only fires when no Turnstile gate is in the way. Otherwise
+    // the user has to press the button after solving the challenge.
+    if (turnstileGated && !turnstileToken) return;
+    void submit(val);
+  });
 
   // Deep-link prefill: when /s/:code or /v/:code lands here, fill cells and
   // (depending on the source) auto-submit. For ?code= query-string prefills
@@ -80,13 +123,16 @@ export function Pickup({
     const clean = prefillCode.replace(/[^0-9]/g, '').slice(0, 6);
     if (clean.length !== 6) return;
     cin.setValue(clean);
-    if (autoSubmitOnPrefill) {
+    if (autoSubmitOnPrefill && (!turnstileGated || !!turnstileToken)) {
       void submit(clean);
     }
     onPrefillConsumed?.();
     // submit is stable enough — eslint deps disabled here on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillCode]);
+
+  const canSubmit =
+    cin.complete && state !== 'loading' && (!turnstileGated || !!turnstileToken);
 
   return (
     <div>
@@ -153,22 +199,21 @@ export function Pickup({
         </div>
         <button
           onClick={() => void submit(cin.value)}
-          disabled={!cin.complete || state === 'loading'}
+          disabled={!canSubmit}
           data-yui="pickup-btn"
           style={{
             padding: '0 28px',
             height: 64,
             minWidth: 110,
-            background: cin.complete && state !== 'loading' ? c.accent : c.soft,
-            color: cin.complete && state !== 'loading' ? c.paper : c.sub,
+            background: canSubmit ? c.accent : c.soft,
+            color: canSubmit ? c.paper : c.sub,
             border: 'none',
             borderRadius: 10,
-            cursor: cin.complete && state !== 'loading' ? 'pointer' : 'not-allowed',
+            cursor: canSubmit ? 'pointer' : 'not-allowed',
             fontFamily: 'inherit',
             fontSize: 15,
             fontWeight: 600,
-            boxShadow:
-              cin.complete && state !== 'loading' ? `0 8px 20px ${c.accent}33` : 'none',
+            boxShadow: canSubmit ? `0 8px 20px ${c.accent}33` : 'none',
             transition: 'all .15s',
             whiteSpace: 'nowrap',
           }}
@@ -176,6 +221,17 @@ export function Pickup({
           {state === 'loading' ? '…' : `${t('washi.pickupBtn')}  →`}
         </button>
       </div>
+      {turnstileGated && config.turnstile_site_key && (
+        <div style={{ marginTop: 14 }}>
+          <TurnstileWidget
+            ref={turnstileRef}
+            siteKey={config.turnstile_site_key}
+            onVerify={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken(null)}
+            onError={() => setTurnstileToken(null)}
+          />
+        </div>
+      )}
       <div
         style={{
           marginTop: 12,

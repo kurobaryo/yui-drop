@@ -240,7 +240,12 @@
       "title": "設定",
       "env": "環境",
       "storageBackend": "ストレージバックエンド",
-      "turnstile": "Turnstile(チャレンジ)",
+      "turnstile": {
+        "label": "Turnstile(チャレンジ)",
+        "protectUpload": "アップロードを保護",
+        "protectPickup": "受け取りを保護",
+        "protectAdminLogin": "管理ログインを保護（近日公開）"
+      },
       "appName": "アプリ名",
       "maxUpload": "アップロード上限",
       "rotatePassword": "管理者パスワードを変更",
@@ -363,5 +368,10 @@
     "now": "たった今",
     "ago": "{{value}}{{unit}}前",
     "in": "{{value}}{{unit}}後"
+  },
+  "turnstile": {
+    "verifying": "確認中…",
+    "failed": "確認に失敗しました。もう一度お試しください。",
+    "required": "先に認証を完了してください。"
   }
 }

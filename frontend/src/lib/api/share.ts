@@ -18,6 +18,9 @@ export interface ShareTextRequest {
   text: string;
   expire_value: number;
   expire_style: ExpireStyle;
+  /** Cloudflare Turnstile token from the in-page widget. Required when the
+   * admin has set `turnstile.protect_upload`; ignored otherwise. */
+  turnstile_token?: string | null;
 }
 export interface ShareTextResponse {
   code: string;
@@ -47,11 +50,13 @@ export async function shareFileMultipart(
   expireStyle: ExpireStyle,
   onProgress?: (loaded: number, total: number) => void,
   signal?: AbortSignal,
+  turnstileToken?: string | null,
 ): Promise<ShareFileResponse> {
   const fd = new FormData();
   fd.append('file', file, file.name);
   fd.append('expire_value', String(expireValue));
   fd.append('expire_style', expireStyle);
+  if (turnstileToken) fd.append('turnstile_token', turnstileToken);
   const { data } = await api.post<ShareFileResponse>('/share/file', fd, {
     onUploadProgress: (e) => {
       if (onProgress) onProgress(e.loaded, e.total ?? file.size);
@@ -92,10 +97,11 @@ export interface ShareSelectResponse {
 
 export async function shareSelect(
   code: string,
+  turnstileToken?: string | null,
 ): Promise<ShareSelectResponse> {
-  const { data } = await api.post<ShareSelectResponse>('/share/select', {
-    code,
-  });
+  const body: { code: string; turnstile_token?: string } = { code };
+  if (turnstileToken) body.turnstile_token = turnstileToken;
+  const { data } = await api.post<ShareSelectResponse>('/share/select', body);
   return data;
 }
 
@@ -114,6 +120,8 @@ export interface MultiInitRequest {
   declared_total_size: number;
   expire_value: number;
   expire_style: ExpireStyle;
+  /** Turnstile token — same gating as the simple-upload path. */
+  turnstile_token?: string | null;
 }
 export interface MultiInitResponse {
   share_id: number;
