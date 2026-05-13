@@ -47,9 +47,8 @@ export function SendFile({ c }: SendFileProps) {
   const abortRef = useRef<(() => void) | null>(null);
 
   const turnstileGated = Boolean(
-    config.turnstile_enabled &&
-      config.turnstileProtectUpload &&
-      config.turnstile_site_key,
+          config.turnstileProtectUpload &&
+      config.turnstileSiteKey,
   );
 
   const resetTurnstile = () => {
@@ -274,11 +273,11 @@ export function SendFile({ c }: SendFileProps) {
 
       <div>
         <Expiry c={c} expiry={expiry} setExpiry={setExpiry} />
-        {turnstileGated && config.turnstile_site_key && (
+        {turnstileGated && config.turnstileSiteKey && (
           <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
             <TurnstileWidget
               ref={turnstileRef}
-              siteKey={config.turnstile_site_key}
+              siteKey={config.turnstileSiteKey}
               onVerify={(token) => setTurnstileToken(token)}
               onExpire={() => setTurnstileToken(null)}
               onError={() => setTurnstileToken(null)}

@@ -10,8 +10,10 @@ export interface PublicConfig {
   max_text_bytes: number;
   pickup_code_length: number;
   storage_backend: 'local' | 's3' | 'onedrive' | 'webdav';
-  turnstile_enabled: boolean;
-  turnstile_site_key?: string | null;
+  /** Turnstile site key — only emitted by the server when Turnstile is fully
+   * configured (master toggle on AND both keys set). If null/undefined the
+   * frontend skips the widget entirely. Note the camelCase wire name. */
+  turnstileSiteKey?: string | null;
   /** Per-action protection flags. The maintainer added these alongside the
    * master `turnstile_enabled` switch so individual flows (upload / pickup)
    * can be gated independently. Backend fills these in via /api/config —
@@ -33,7 +35,6 @@ export const DEFAULT_CONFIG: PublicConfig = {
   max_text_bytes: 256 * 1024, // 256 KiB
   pickup_code_length: 6,
   storage_backend: 'local',
-  turnstile_enabled: false,
   turnstileProtectUpload: false,
   turnstileProtectPickup: false,
 };

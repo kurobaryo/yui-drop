@@ -125,7 +125,11 @@ async def share_file(
     file: Annotated[UploadFile, File(...)],
     expire_value: Annotated[int, Form()] = 1,
     expire_style: Annotated[str, Form()] = "day",
-) -> dict[str, Any]:
+    turnstile_token: Annotated[str | None, Form()] = None,
+) -> Any:
+    gate = await _turnstile_gate(request, db, turnstile_token, flag="protect_upload")
+    if gate is not None:
+        return gate
     ip = real_client_ip(request)
     size = 0
     # Drain the SpooledTemporaryFile so we know the actual size.
