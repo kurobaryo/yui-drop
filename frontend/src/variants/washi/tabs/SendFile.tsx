@@ -41,7 +41,6 @@ export function SendFile({ c }: SendFileProps) {
   const [progress, setProgress] = useState(0); // 0..100
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileWidgetHandle | null>(null);
   const abortRef = useRef<(() => void) | null>(null);
 
@@ -51,7 +50,6 @@ export function SendFile({ c }: SendFileProps) {
   );
 
   const resetTurnstile = () => {
-    setTurnstileToken(null);
     turnstileRef.current?.reset();
   };
 
@@ -67,14 +65,29 @@ export function SendFile({ c }: SendFileProps) {
 
   const onForge = async () => {
     if (!files.length || stage === 'uploading') return;
-    if (turnstileGated && !turnstileToken) {
-      toast.error(t('turnstile.required'));
-      return;
-    }
     const { expire_value, expire_style } = expiryToApi(expiry);
     setStage('uploading');
     setProgress(0);
     setError(null);
+
+    // Resolve a Turnstile token at submit time (invisible-on-submit mode).
+    // - Trusted IPs: SDK callback fires instantly, getResponsePromise resolves.
+    // - Suspicious IPs: CF pops its own challenge modal; we await user.
+    let resolvedToken: string | undefined;
+    if (turnstileGated) {
+      try {
+        resolvedToken = await turnstileRef.current?.executeAndWaitForToken();
+      } catch {
+        toast.error(t('turnstile.required'));
+        setStage('idle');
+        return;
+      }
+      if (!resolvedToken) {
+        toast.error(t('turnstile.required'));
+        setStage('idle');
+        return;
+      }
+    }
 
     try {
       if (files.length === 1) {
@@ -89,7 +102,7 @@ export function SendFile({ c }: SendFileProps) {
           expireStyle: expire_style,
           storageBackend: (config.storage_backend ?? 'local') as StorageBackend,
           onProgress: (frac) => setProgress(frac * 100),
-          turnstileToken: turnstileToken ?? undefined,
+          turnstileToken: resolvedToken,
         });
         abortRef.current = handle.abort;
         const res = await handle.promise;
@@ -111,7 +124,7 @@ export function SendFile({ c }: SendFileProps) {
           expireStyle: expire_style,
           storageBackend: (config.storage_backend ?? 'local') as StorageBackend,
           onOverallProgress: (f01) => setProgress(f01 * 100),
-          turnstileToken: turnstileToken ?? undefined,
+          turnstileToken: resolvedToken,
         });
         abortRef.current = handle.abort;
         const res = await handle.promise;
@@ -277,21 +290,24 @@ export function SendFile({ c }: SendFileProps) {
       <div>
         <Expiry c={c} expiry={expiry} setExpiry={setExpiry} />
         {turnstileGated && config.turnstileSiteKey && (
-          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+          /* Invisible widget — mounts at 0×0. The challenge only fires when
+             the user actually presses "forge code", via executeAndWaitForToken
+             in onForge above. */
+          <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
             <TurnstileWidget
               ref={turnstileRef}
+              mode="invisible-on-submit"
               siteKey={config.turnstileSiteKey}
-              onVerify={(token) => setTurnstileToken(token)}
-              onExpire={() => setTurnstileToken(null)}
-              onError={() => setTurnstileToken(null)}
+              onVerify={() => {}}
+              onExpire={() => {}}
+              onError={() => {}}
             />
           </div>
         )}
         {(() => {
           const canSubmit =
-            !!files.length &&
-            stage !== 'uploading' &&
-            (!turnstileGated || !!turnstileToken);
+            files.length > 0 &&
+            stage !== 'uploading';
           return (
             <button
               onClick={() => void onForge()}
