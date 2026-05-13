@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 from ..db.session import get_db
 from ..schemas import ok
+from ..storage.factory import resolve_storage_config
 
 router = APIRouter(prefix="/api", tags=["public"])
 
@@ -35,18 +36,24 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
 
 
 @router.get("/config")
-async def public_config() -> dict[str, Any]:
+async def public_config(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Public configuration consumed by the SPA on boot.
 
     Anything safe to expose to anonymous browsers — UI defaults, size caps,
     supported languages, optional Turnstile site key. Secrets (admin token,
     JWT secret, S3 keys) are NEVER returned here.
+
+    ``storage_backend`` comes from the resolved settings_kv overlay so that the
+    SPA picks the correct uploader strategy (presigned R2 direct vs server-
+    proxied chunks) even when the admin reconfigured storage at runtime — the
+    env-only ``settings.storage_backend`` would lie until the next restart.
     """
+    storage_cfg = await resolve_storage_config(db)
     return ok(
         {
             "appName": settings.app_name,
             "appUrl": settings.app_url,
-            "storage_backend": settings.storage_backend,
+            "storage_backend": storage_cfg.backend,
             "maxUploadBytes": settings.max_upload_bytes,
             "maxTextBytes": settings.max_text_bytes,
             "pickupCodeLength": settings.pickup_code_length,
