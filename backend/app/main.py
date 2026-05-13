@@ -109,8 +109,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # chunks under /assets/, served same-origin. The risk surface is the
         # single 25-line inline block in index.html. Tighten with a per-build
         # sha256 hash if you ship a CSP linter to your CI.
-        "script-src 'self' 'unsafe-inline'; "
-        "connect-src 'self'; "
+        # challenges.cloudflare.com is whitelisted for Cloudflare Turnstile
+        # (api.js loader + token verification XHR + the challenge iframe).
+        "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; "
+        "connect-src 'self' https://challenges.cloudflare.com; "
+        "frame-src 'self' https://challenges.cloudflare.com; "
         "font-src 'self' data:; "
         "frame-ancestors 'self'; "
         "base-uri 'self'; "
