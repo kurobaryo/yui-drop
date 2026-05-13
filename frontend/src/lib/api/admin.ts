@@ -330,6 +330,12 @@ export interface TurnstileConfigResponse {
   enabled: boolean;
   site_key: string;
   secret_key_set: boolean;
+  /** Per-action protection toggles. Defaults to false on the backend; the
+   * `protect_admin_login` flag is wire-stable but not yet enforced server-side
+   * (the UI displays it as "coming soon"). */
+  protect_upload: boolean;
+  protect_pickup: boolean;
+  protect_admin_login: boolean;
 }
 
 export interface TurnstileConfigRequest {
@@ -337,6 +343,9 @@ export interface TurnstileConfigRequest {
   site_key?: string;
   // Empty string ⇒ keep existing on the server.
   secret_key?: string;
+  protect_upload?: boolean;
+  protect_pickup?: boolean;
+  protect_admin_login?: boolean;
 }
 
 export async function getAdminTurnstile(): Promise<TurnstileConfigResponse> {

@@ -12,6 +12,8 @@ export interface PresignInitRequest {
   content_type?: string | null;
   expire_value: number;
   expire_style: ExpireStyle;
+  /** Turnstile token gated by `turnstile.protect_upload`. */
+  turnstile_token?: string | null;
 }
 export interface PresignInitResponse {
   upload_id: string;

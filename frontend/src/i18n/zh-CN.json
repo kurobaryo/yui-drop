@@ -240,7 +240,12 @@
       "title": "设置",
       "env": "环境信息",
       "storageBackend": "存储后端",
-      "turnstile": "Turnstile 人机校验",
+      "turnstile": {
+        "label": "Turnstile 人机校验",
+        "protectUpload": "保护上传",
+        "protectPickup": "保护取件",
+        "protectAdminLogin": "保护管理员登录（即将上线）"
+      },
       "appName": "应用名称",
       "maxUpload": "上传上限",
       "rotatePassword": "修改管理员密码",
@@ -363,5 +368,10 @@
     "now": "刚刚",
     "ago": "{{value}} {{unit}}前",
     "in": "{{value}} {{unit}}后"
+  },
+  "turnstile": {
+    "verifying": "验证中…",
+    "failed": "验证失败，请重试。",
+    "required": "请先完成验证。"
   }
 }
