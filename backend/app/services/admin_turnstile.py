@@ -24,9 +24,29 @@ from ..models.settings_kv import SettingsKV
 
 ENABLED_KEY = "turnstile_enabled"
 SITE_KEY = "turnstile_site_key"
-SECRET_KEY_ENC = "turnstile_secret_key_enc"
+SECRET_KEY_ENC="turnst..._enc"
 
-TURNSTILE_KEYS = (ENABLED_KEY, SITE_KEY, SECRET_KEY_ENC)
+# Per-action protection flags (settings_kv). Defaults:
+#   protect_upload       = True   (text / chunked-complete / presign-init)
+#   protect_pickup       = True   (share/select)
+#   protect_admin_login  = False  (kept off so we don't lock out existing
+#                                  admins on first deploy of the toggle)
+PROTECT_UPLOAD_KEY = "turnstile.protect_upload"
+PROTECT_PICKUP_KEY = "turnstile.protect_pickup"
+PROTECT_ADMIN_LOGIN_KEY = "turnstile.protect_admin_login"
+
+PROTECT_UPLOAD_DEFAULT = True
+PROTECT_PICKUP_DEFAULT = True
+PROTECT_ADMIN_LOGIN_DEFAULT = False
+
+TURNSTILE_KEYS = (
+    ENABLED_KEY,
+    SITE_KEY,
+    SECRET_KEY_ENC,
+    PROTECT_UPLOAD_KEY,
+    PROTECT_PICKUP_KEY,
+    PROTECT_ADMIN_LOGIN_KEY,
+)
 
 MASK = "****"
 
@@ -80,6 +100,15 @@ async def read_turnstile_config(db: AsyncSession) -> dict[str, Any]:
         "site_key": site_key,
         "secret_key": MASK if has_secret else "",
         "has_secret": has_secret,
+        "protect_upload": _coerce_bool(
+            raw.get(PROTECT_UPLOAD_KEY), default=PROTECT_UPLOAD_DEFAULT
+        ),
+        "protect_pickup": _coerce_bool(
+            raw.get(PROTECT_PICKUP_KEY), default=PROTECT_PICKUP_DEFAULT
+        ),
+        "protect_admin_login": _coerce_bool(
+            raw.get(PROTECT_ADMIN_LOGIN_KEY), default=PROTECT_ADMIN_LOGIN_DEFAULT
+        ),
     }
 
 
@@ -120,6 +149,15 @@ async def resolve_turnstile_config(db: AsyncSession) -> dict[str, Any]:
         "enabled": enabled,
         "site_key": site_key,
         "secret_key": secret_key,
+        "protect_upload": _coerce_bool(
+            raw.get(PROTECT_UPLOAD_KEY), default=PROTECT_UPLOAD_DEFAULT
+        ),
+        "protect_pickup": _coerce_bool(
+            raw.get(PROTECT_PICKUP_KEY), default=PROTECT_PICKUP_DEFAULT
+        ),
+        "protect_admin_login": _coerce_bool(
+            raw.get(PROTECT_ADMIN_LOGIN_KEY), default=PROTECT_ADMIN_LOGIN_DEFAULT
+        ),
     }
 
 
@@ -129,12 +167,19 @@ async def save_turnstile_config(
     enabled: bool | None = None,
     site_key: str | None = None,
     secret_key: str | None = None,
+    protect_upload: bool | None = None,
+    protect_pickup: bool | None = None,
+    protect_admin_login: bool | None = None,
 ) -> dict[str, Any]:
-    """Persist any subset of the three knobs.
+    """Persist any subset of the six knobs.
 
     ``secret_key`` semantics:
         - ``None`` or empty string → keep the existing encrypted value.
         - non-empty string → AES-GCM encrypt and replace the stored value.
+
+    ``protect_*`` semantics:
+        - ``None`` → leave the existing row (or fall back to the default on
+          read). Pass an explicit ``True``/``False`` to persist a change.
 
     If ``enabled=True`` is requested but no secret has ever been stored (and
     ``settings.turnstile_secret_key`` is also empty), the call refuses to
@@ -146,6 +191,13 @@ async def save_turnstile_config(
 
     if secret_key is not None and secret_key != "":
         await _kv_set_one(db, SECRET_KEY_ENC, encrypt_secret(secret_key))
+
+    if protect_upload is not None:
+        await _kv_set_one(db, PROTECT_UPLOAD_KEY, bool(protect_upload))
+    if protect_pickup is not None:
+        await _kv_set_one(db, PROTECT_PICKUP_KEY, bool(protect_pickup))
+    if protect_admin_login is not None:
+        await _kv_set_one(db, PROTECT_ADMIN_LOGIN_KEY, bool(protect_admin_login))
 
     if enabled is not None:
         if enabled:
@@ -174,6 +226,12 @@ __all__ = [
     "ENABLED_KEY",
     "SITE_KEY",
     "SECRET_KEY_ENC",
+    "PROTECT_UPLOAD_KEY",
+    "PROTECT_PICKUP_KEY",
+    "PROTECT_ADMIN_LOGIN_KEY",
+    "PROTECT_UPLOAD_DEFAULT",
+    "PROTECT_PICKUP_DEFAULT",
+    "PROTECT_ADMIN_LOGIN_DEFAULT",
     "read_turnstile_config",
     "resolve_turnstile_config",
     "save_turnstile_config",

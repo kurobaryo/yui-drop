@@ -16,6 +16,11 @@ class PresignInitRequest(BaseModel):
     content_type: str | None = None
     expire_value: int = Field(default=1, ge=1)
     expire_style: ExpireStyle = "day"
+    # Cloudflare Turnstile token. Optional on the wire; the route enforces
+    # presence/validity only when turnstile is enabled and the
+    # ``protect_upload`` flag is on. Skipping it elsewhere keeps legacy
+    # clients working when the gate is off.
+    turnstile_token: str | None = None
 
 
 class PresignInitResponse(BaseModel):

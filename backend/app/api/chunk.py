@@ -4,12 +4,14 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.rate_limit import limiter, real_client_ip, upload_limit
 from ..db.session import get_db
 from ..schemas import ok
 from ..schemas.chunk import ChunkCompleteRequest, ChunkInitRequest
+from ..services.admin_turnstile import resolve_turnstile_config
 from ..services.chunk import (
     abort_chunk_upload,
     complete_chunk_upload,
@@ -18,6 +20,7 @@ from ..services.chunk import (
     save_chunk,
 )
 from ..services.common import ServiceError
+from ..services.turnstile import verify_turnstile
 
 router = APIRouter(prefix="/api/chunk", tags=["chunk"])
 
@@ -33,6 +36,30 @@ def _service_to_http(exc: ServiceError) -> HTTPException:
     )
 
 
+async def _turnstile_gate_upload(
+    request: Request,
+    db: AsyncSession,
+    token: str | None,
+) -> JSONResponse | None:
+    """Mirror of the gate in presign.py — only enforced when turnstile is
+    fully enabled and ``protect_upload`` is on. Returns the 4003 envelope on
+    failure, ``None`` to proceed.
+    """
+    cfg = await resolve_turnstile_config(db)
+    if not cfg.get("enabled") or not cfg.get("protect_upload"):
+        return None
+    if not cfg.get("secret_key"):
+        return None
+    ok_ = await verify_turnstile(token or "", remote_ip=real_client_ip(request), db=db)
+    if not ok_:
+        return JSONResponse(
+            status_code=400,
+            content={"code": 4003, "message": "turnstile_failed"},
+        )
+    return None
+
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # POST /api/chunk/upload/init
 # ────────────────────────────────────────────────────────────────────────────
@@ -45,7 +72,10 @@ async def chunk_init(
     response: Response,
     body: ChunkInitRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict[str, Any]:
+) -> Any:
+    gate = await _turnstile_gate_upload(request, db, body.turnstile_token)
+    if gate is not None:
+        return gate
     try:
         out = await init_chunk_upload(
             db,

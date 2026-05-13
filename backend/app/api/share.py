@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.rate_limit import limiter, real_client_ip, upload_limit
@@ -15,6 +15,7 @@ from ..schemas.share import (
     ShareSelectRequest,
     ShareTextRequest,
 )
+from ..services.admin_turnstile import resolve_turnstile_config
 from ..services.common import ServiceError, record_access
 from ..services.share import (
     authorize_download_token,
@@ -24,6 +25,7 @@ from ..services.share import (
     resolve_download_target,
     resolve_share,
 )
+from ..services.turnstile import verify_turnstile
 
 router = APIRouter(prefix="/api/share", tags=["share"])
 
@@ -40,6 +42,43 @@ def _service_to_http(exc: ServiceError) -> HTTPException:
     )
 
 
+_TURNSTILE_FAIL_CODE = 4003  # API envelope code for "turnstile_failed"
+
+
+async def _turnstile_gate(
+    request: Request,
+    db: AsyncSession,
+    token: str | None,
+    *,
+    flag: str,
+) -> JSONResponse | None:
+    """Return a 4003 JSONResponse if turnstile is on for ``flag`` and verify fails.
+
+    ``flag`` is the config key inside :func:`resolve_turnstile_config` —
+    ``protect_upload`` or ``protect_pickup``. When turnstile is disabled
+    globally OR the per-action flag is off OR no secret is configured,
+    we return ``None`` so the caller proceeds straight through. This is the
+    safety net spec'd as Q4: a misconfigured deployment must not lock users
+    out of a feature that was previously open.
+    """
+    cfg = await resolve_turnstile_config(db)
+    if not cfg.get("enabled"):
+        return None
+    if not cfg.get(flag):
+        return None
+    if not cfg.get("secret_key"):
+        # Enabled but no secret reachable — verify_turnstile would skip
+        # anyway. Stay in skip mode rather than hard-failing the route.
+        return None
+    ok_ = await verify_turnstile(token or "", remote_ip=real_client_ip(request), db=db)
+    if not ok_:
+        return JSONResponse(
+            status_code=400,
+            content={"code": 4003, "message": "turnstile_failed"},
+        )
+    return None
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # POST /api/share/text
 # ────────────────────────────────────────────────────────────────────────────
@@ -52,8 +91,11 @@ async def share_text(
     response: Response,
     body: ShareTextRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict[str, Any]:
+) -> Any:
     """Create a text share. Rate-limited per IP."""
+    gate = await _turnstile_gate(request, db, body.turnstile_token, flag="protect_upload")
+    if gate is not None:
+        return gate
     ip = real_client_ip(request)
     try:
         out = await create_text_share(
@@ -118,7 +160,10 @@ async def share_select(
     request: Request,
     body: ShareSelectRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict[str, Any]:
+) -> Any:
+    gate = await _turnstile_gate(request, db, body.turnstile_token, flag="protect_pickup")
+    if gate is not None:
+        return gate
     ip = real_client_ip(request)
     try:
         out = await resolve_share(db, code=body.code, ip=ip, ua=_ua(request))

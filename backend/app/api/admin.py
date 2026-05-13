@@ -602,6 +602,11 @@ class TurnstileConfigRequest(BaseModel):
     site_key: str | None = None
     # Empty string is treated as "keep existing".
     secret_key: str | None = None
+    # Per-action protection toggles. ``None`` keeps whatever the settings_kv
+    # row currently holds (or the module-level default when no row exists).
+    protect_upload: bool | None = None
+    protect_pickup: bool | None = None
+    protect_admin_login: bool | None = None
 
 
 @router.get("/turnstile")
@@ -627,6 +632,9 @@ async def admin_put_turnstile(
             enabled=body.enabled,
             site_key=body.site_key,
             secret_key=body.secret_key,
+            protect_upload=body.protect_upload,
+            protect_pickup=body.protect_pickup,
+            protect_admin_login=body.protect_admin_login,
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
@@ -640,6 +648,9 @@ async def admin_put_turnstile(
             "enabled": body.enabled,
             "site_key_set": body.site_key is not None,
             "secret_set": bool(body.secret_key),
+            "protect_upload": body.protect_upload,
+            "protect_pickup": body.protect_pickup,
+            "protect_admin_login": body.protect_admin_login,
         },
     )
     await db.commit()
