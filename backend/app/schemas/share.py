@@ -93,6 +93,11 @@ class ShareMultiInitRequest(BaseModel):
     declared_total_size: int = Field(..., ge=0)
     expire_value: int = Field(default=1, ge=1)
     expire_style: ExpireStyle = "day"
+    # Cloudflare Turnstile token — same gating as the simple-upload path.
+    # Optional on the wire so legacy clients keep working when the admin
+    # has the upload gate off; the route checks the toggle and rejects
+    # with 4003 when the gate is on and the token is missing/invalid.
+    turnstile_token: str | None = None
 
 
 class ShareMultiInitResponse(BaseModel):

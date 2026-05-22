@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.rate_limit import limiter, real_client_ip, upload_limit
@@ -34,6 +35,7 @@ from ..services.share_multi import (
     register_file,
     verify_upload_token,
 )
+from ..services.turnstile import turnstile_gate
 
 router = APIRouter(prefix="/api/share/multi", tags=["share-multi"])
 
@@ -69,8 +71,18 @@ async def share_multi_init(
     response: Response,
     body: ShareMultiInitRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict[str, Any]:
+) -> Any:
     """Create a new multi-file share. Returns the pickup code + upload token."""
+    if not await turnstile_gate(
+        db,
+        body.turnstile_token,
+        flag="protect_upload",
+        remote_ip=real_client_ip(request),
+    ):
+        return JSONResponse(
+            status_code=400,
+            content={"code": 4003, "message": "turnstile_failed"},
+        )
     ip = real_client_ip(request)
     try:
         out = await init_multi_share(
