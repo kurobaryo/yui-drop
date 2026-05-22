@@ -71,3 +71,36 @@ async def verify_turnstile(
     if not isinstance(payload, dict):
         return False
     return bool(payload.get("success", False))
+
+
+async def turnstile_gate(
+    db: object,
+    token: str | None,
+    *,
+    flag: str,
+    remote_ip: str | None = None,
+) -> bool:
+    """Check whether a request should pass the Turnstile gate.
+
+    Returns ``True`` when the request is allowed through, ``False`` when it
+    should be rejected with a 4003 ``turnstile_failed`` envelope.
+
+    ``flag`` is the config key inside ``resolve_turnstile_config`` —
+    ``protect_upload`` or ``protect_pickup``. The gate is skipped (returns
+    ``True``) when turnstile is disabled globally OR the per-action flag is
+    off OR no secret is configured — a misconfigured deployment must not
+    lock users out of a feature that was previously open.
+    """
+    try:
+        from .admin_turnstile import resolve_turnstile_config
+
+        cfg = await resolve_turnstile_config(db)  # type: ignore[arg-type]
+    except Exception:
+        return True
+    if not cfg.get("enabled"):
+        return True
+    if not cfg.get(flag):
+        return True
+    if not cfg.get("secret_key"):
+        return True
+    return await verify_turnstile(token or "", remote_ip=remote_ip, db=db)
