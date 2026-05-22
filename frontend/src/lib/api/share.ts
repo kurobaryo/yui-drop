@@ -167,7 +167,12 @@ export async function multiFileInit(
 
 export interface MultiFileCompleteRequest {
   total_uploaded_bytes: number;
-  etag_list?: string[] | null;
+  /** S3 multipart parts list. Each item is `{part_number, etag}` matching
+   * the backend's `list[dict] | None`. Frontend currently never populates
+   * this — the multi-share R2 flow drives `complete` with just the byte
+   * count — but typing it correctly prevents a future 422 when/if we wire
+   * S3 multipart finalisation through this endpoint. */
+  etag_list?: Array<{ part_number: number; etag: string }> | null;
 }
 export interface MultiFileCompleteResponse {
   ok: boolean;
