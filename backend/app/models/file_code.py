@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Index, Integer, String, Text, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db.base import Base
@@ -69,6 +69,10 @@ class FileCode(Base):
     # Audit (client metadata at create-time)
     created_by_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_by_ua: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_by_key_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("api_keys.id"), nullable=True, index=True,
+        doc="If non-null, this share was created via /api/v1 by the given API key."
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
