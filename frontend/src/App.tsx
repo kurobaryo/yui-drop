@@ -12,10 +12,12 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
+import ApiDocs from './pages/ApiDocs';
 import AdminLogin from './pages/admin/Login';
 import AdminLayout from './pages/admin/Layout';
 import Dashboard from './pages/admin/Dashboard';
 import AdminFiles from './pages/admin/Files';
+import AdminApiKeys from './pages/admin/ApiKeys';
 import AdminLogs from './pages/admin/Logs';
 import AdminSettings from './pages/admin/Settings';
 import { ToastProvider } from './components/ui/Toast';
@@ -29,10 +31,12 @@ export default function App() {
         <Route path="/s/:code" element={<Home />} />
         <Route path="/v/:code" element={<Home />} />
         <Route path="/m/:code" element={<Home />} />
+        <Route path="/docs" element={<ApiDocs />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="files" element={<AdminFiles />} />
+          <Route path="api-keys" element={<AdminApiKeys />} />
           <Route path="logs" element={<AdminLogs />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />

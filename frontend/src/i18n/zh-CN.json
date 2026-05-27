@@ -130,6 +130,7 @@
     "nav": {
       "dashboard": "总览",
       "files": "文件",
+      "apiKeys": "API 密钥",
       "logs": "日志",
       "settings": "设置",
       "logout": "退出",

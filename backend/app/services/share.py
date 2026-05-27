@@ -136,6 +136,7 @@ async def create_simple_file_share(
     expire_style: str,
     ip: str | None,
     ua: str | None,
+    created_by_key_id: int | None = None,
 ) -> dict[str, Any]:
     """Server-write a small file blob then create the FileCode row."""
     if file_size <= 0:
@@ -205,6 +206,7 @@ async def create_simple_file_share(
         upload_id=None,
         created_by_ip=ip,
         created_by_ua=ua,
+        created_by_key_id=created_by_key_id,
     )
     db.add(row)
     await record_access(
