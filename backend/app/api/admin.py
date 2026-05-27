@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Annotated, Any
 from urllib.parse import quote as urlquote
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +26,14 @@ from ..core.security import issue_admin_token
 from ..db.session import get_db
 from ..models.access_log import AccessLogAction
 from ..schemas import ok
+from ..schemas.admin_api_keys import (
+    AdminApiKeyCreateRequest,
+    AdminApiKeyCreateResponse,
+    AdminApiKeyListItem,
+    AdminApiKeyUpdateRequest,
+    AdminApiKeyUsageResponse,
+)
+from ..schemas.common import Envelope
 from ..services.admin import (
     compute_dashboard,
     delete_file,
@@ -41,6 +49,14 @@ from ..services.admin import (
     patch_file,
     restore_file,
     verify_admin_password,
+)
+from ..services.admin_api_keys import (
+    create_api_key,
+    get_api_key,
+    get_api_key_usage,
+    list_api_keys,
+    revoke_api_key,
+    update_api_key,
 )
 from ..services.admin_storage import read_storage_config, save_storage_config
 from ..services.admin_turnstile import (
@@ -705,4 +721,188 @@ async def admin_put_uploads(
         extra={"event": "admin.uploads.save", "changed": body.model_dump(exclude_none=True)},
     )
     await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# /api/admin/api-keys — issue, list, inspect, update, revoke, usage
+#
+# All routes are admin-only. The plaintext key is ONLY ever returned by the
+# POST handler — and only on the create response — never logged or written
+# into any audit ``extra`` dict. ``key_id`` (the short public prefix) is fine
+# to log: it identifies the key without leaking the secret.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+class AdminApiKeyListEnvelope(BaseModel):
+    """Wrapper so the list endpoint can advertise its response_model."""
+
+    items: list[AdminApiKeyListItem]
+
+
+@router.get("/api-keys", response_model=Envelope[AdminApiKeyListEnvelope])
+async def admin_api_keys_list(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    payload: Annotated[dict[str, Any], Depends(require_admin)],
+) -> dict[str, Any]:
+    """List all issued API keys (newest first).
+
+    Returns sanitised key metadata — never the bcrypt hash and never the
+    plaintext token. ``is_active`` is computed live from ``revoked_at`` and
+    ``expires_at`` at response time.
+    """
+    items = await list_api_keys(db)
+    return ok({"items": items})
+
+
+@router.post("/api-keys", response_model=Envelope[AdminApiKeyCreateResponse])
+async def admin_api_keys_create(
+    request: Request,
+    body: AdminApiKeyCreateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    payload: Annotated[dict[str, Any], Depends(require_admin)],
+) -> dict[str, Any]:
+    """Mint a brand-new API key and return its plaintext exactly once.
+
+    The plaintext token is present ONLY in this response — it is never
+    persisted in cleartext, never logged, and never returned by any other
+    endpoint. Callers must capture it here or revoke and reissue.
+    """
+    try:
+        out = await create_api_key(
+            db,
+            note=body.note,
+            scopes=body.scopes,
+            quota_daily_bytes=body.quota_daily_bytes,
+            quota_per_minute=body.quota_per_minute,
+            max_file_size=body.max_file_size,
+            expires_in_days=body.expires_in_days,
+            created_by_admin=payload.get("sub"),
+            ip=real_client_ip(request),
+            ua=_ua(request),
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+@router.get(
+    "/api-keys/{key_pk}",
+    response_model=Envelope[AdminApiKeyListItem],
+)
+async def admin_api_keys_get(
+    request: Request,
+    key_pk: Annotated[int, Path(ge=1)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    payload: Annotated[dict[str, Any], Depends(require_admin)],
+) -> dict[str, Any]:
+    """Fetch a single API key by primary-key id.
+
+    Returns the same shape as the list endpoint's items (no plaintext, no
+    key_hash). 404 if no row with this id exists.
+    """
+    try:
+        out = await get_api_key(db, key_pk=key_pk)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+@router.patch(
+    "/api-keys/{key_pk}",
+    response_model=Envelope[AdminApiKeyListItem],
+)
+async def admin_api_keys_update(
+    request: Request,
+    key_pk: Annotated[int, Path(..., ge=1)],
+    body: AdminApiKeyUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    payload: Annotated[dict[str, Any], Depends(require_admin)],
+) -> dict[str, Any]:
+    """Patch any subset of mutable fields on an API key.
+
+    Uses ``model_dump(exclude_unset=True)`` to distinguish "field omitted"
+    from "field explicitly set to null". The service-layer ``UNSET`` sentinel
+    carries the tri-state across the call boundary. ``clear_expires_at=True``
+    is sugar for forcing ``expires_at`` to ``None`` (never expires).
+    """
+    # Local import so the sentinel object identity stays unique to the service
+    # module — referencing it from the route layer keeps the "field omitted vs
+    # field explicitly None" tri-state working through ``model_dump``.
+    from ..services.admin_api_keys import UNSET
+
+    fields = body.model_dump(exclude_unset=True)
+    # ``clear_expires_at=True`` is sugar for "force expires_at to None".
+    if "clear_expires_at" in fields and fields["clear_expires_at"]:
+        fields["expires_at"] = None
+    fields.pop("clear_expires_at", None)
+
+    try:
+        out = await update_api_key(
+            db,
+            key_pk=key_pk,
+            note=fields.get("note", UNSET),
+            scopes=fields.get("scopes", UNSET),
+            quota_daily_bytes=fields.get("quota_daily_bytes", UNSET),
+            quota_per_minute=fields.get("quota_per_minute", UNSET),
+            max_file_size=fields.get("max_file_size", UNSET),
+            expires_at=fields.get("expires_at", UNSET),
+            ip=real_client_ip(request),
+            ua=_ua(request),
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+@router.delete(
+    "/api-keys/{key_pk}",
+    response_model=Envelope[AdminApiKeyListItem],
+)
+async def admin_api_keys_revoke(
+    request: Request,
+    key_pk: Annotated[int, Path(..., ge=1)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    payload: Annotated[dict[str, Any], Depends(require_admin)],
+) -> dict[str, Any]:
+    """Revoke an API key by stamping its ``revoked_at`` to now.
+
+    Revocation is permanent and idempotent in the database sense, but a
+    second call against an already-revoked key returns 409 so the caller
+    can distinguish "I just revoked it" from "it was already dead".
+    """
+    try:
+        out = await revoke_api_key(
+            db,
+            key_pk=key_pk,
+            ip=real_client_ip(request),
+            ua=_ua(request),
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+@router.get(
+    "/api-keys/{key_pk}/usage",
+    response_model=Envelope[AdminApiKeyUsageResponse],
+)
+async def admin_api_keys_usage(
+    request: Request,
+    key_pk: Annotated[int, Path(..., ge=1)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    payload: Annotated[dict[str, Any], Depends(require_admin)],
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+) -> dict[str, Any]:
+    """Return a contiguous ``days``-wide window of daily usage rollups.
+
+    The window is always exactly ``days`` entries long with zero-filled
+    gaps, so the dashboard can plot it without worrying about missing
+    dates. ``totals`` sums the same window.
+    """
+    try:
+        out = await get_api_key_usage(db, key_pk=key_pk, days=days)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
     return ok(out)
