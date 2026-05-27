@@ -49,6 +49,7 @@ Yui-Drop 是一个现代的、可自部署的「文件快递柜」：丢入文�
 - 🌐 **Tri-lingual UI** — English, 简体中文, 日本語; auto-detect, user-overridable
 - 🛡️ **Security-first** — see [Security](#security) below
 - 🗑️ **Soft delete + admin recycle bin** — expired or admin-removed shares are recoverable until the admin empties the bin
+- 🔌 **Programmatic API access** — admin-issued Bearer keys give scripts and other apps a stable `/api/v1/*` surface (upload, list, inspect). See [the public docs page](https://drop.leod.me/docs) or [`docs/API.md`](./docs/API.md).
 
 ## Architecture
 
@@ -232,7 +233,35 @@ yui-drop/
 
 ## API
 
-The backend serves an OpenAPI spec at `GET /api/openapi.json` and an interactive Swagger UI at `GET /api/docs`. See [`docs/API.md`](./docs/API.md) for the high-level contract.
+Yui-Drop ships two API surfaces:
+
+**Internal (frontend ↔ backend)** — `/api/share`, `/api/chunk`, `/api/presign`, `/api/admin`. These power the SPA and use a JWT-based admin login. See [`docs/API.md`](./docs/API.md) for the full contract.
+
+**Public v1 (`/api/v1/*`)** — A stable Bearer-token-authenticated REST surface for programmatic access. Keys are admin-issued (no self-service signup) and scoped to `upload` and/or `read`. Quotas (max file size, daily byte volume) are configurable per key. Three endpoints cover the common shape:
+
+- `POST /api/v1/upload` — simple file upload (≤ 10 MiB)
+- `POST /api/v1/upload/init` → `sign-part` → `complete` — R2 multipart presigned URL flow for large files (bypasses Cloudflare's 100 MB free-plan ingress limit)
+- `GET /api/v1/shares` and `GET /api/v1/shares/{code}` — list and inspect shares created with the current key
+
+Three implementation paths cover most clients:
+- **curl + jq** for one-off shell uploads (~30 lines)
+- **Python** with `requests` and a thread pool for scripts and automation
+- **`@uppy/aws-s3-multipart`** for browser/Node clients — yui-drop's `/api/v1/upload/*` endpoints map directly onto Uppy's four lifecycle hooks
+
+Reference implementations live under `scripts/`:
+
+```bash
+# Simple upload — small files, requires curl + (optional) jq
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.sh ./screenshot.png
+
+# Python — handles both simple + multipart, concurrent parts
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.py ./big-video.mp4 \
+    --expire-value 7 --expire-style day
+```
+
+Both print the short URL on stdout. See the [live docs page](https://drop.leod.me/docs) (rendered in English / 简体中文 / 日本語 — follows your browser language) for the full endpoint reference, error codes, expiry options, and quota details.
+
+The OpenAPI spec is served at `GET /api/openapi.json`; an interactive Swagger UI for the internal endpoints is at `GET /api/_swagger` (admin debugging only — the public docs page above is the recommended reference).
 
 ## Roadmap
 
