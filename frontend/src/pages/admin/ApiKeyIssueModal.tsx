@@ -75,6 +75,9 @@ export default function ApiKeyIssueModal({
       setForm(DEFAULT_FORM);
       setIssued(null);
       setCopied(false);
+      // Clear react-query's mutation cache so the plaintext doesn't linger
+      // on mut.data after the dialog closes.
+      mut.reset();
     }, 50);
   }
 

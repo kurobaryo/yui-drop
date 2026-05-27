@@ -136,8 +136,15 @@ export default function ApiKeyEditModal({
         ? new Date(initial.expires_at).getTime()
         : null;
       const newMs = newIso ? new Date(newIso).getTime() : null;
-      if (oldMs !== newMs && newIso !== null) {
-        body.expires_at = newIso;
+      if (oldMs !== newMs) {
+        if (newIso === null) {
+          // User cleared the datetime field without ticking "Clear expiry".
+          // Treat empty field as an explicit clear so the change isn't
+          // silently dropped.
+          body.clear_expires_at = true;
+        } else {
+          body.expires_at = newIso;
+        }
       }
     }
 
