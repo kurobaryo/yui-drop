@@ -17,7 +17,7 @@ is recorded post-success only.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import (
     APIRouter,
@@ -298,7 +298,7 @@ async def v1_list_shares(
     api_key: Annotated[ApiKey, Depends(require_api_key("read"))],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    status: Annotated[str, Query()] = "active",
+    status: Annotated[Literal["active", "expired", "all"], Query()] = "active",
 ):
     """List shares created by this API key.
 

@@ -24,7 +24,7 @@ class V1UploadResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: str
-    name: str
+    name: str | None
     size: int
     expired_at: str | None
     expired_count: int = -1
@@ -82,7 +82,7 @@ class V1MultipartPart(BaseModel):
 class V1MultipartCompleteRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    parts: list[V1MultipartPart]
+    parts: list[V1MultipartPart] = Field(..., min_length=1, max_length=10000)
 
 
 # Complete returns the same shape as simple upload.
