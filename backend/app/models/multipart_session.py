@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, DateTime, Integer, String, func
+from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db.base import Base
@@ -52,3 +52,10 @@ class MultipartSession(Base):
     )
     # Wall-clock deadline; rows past this are aborted by the sweeper.
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+    # If non-null, this multipart session was opened via /api/v1 by the given
+    # API key — used to scope sign-part / complete / abort to the owning key
+    # and to populate ``filecodes.created_by_key_id`` on completion.
+    created_by_key_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("api_keys.id"), nullable=True, index=True,
+    )

@@ -68,6 +68,7 @@ async def init_presign_upload(
     expire_style: str,
     ip: str | None,
     ua: str | None,
+    created_by_key_id: int | None = None,
 ) -> dict[str, Any]:
     if file_size <= 0:
         raise ServiceError("empty_file", code=4001, http_status=400)
@@ -101,6 +102,7 @@ async def init_presign_upload(
         expire_style=expire_style,
         created_by_ip=ip,
         expires_at=expires_at,
+        created_by_key_id=created_by_key_id,
     )
     db.add(sess)
     await record_access(
@@ -264,6 +266,7 @@ async def complete_presign_upload(
         upload_id=upload_id,
         created_by_ip=ip,
         created_by_ua=ua,
+        created_by_key_id=sess.created_by_key_id,
     )
     db.add(row)
     await db.delete(sess)
