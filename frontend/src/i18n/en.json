@@ -375,5 +375,153 @@
     "verifying": "Verifying…",
     "failed": "Verification failed, please try again.",
     "required": "Please complete verification first."
+  },
+  "apiDocs": {
+    "title": "drop API",
+    "subtitle": "Programmatic file uploads for drop.leod.me — get a short, shareable link from a single curl call.",
+    "contentsLabel": "Contents",
+    "toc": {
+      "intro": "Introduction",
+      "auth": "Authentication",
+      "upload": "POST /upload",
+      "multipartInit": "POST /upload/init",
+      "multipartSign": "POST /upload/{id}/sign-part",
+      "multipartComplete": "POST /upload/{id}/complete",
+      "multipartAbort": "DELETE /upload/{id}",
+      "listShares": "GET /shares",
+      "getShare": "GET /shares/{code}",
+      "clients": "Client libraries",
+      "expireStyles": "expire_style values",
+      "errors": "Error codes",
+      "quota": "Quotas",
+      "requestKey": "Request a key"
+    },
+    "intro": {
+      "heading": "Introduction",
+      "p1": "drop API is the public HTTP interface of yui-drop. It lets scripts, command-line tools, and other applications upload files programmatically and receive a short, shareable code in return.",
+      "baseUrlLabel": "Base URL:",
+      "envelopeLabel": "All responses use a uniform envelope:",
+      "envelopeSuffix": " — code === 2000 indicates success.",
+      "signupLabel": "API keys are not self-served. See",
+      "signupLink": "Request a key",
+      "signupSuffix": "below."
+    },
+    "auth": {
+      "heading": "Authentication",
+      "p1": "All /api/v1/* endpoints require a Bearer token in the Authorization header:",
+      "p2": "Tokens follow the format yd_ + 8-character public ID + _ + 32-character secret. The first 11 characters appear in admin lists and audit logs; the full plaintext is shown exactly once at issuance and is never recoverable.",
+      "errorsHeading": "Auth-related error codes:",
+      "errorMissing": "401 — Missing or invalid API key",
+      "errorRevoked": "401 — Key revoked or expired",
+      "errorScope": "403 — Insufficient scope (key lacks upload or read)"
+    },
+    "endpoints": {
+      "upload": {
+        "title": "Simple upload — files up to 10 MiB",
+        "description": "Upload a small file using multipart/form-data. The response contains a 5-8 character pickup code, a direct download URL, and a short link. Files larger than the server's simple-upload cap should use the multipart endpoints below.",
+        "paramFile": "Multipart field containing the file body",
+        "paramExpireValue": "Numeric value for the expiry unit (≥ 1, default 1)",
+        "paramExpireStyle": "Expiry unit (default day; see expire_style values)"
+      },
+      "multipartInit": {
+        "title": "Multipart upload — step 1: initialise",
+        "description": "Large files use the R2 multipart presigned URL protocol. The client first calls init to receive an upload_id, then iterates over parts_total to request presigned PUT URLs, uploads each part directly to R2, and finally calls complete.",
+        "paramFileName": "File name, 1-512 characters",
+        "paramFileSize": "Byte count, ≥ 1 and ≤ max_file_size",
+        "paramContentType": "MIME type, optional",
+        "paramExpireValue": "Numeric expiry value, default 1",
+        "paramExpireStyle": "Expiry unit, default day"
+      },
+      "multipartSign": {
+        "title": "Multipart upload — step 2: sign one part",
+        "description": "Call once per part (1 through parts_total) to receive a presigned PUT URL for that part. The client then uploads the byte range directly to R2 and records the returned ETag header.",
+        "paramPartNumber": "Part number, 1-10000"
+      },
+      "multipartComplete": {
+        "title": "Multipart upload — step 3: complete",
+        "description": "Call once all parts have been uploaded. The server forwards the part manifest to R2 to assemble the final object, validates the resulting size (> 5% deviation fails), creates the share, and returns a response identical to simple upload.",
+        "paramParts": "Full part list (number + ETag); length must equal parts_total"
+      },
+      "multipartAbort": {
+        "title": "Multipart upload — abort",
+        "description": "Discard an in-progress multipart session. Uploaded parts are reclaimed by R2 and the session row is deleted."
+      },
+      "listShares": {
+        "title": "List shares created by this key",
+        "description": "Paginated query of all shares uploaded with the current API key. status defaults to active; pass expired or all to widen the result set.",
+        "paramLimit": "1-200, default 50",
+        "paramOffset": "≥ 0, default 0",
+        "paramStatus": "active / expired / all"
+      },
+      "getShare": {
+        "title": "Fetch a single share",
+        "description": "Returns the same shape as a list item. Only shares created by the current key are returned — others 404 (to prevent enumeration with someone else's key)."
+      }
+    },
+    "params": {
+      "name": "name",
+      "type": "type",
+      "required": "required",
+      "description": "description",
+      "requiredMarker": "required",
+      "optionalMarker": "optional"
+    },
+    "sections": {
+      "request": "Request",
+      "response": "Response",
+      "example": "Example"
+    },
+    "clients": {
+      "heading": "Client libraries",
+      "p1": "Clients chunk files locally and upload each part directly to R2 — the yui-drop server only mints presigned URLs. Three implementation paths cover most use cases:",
+      "curlTitle": "curl + jq",
+      "curlBody": "Suitable for one-off uploads from a shell. Roughly 30 lines, no dependencies beyond curl and jq. See scripts/yui-drop-upload.sh in the repository.",
+      "pythonTitle": "Python (requests)",
+      "pythonBody": "Suitable for scripts and automation. The reference implementation at scripts/yui-drop-upload.py uses requests and a thread pool to upload parts concurrently.",
+      "uppyTitle": "JavaScript (Uppy)",
+      "uppyBody": "For browser and Node clients, @uppy/aws-s3-multipart maps onto this API directly. Implement the four lifecycle methods (createMultipartUpload, signPart, completeMultipartUpload, abortMultipartUpload) by proxying to /api/v1/upload/* and Uppy handles chunking, concurrency, and retries automatically."
+    },
+    "expireStyles": {
+      "heading": "expire_style values",
+      "headerValue": "value",
+      "headerMeaning": "meaning",
+      "footnote": "expire_value is N in the table; it must be ≥ 1 (ignored for forever).",
+      "minute": "expires after N minutes",
+      "hour": "expires after N hours",
+      "day": "expires after N days (default)",
+      "week": "expires after N weeks",
+      "month": "expires after N months",
+      "year": "expires after N years",
+      "count": "expires after N downloads (expired_count is decremented)",
+      "forever": "never expires"
+    },
+    "errors": {
+      "heading": "Error codes",
+      "headerCode": "code",
+      "headerHttp": "HTTP",
+      "headerMeaning": "meaning",
+      "missing": "Missing / invalid API key",
+      "revoked": "Key revoked or expired",
+      "scope": "Insufficient scope (key lacks required permission)",
+      "quotaDaily": "Daily byte quota exhausted",
+      "quotaFileSize": "File exceeds max_file_size",
+      "notFound": "Share or upload session does not exist or is not owned by this key"
+    },
+    "quota": {
+      "heading": "Quotas",
+      "p1": "Each API key has three independent quotas, all of which the administrator can override at issuance time. Defaults:",
+      "maxFileSize": "max_file_size: 500 MiB — single-file ceiling",
+      "quotaDailyBytes": "quota_daily_bytes: 5 GiB / day — cumulative bytes within a UTC day",
+      "quotaPerMinute": "quota_per_minute: 30 / minute — call rate (reserved; not yet enforced)",
+      "p2": "quota_daily_bytes = 0 means unlimited. Usage is rolled up daily in api_key_usage; simple uploads are recorded on success and multipart uploads are recorded on complete."
+    },
+    "requestKey": {
+      "heading": "Request a key",
+      "p1": "drop API does not currently offer self-service signup. To request a key for your scripts or to integrate yui-drop into your project, contact:",
+      "contactEmail": "Email:",
+      "contactGithub": "GitHub:",
+      "githubLink": "open an issue",
+      "p2": "Each key can be issued with an independent note, scopes, quotas, and expiry. The plaintext key is shown exactly once at issuance — save it immediately to your password manager."
+    }
   }
 }
