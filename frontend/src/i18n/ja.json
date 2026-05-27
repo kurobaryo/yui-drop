@@ -130,6 +130,7 @@
     "nav": {
       "dashboard": "ダッシュボード",
       "files": "ファイル",
+      "apiKeys": "APIキー",
       "logs": "ログ",
       "settings": "設定",
       "logout": "ログアウト",
