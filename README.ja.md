@@ -49,6 +49,7 @@ It's a fresh rewrite inspired by [vastsa/FileCodeBox](https://github.com/vastsa/
 - 🌐 **3言語の UI** — English、简体中文、日本語。自動検出かつ手動で切り替え可能
 - 🛡️ **セキュリティ最優先** — 下記の [セキュリティ](#security) を参照
 - 🗑️ **ソフトデリート + 管理者用ゴミ箱** — 期限切れや管理者が削除した共有は、管理者がゴミ箱を空にするまで復元可能
+- 🔌 **プログラム向け API アクセス** — 管理者発行の Bearer キーで、スクリプトや他のアプリから `/api/v1/*` の安定した API（アップロード、リスト、参照）を利用できます。[公開ドキュメント](https://drop.leod.me/docs) または [`docs/API.md`](./docs/API.md) を参照。
 
 ## アーキテクチャ
 
@@ -233,7 +234,35 @@ yui-drop/
 
 ## API
 
-バックエンドは `GET /api/openapi.json` で OpenAPI 仕様を、`GET /api/docs` で対話的な Swagger UI を提供します。概要は [`docs/API.md`](./docs/API.md) を参照してください。
+Yui-Drop は 2 つの API サーフェスを提供します:
+
+**内部 API（フロントエンド ↔ バックエンド）** — `/api/share`、`/api/chunk`、`/api/presign`、`/api/admin`。SPA を動かすための API で、JWT ベースの管理者ログインを使います。完全な契約は [`docs/API.md`](./docs/API.md) を参照してください。
+
+**公開 v1 API（`/api/v1/*`）** — プログラム向けの Bearer トークン認証付き REST API。キーは管理者が発行し（セルフサインアップなし）、`upload` と `read` のいずれかまたは両方の scope を付与できます。各キーのクォータ（単一ファイル上限、1 日あたりの累積バイト数）は個別に設定可能です。3 種類のエンドポイントで一般的なユースケースを網羅します:
+
+- `POST /api/v1/upload` — シンプルアップロード（≤ 10 MiB）
+- `POST /api/v1/upload/init` → `sign-part` → `complete` — 大きなファイル向けの R2 multipart presigned URL フロー（Cloudflare 無料プランの 100 MB 受信制限を回避）
+- `GET /api/v1/shares` と `GET /api/v1/shares/{code}` — 現在のキーで作成された共有のリストと参照
+
+ほとんどのクライアントは次の 3 つの実装パスでカバーできます:
+- **curl + jq** — シェルでの一回限りのアップロード（約 30 行）
+- **Python** + `requests` + スレッドプール — スクリプトや自動化向け
+- **`@uppy/aws-s3-multipart`** — ブラウザ / Node クライアント向け。yui-drop の `/api/v1/upload/*` エンドポイントは Uppy の 4 つのライフサイクルメソッドに直接マップされます
+
+リファレンス実装は `scripts/` 配下にあります：
+
+```bash
+# シンプルアップロード —— 小さなファイル、curl（jq はオプション）が必要
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.sh ./screenshot.png
+
+# Python —— シンプル + マルチパート両方対応、part の並行送信付き
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.py ./big-video.mp4 \
+    --expire-value 7 --expire-style day
+```
+
+どちらも短縮 URL を stdout に出力します。完全なエンドポイントリファレンス、エラーコード、有効期限オプション、クォータの詳細は[公開ドキュメントページ](https://drop.leod.me/docs)（ブラウザの言語に追従、English / 简体中文 / 日本語に対応）を参照してください。
+
+OpenAPI 仕様は `GET /api/openapi.json` で提供され、内部 API の対話的な Swagger UI は `GET /api/_swagger` にあります（管理者のデバッグ用 —— 通常は上記の公開ドキュメントページの使用を推奨）。
 
 ## ロードマップ
 

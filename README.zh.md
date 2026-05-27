@@ -49,6 +49,7 @@ A fresh rewrite inspired by [vastsa/FileCodeBox](https://github.com/vastsa/FileC
 - 🌐 **三语 UI** — English / 简体中文 / 日本語，自动识别、可手动切换
 - 🛡️ **安全第一** — 详见下方 [安全](#安全)
 - 🗑️ **软删除 + 后台回收站** — 过期或管理员删除的分享会先进回收站，可恢复或手动硬删
+- 🔌 **程序化 API 调用** — 由 admin 后台签发的 Bearer key 让脚本和其他应用拥有稳定的 `/api/v1/*` 接口（上传、列表、查询）。参见[在线文档](https://drop.leod.me/docs)或 [`docs/API.md`](./docs/API.md)。
 
 ## 架构
 
@@ -225,7 +226,35 @@ yui-drop/
 
 ## API
 
-后端在 `GET /api/openapi.json` 提供 OpenAPI 规范，在 `GET /api/docs` 提供交互式 Swagger UI。详细契约见 [`docs/API.md`](./docs/API.md)。
+Yui-Drop 提供两套 API 接口：
+
+**内部接口（前端 ↔ 后端）** — `/api/share`、`/api/chunk`、`/api/presign`、`/api/admin`。这些接口驱动 SPA，使用基于 JWT 的 admin 登录。完整契约见 [`docs/API.md`](./docs/API.md)。
+
+**公开 v1 接口（`/api/v1/*`）** — 一套使用 Bearer token 鉴权的稳定 REST 接口，用于程序化访问。Key 由 admin 后台签发（不开放自助注册），并按需绑定 `upload` 和/或 `read` scope。每把 key 的配额（单文件上限、日累计字节）可独立配置。三类端点覆盖常用场景：
+
+- `POST /api/v1/upload` —— 简单上传（≤ 10 MiB）
+- `POST /api/v1/upload/init` → `sign-part` → `complete` —— R2 multipart presigned URL 协议，用于大文件上传（绕过 Cloudflare 免费版 100 MB 入站限制）
+- `GET /api/v1/shares` 与 `GET /api/v1/shares/{code}` —— 列出与查询当前 key 创建的分享
+
+三种实现方式覆盖绝大多数客户端：
+- **curl + jq** —— 适合一次性 shell 上传（约 30 行）
+- **Python** + `requests` + 线程池 —— 适合脚本与自动化
+- **`@uppy/aws-s3-multipart`** —— 适合浏览器 / Node 客户端：yui-drop 的 `/api/v1/upload/*` 端点直接对应 Uppy 的四个生命周期方法
+
+仓库 `scripts/` 下有可直接使用的参考实现：
+
+```bash
+# 简单上传 —— 小文件，依赖 curl（jq 可选）
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.sh ./screenshot.png
+
+# Python —— 兼顾简单上传与分片上传，支持并发 part
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.py ./big-video.mp4 \
+    --expire-value 7 --expire-style day
+```
+
+两者都会把短链接打印到 stdout。完整端点说明、错误码、过期选项与配额详情见[在线文档页](https://drop.leod.me/docs)（自动跟随浏览器语言，支持 English / 简体中文 / 日本語）。
+
+OpenAPI 规范由 `GET /api/openapi.json` 提供；内部接口的交互式 Swagger UI 在 `GET /api/_swagger`（仅供 admin 调试 —— 推荐使用上方的公开文档页面）。
 
 ## Roadmap
 

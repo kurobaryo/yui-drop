@@ -1,6 +1,6 @@
 # API reference
 
-> The live OpenAPI spec is served at `/api/openapi.json` and an interactive Swagger UI at `/api/docs`. This doc is the high-level contract for client implementations and reviewers.
+> The live OpenAPI spec is served at `/api/openapi.json` and an interactive Swagger UI at `/api/_swagger`. The public-facing v1 API has a dedicated documentation page at [`/docs`](https://drop.leod.me/docs). This doc is the high-level contract for client implementations and reviewers.
 
 All non-binary responses use the envelope `{ "code": 0, "message": "ok", "detail": ... }` where `code != 0` indicates an application-level error. Authentication is `Authorization: Bearer <jwt>` (admin endpoints only).
 
@@ -11,7 +11,7 @@ All non-binary responses use the envelope `{ "code": 0, "message": "ok", "detail
 | GET  | `/api/health`        | Liveness probe |
 | GET  | `/api/config`        | Public config blob consumed by the SPA on boot (app name, upload size cap, expiry options, turnstile site key if enabled, etc.) |
 | GET  | `/api/openapi.json`  | OpenAPI spec |
-| GET  | `/api/docs`          | Swagger UI |
+| GET  | `/api/_swagger`      | Swagger UI (internal endpoints only — see `/docs` for the public v1 API) |
 
 ## Share
 
@@ -63,7 +63,51 @@ Used when the storage backend is S3-compatible. Files stream from the browser di
 
 All admin endpoints are rate-limited (per-IP) and audit-logged.
 
-## Error codes
+## v1 (admin-issued keys)
+
+A stable, externally-versioned REST surface for programmatic clients. All endpoints require `Authorization: Bearer yd_<key_id>_<secret>`, where keys are admin-issued and scoped to `upload` and/or `read`. Per-key quotas (`max_file_size`, `quota_daily_bytes`) are enforced.
+
+| Method | Path | Scope | Purpose |
+|---|---|---|---|
+| POST   | `/api/v1/upload`                              | upload | Simple multipart/form-data upload (≤ simple-upload cap, default 10 MiB) |
+| POST   | `/api/v1/upload/init`                         | upload | Begin a multipart presigned upload. Body: `{ file_name, file_size, content_type?, expire_value, expire_style }`. Returns `{ upload_id, key, part_size, parts_total, expires_at }`. |
+| POST   | `/api/v1/upload/{upload_id}/sign-part`        | upload | Sign one part. Body: `{ part_number }`. Returns `{ url, headers, expires_at, part_number }`. |
+| POST   | `/api/v1/upload/{upload_id}/complete`         | upload | Finalize: `{ parts: [{ part_number, etag }] }`. Returns the same shape as `/upload`. |
+| DELETE | `/api/v1/upload/{upload_id}`                  | upload | Abort an in-progress multipart session. |
+| GET    | `/api/v1/shares?limit&offset&status`          | read   | List shares created by the current key. `status` ∈ `active`, `expired`, `all`. |
+| GET    | `/api/v1/shares/{code}`                       | read   | Inspect a single share. 404 if not owned by the current key. |
+
+**Quota enforcement** is layered on top of the existing global rate limits:
+
+- `max_file_size` — bytes; pre-upload check returns 4293 / HTTP 413 when exceeded.
+- `quota_daily_bytes` — cumulative bytes in a UTC day, tracked in `api_key_usage`. Exhaustion returns 4292 / HTTP 429. Set to `0` for unlimited.
+- `quota_per_minute` — reserved for future call-rate limiting; not enforced yet.
+
+**Admin endpoints for key management** live under `/api/admin/api-keys`:
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET    | `/api/admin/api-keys`                          | List all issued keys (no plaintext, no hashes). |
+| POST   | `/api/admin/api-keys`                          | Issue a new key. Returns the plaintext token **exactly once** in `detail.plaintext`. |
+| GET    | `/api/admin/api-keys/{id}`                     | Fetch a single key by id. |
+| PATCH  | `/api/admin/api-keys/{id}`                     | Update note / scopes / quotas / expiry. `clear_expires_at: true` clears the expiry. |
+| DELETE | `/api/admin/api-keys/{id}`                     | Revoke a key (sets `revoked_at`). Subsequent revokes return 4002 / HTTP 409. |
+| GET    | `/api/admin/api-keys/{id}/usage?days=N`        | 30-day default; returns a per-day rollup of `total_bytes` and `total_calls`. |
+
+The plaintext token is bcrypt-hashed before persistence. The public 8-character `key_id` prefix appears in audit logs and the admin UI; the full plaintext is never recoverable after issuance.
+
+## v1 error codes
+
+| `code` | HTTP | Meaning |
+|---|---|---|
+| 4011 | 401 | Missing / invalid API key |
+| 4012 | 401 | Key revoked or expired |
+| 4031 | 403 | Insufficient scope (key lacks `upload` or `read`) |
+| 4292 | 429 | Daily byte quota exhausted |
+| 4293 | 413 | File exceeds `max_file_size` |
+| 4040 | 404 | Share / upload session not found or not owned by this key |
+
+## Error codes (legacy / internal)
 
 | `code` | HTTP | Meaning |
 |---|---|---|

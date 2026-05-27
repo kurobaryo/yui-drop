@@ -131,8 +131,8 @@ export default function ApiKeyIssueModal({
                 <strong className="block">
                   This is the only time this key will be shown.
                 </strong>
-                Save it to 1Password now — closing this dialog will discard the
-                plaintext forever.
+                Save it to your password manager now — closing this dialog will
+                discard the plaintext forever.
               </div>
             </div>
 
