@@ -66,7 +66,6 @@ def upgrade() -> None:
     )
     with op.batch_alter_table('api_key_usage', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_api_key_usage_api_key_id'), ['api_key_id'], unique=False)
-        batch_op.create_index('ix_api_key_usage_key_date', ['api_key_id', 'date'], unique=False)
 
     with op.batch_alter_table('filecodes', schema=None) as batch_op:
         batch_op.add_column(sa.Column('created_by_key_id', sa.Integer(), nullable=True))
@@ -88,7 +87,6 @@ def downgrade() -> None:
         batch_op.drop_column('created_by_key_id')
 
     with op.batch_alter_table('api_key_usage', schema=None) as batch_op:
-        batch_op.drop_index('ix_api_key_usage_key_date')
         batch_op.drop_index(batch_op.f('ix_api_key_usage_api_key_id'))
 
     op.drop_table('api_key_usage')

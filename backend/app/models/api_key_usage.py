@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date as date_type
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, Integer, UniqueConstraint, func
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db.base import Base
@@ -37,5 +37,4 @@ class ApiKeyUsage(Base):
 
     __table_args__ = (
         UniqueConstraint("api_key_id", "date", name="uq_api_key_usage_key_date"),
-        Index("ix_api_key_usage_key_date", "api_key_id", "date"),
     )
