@@ -67,7 +67,7 @@ class AdminApiKeyUpdateRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=255)
     scopes: list[Scope] | None = Field(default=None, min_length=1, max_length=2)
     quota_daily_bytes: int | None = Field(default=None, ge=0)
     quota_per_minute: int | None = Field(default=None, ge=1)

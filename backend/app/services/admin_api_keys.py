@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.api_auth import generate_api_key
@@ -17,9 +17,9 @@ from .common import NotFoundError, ServiceError, record_access
 # ``Scope`` Literal in ``app.schemas.admin_api_keys``.
 VALID_SCOPES: frozenset[str] = frozenset({"upload", "read"})
 
-# Sentinel used by ``update_api_key`` to distinguish "field omitted by the
-# caller" from "field explicitly set to None" (e.g. clear ``expires_at``).
-_UNSET: Any = object()
+# Public sentinel used by the PATCH route to distinguish "leave alone" from
+# "set explicitly (including to null)". Pass UNSET when no update is intended.
+UNSET: Any = object()
 
 
 def _serialize(row: ApiKey, *, now: datetime | None = None) -> dict[str, Any]:
@@ -171,27 +171,27 @@ async def update_api_key(
     db: AsyncSession,
     *,
     key_pk: int,
-    note: str | None = _UNSET,
-    scopes: list[str] | None = _UNSET,
-    quota_daily_bytes: int | None = _UNSET,
-    quota_per_minute: int | None = _UNSET,
-    max_file_size: int | None = _UNSET,
-    expires_at: datetime | None = _UNSET,
+    note: str | None = UNSET,
+    scopes: list[str] | None = UNSET,
+    quota_daily_bytes: int | None = UNSET,
+    quota_per_minute: int | None = UNSET,
+    max_file_size: int | None = UNSET,
+    expires_at: datetime | None = UNSET,
     ip: str | None,
     ua: str | None,
 ) -> dict[str, Any]:
-    """Patch any subset of mutable fields. Pass ``_UNSET`` to leave alone.
+    """Patch any subset of mutable fields. Pass ``UNSET`` to leave alone.
 
     ``expires_at`` accepts an explicit ``None`` meaning "never expires".
     """
     row = await _load(db, key_pk)
     fields_changed: list[str] = []
 
-    if note is not _UNSET:
+    if note is not UNSET:
         row.note = note
         fields_changed.append("note")
 
-    if scopes is not _UNSET:
+    if scopes is not UNSET:
         if scopes is None:
             raise ServiceError(
                 "invalid_scopes",
@@ -203,7 +203,7 @@ async def update_api_key(
         row.scopes = ",".join(normalised)
         fields_changed.append("scopes")
 
-    if quota_daily_bytes is not _UNSET:
+    if quota_daily_bytes is not UNSET:
         if quota_daily_bytes is None or quota_daily_bytes < 0:
             raise ServiceError(
                 "invalid_quota",
@@ -214,7 +214,7 @@ async def update_api_key(
         row.quota_daily_bytes = quota_daily_bytes
         fields_changed.append("quota_daily_bytes")
 
-    if quota_per_minute is not _UNSET:
+    if quota_per_minute is not UNSET:
         if quota_per_minute is None or quota_per_minute < 1:
             raise ServiceError(
                 "invalid_quota",
@@ -225,7 +225,7 @@ async def update_api_key(
         row.quota_per_minute = quota_per_minute
         fields_changed.append("quota_per_minute")
 
-    if max_file_size is not _UNSET:
+    if max_file_size is not UNSET:
         if max_file_size is None or max_file_size < 1:
             raise ServiceError(
                 "invalid_quota",
@@ -236,10 +236,15 @@ async def update_api_key(
         row.max_file_size = max_file_size
         fields_changed.append("max_file_size")
 
-    if expires_at is not _UNSET:
+    if expires_at is not UNSET:
         # ``None`` here means "no expiry"; a datetime sets a new deadline.
         row.expires_at = expires_at
         fields_changed.append("expires_at")
+
+    # No-op PATCH: caller sent {} (or only clear_expires_at=False). Skip the
+    # audit row + commit and just return the current state.
+    if not fields_changed:
+        return _serialize(row)
 
     await record_access(
         db,
@@ -320,10 +325,6 @@ async def get_api_key_usage(
         total_calls += c
         series.append({"date": d.isoformat(), "total_bytes": b, "total_calls": c})
 
-    # ``func`` import retained for forward compatibility with a future
-    # single-query SUM rollup; we currently aggregate in Python because
-    # the window is small (≤ 365 days).
-    _ = func
     return {
         "key_id": row.key_id,
         "days": series,

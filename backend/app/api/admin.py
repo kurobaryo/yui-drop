@@ -28,8 +28,12 @@ from ..models.access_log import AccessLogAction
 from ..schemas import ok
 from ..schemas.admin_api_keys import (
     AdminApiKeyCreateRequest,
+    AdminApiKeyCreateResponse,
+    AdminApiKeyListItem,
     AdminApiKeyUpdateRequest,
+    AdminApiKeyUsageResponse,
 )
+from ..schemas.common import Envelope
 from ..services.admin import (
     compute_dashboard,
     delete_file,
@@ -48,6 +52,7 @@ from ..services.admin import (
 )
 from ..services.admin_api_keys import (
     create_api_key,
+    get_api_key,
     get_api_key_usage,
     list_api_keys,
     revoke_api_key,
@@ -729,23 +734,41 @@ async def admin_put_uploads(
 # ────────────────────────────────────────────────────────────────────────────
 
 
-@router.get("/api-keys")
+class AdminApiKeyListEnvelope(BaseModel):
+    """Wrapper so the list endpoint can advertise its response_model."""
+
+    items: list[AdminApiKeyListItem]
+
+
+@router.get("/api-keys", response_model=Envelope[AdminApiKeyListEnvelope])
 async def admin_api_keys_list(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     payload: Annotated[dict[str, Any], Depends(require_admin)],
 ) -> dict[str, Any]:
+    """List all issued API keys (newest first).
+
+    Returns sanitised key metadata — never the bcrypt hash and never the
+    plaintext token. ``is_active`` is computed live from ``revoked_at`` and
+    ``expires_at`` at response time.
+    """
     items = await list_api_keys(db)
     return ok({"items": items})
 
 
-@router.post("/api-keys")
+@router.post("/api-keys", response_model=Envelope[AdminApiKeyCreateResponse])
 async def admin_api_keys_create(
     request: Request,
     body: AdminApiKeyCreateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
     payload: Annotated[dict[str, Any], Depends(require_admin)],
 ) -> dict[str, Any]:
+    """Mint a brand-new API key and return its plaintext exactly once.
+
+    The plaintext token is present ONLY in this response — it is never
+    persisted in cleartext, never logged, and never returned by any other
+    endpoint. Callers must capture it here or revoke and reissue.
+    """
     try:
         out = await create_api_key(
             db,
@@ -764,7 +787,32 @@ async def admin_api_keys_create(
     return ok(out)
 
 
-@router.patch("/api-keys/{key_pk}")
+@router.get(
+    "/api-keys/{key_pk}",
+    response_model=Envelope[AdminApiKeyListItem],
+)
+async def admin_api_keys_get(
+    request: Request,
+    key_pk: Annotated[int, Path(ge=1)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    payload: Annotated[dict[str, Any], Depends(require_admin)],
+) -> dict[str, Any]:
+    """Fetch a single API key by primary-key id.
+
+    Returns the same shape as the list endpoint's items (no plaintext, no
+    key_hash). 404 if no row with this id exists.
+    """
+    try:
+        out = await get_api_key(db, key_pk=key_pk)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+@router.patch(
+    "/api-keys/{key_pk}",
+    response_model=Envelope[AdminApiKeyListItem],
+)
 async def admin_api_keys_update(
     request: Request,
     key_pk: Annotated[int, Path(..., ge=1)],
@@ -772,10 +820,17 @@ async def admin_api_keys_update(
     db: Annotated[AsyncSession, Depends(get_db)],
     payload: Annotated[dict[str, Any], Depends(require_admin)],
 ) -> dict[str, Any]:
+    """Patch any subset of mutable fields on an API key.
+
+    Uses ``model_dump(exclude_unset=True)`` to distinguish "field omitted"
+    from "field explicitly set to null". The service-layer ``UNSET`` sentinel
+    carries the tri-state across the call boundary. ``clear_expires_at=True``
+    is sugar for forcing ``expires_at`` to ``None`` (never expires).
+    """
     # Local import so the sentinel object identity stays unique to the service
     # module — referencing it from the route layer keeps the "field omitted vs
     # field explicitly None" tri-state working through ``model_dump``.
-    from ..services.admin_api_keys import _UNSET
+    from ..services.admin_api_keys import UNSET
 
     fields = body.model_dump(exclude_unset=True)
     # ``clear_expires_at=True`` is sugar for "force expires_at to None".
@@ -787,12 +842,12 @@ async def admin_api_keys_update(
         out = await update_api_key(
             db,
             key_pk=key_pk,
-            note=fields.get("note", _UNSET),
-            scopes=fields.get("scopes", _UNSET),
-            quota_daily_bytes=fields.get("quota_daily_bytes", _UNSET),
-            quota_per_minute=fields.get("quota_per_minute", _UNSET),
-            max_file_size=fields.get("max_file_size", _UNSET),
-            expires_at=fields.get("expires_at", _UNSET),
+            note=fields.get("note", UNSET),
+            scopes=fields.get("scopes", UNSET),
+            quota_daily_bytes=fields.get("quota_daily_bytes", UNSET),
+            quota_per_minute=fields.get("quota_per_minute", UNSET),
+            max_file_size=fields.get("max_file_size", UNSET),
+            expires_at=fields.get("expires_at", UNSET),
             ip=real_client_ip(request),
             ua=_ua(request),
         )
@@ -801,13 +856,22 @@ async def admin_api_keys_update(
     return ok(out)
 
 
-@router.delete("/api-keys/{key_pk}")
+@router.delete(
+    "/api-keys/{key_pk}",
+    response_model=Envelope[AdminApiKeyListItem],
+)
 async def admin_api_keys_revoke(
     request: Request,
     key_pk: Annotated[int, Path(..., ge=1)],
     db: Annotated[AsyncSession, Depends(get_db)],
     payload: Annotated[dict[str, Any], Depends(require_admin)],
 ) -> dict[str, Any]:
+    """Revoke an API key by stamping its ``revoked_at`` to now.
+
+    Revocation is permanent and idempotent in the database sense, but a
+    second call against an already-revoked key returns 409 so the caller
+    can distinguish "I just revoked it" from "it was already dead".
+    """
     try:
         out = await revoke_api_key(
             db,
@@ -820,7 +884,10 @@ async def admin_api_keys_revoke(
     return ok(out)
 
 
-@router.get("/api-keys/{key_pk}/usage")
+@router.get(
+    "/api-keys/{key_pk}/usage",
+    response_model=Envelope[AdminApiKeyUsageResponse],
+)
 async def admin_api_keys_usage(
     request: Request,
     key_pk: Annotated[int, Path(..., ge=1)],
@@ -828,6 +895,12 @@ async def admin_api_keys_usage(
     payload: Annotated[dict[str, Any], Depends(require_admin)],
     days: Annotated[int, Query(ge=1, le=365)] = 30,
 ) -> dict[str, Any]:
+    """Return a contiguous ``days``-wide window of daily usage rollups.
+
+    The window is always exactly ``days`` entries long with zero-filled
+    gaps, so the dashboard can plot it without worrying about missing
+    dates. ``totals`` sums the same window.
+    """
     try:
         out = await get_api_key_usage(db, key_pk=key_pk, days=days)
     except ServiceError as e:
