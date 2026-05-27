@@ -31,6 +31,7 @@ from .api import presign as presign_api
 from .api import public as public_api
 from .api import share as share_api
 from .api import share_multi as share_multi_api
+from .api import v1 as v1_api
 from .core.config import settings
 from .core.logging import configure_logging, get_logger
 from .core.rate_limit import limiter
@@ -221,7 +222,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
-        docs_url="/api/docs",
+        docs_url="/api/_swagger",
         redoc_url=None,
         openapi_url="/api/openapi.json",
         lifespan=lifespan,
@@ -255,6 +256,7 @@ def create_app() -> FastAPI:
     app.include_router(chunk_api.router)
     app.include_router(presign_api.router)
     app.include_router(admin_api.router)
+    app.include_router(v1_api.router)
 
     # Short-link redirect. Sits *before* the SPA fallback so /s/{code} is
     # answered with a 302 to /?code=… rather than falling through to
