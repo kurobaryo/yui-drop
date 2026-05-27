@@ -4,6 +4,7 @@
  * "ファイル宅配ボックス" / "FILE LOCKER") comes from `washi.tagBrand`.
  */
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 import type { WashiColors, WashiMode, WashiPaletteName } from './palettes';
 import { MobileMenu } from './MobileMenu';
@@ -60,15 +61,33 @@ export function Header({ c, palette, setPalette, mode, setMode, lang, setLang }:
         </div>
       </div>
 
-      <MobileMenu
-        c={c}
-        palette={palette}
-        setPalette={setPalette}
-        mode={mode}
-        setMode={setMode}
-        lang={lang}
-        setLang={setLang}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <Link
+          to="/docs"
+          style={{
+            color: c.sub,
+            fontSize: 12,
+            letterSpacing: '0.08em',
+            textDecoration: 'none',
+            padding: '6px 12px',
+            border: `1px solid ${c.soft}`,
+            borderRadius: 999,
+            flexShrink: 0,
+            fontFamily: 'inherit',
+          }}
+        >
+          API
+        </Link>
+        <MobileMenu
+          c={c}
+          palette={palette}
+          setPalette={setPalette}
+          mode={mode}
+          setMode={setMode}
+          lang={lang}
+          setLang={setLang}
+        />
+      </div>
     </div>
   );
 }
