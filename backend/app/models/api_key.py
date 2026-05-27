@@ -58,11 +58,23 @@ class ApiKey(Base):
     created_by_admin: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     def is_active(self, now: datetime) -> bool:
-        """True iff this key is not revoked and not past its expiry."""
+        """True iff this key is not revoked and not past its expiry.
+
+        ``now`` is expected to be timezone-aware (UTC). SQLite, however,
+        does not preserve tzinfo round-tripping ``DateTime(timezone=True)``
+        columns — values come back naive. We normalise here so the
+        comparison can't trip a ``TypeError`` regardless of dialect.
+        """
         if self.revoked_at is not None:
             return False
-        if self.expires_at is not None and self.expires_at <= now:
-            return False
+        if self.expires_at is not None:
+            exp = self.expires_at
+            if exp.tzinfo is None:
+                # Treat naive timestamps as UTC (which is how we write them).
+                from datetime import UTC as _UTC
+                exp = exp.replace(tzinfo=_UTC)
+            if exp <= now:
+                return False
         return True
 
     def scopes_list(self) -> list[str]:
