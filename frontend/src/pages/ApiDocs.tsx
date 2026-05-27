@@ -223,7 +223,8 @@ const GET_CURL = [
 
 const CONTACT_EMAIL = "leo@leod.me";
 const CONTACT_GITHUB_URL = "https://github.com/kurobaryo/yui-drop/issues";
-const CONTACT_GITHUB_HANDLE = "Leeeo.D";
+const CONTACT_GITHUB_HANDLE = "kurobaryo";
+const CONTACT_DISPLAY_NAME = "Leeeo.D";
 
 export default function ApiDocs() {
   const { t } = useTranslation();
@@ -570,7 +571,7 @@ export default function ApiDocs() {
                   <a href={CONTACT_GITHUB_URL} style={linkStyle(c)} target="_blank" rel="noreferrer">
                     {t("apiDocs.requestKey.githubLink")}
                   </a>{" "}
-                  (<code style={inlineCode(c)}>@{CONTACT_GITHUB_HANDLE}</code>)
+                  (<code style={inlineCode(c)}>@{CONTACT_GITHUB_HANDLE}</code> · {CONTACT_DISPLAY_NAME})
                 </li>
               </ul>
               <p style={{ ...pStyle(c), fontSize: 12.5, color: c.sub }}>{t("apiDocs.requestKey.p2")}</p>
