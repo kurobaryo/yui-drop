@@ -374,5 +374,153 @@
     "verifying": "確認中…",
     "failed": "確認に失敗しました。もう一度お試しください。",
     "required": "先に認証を完了してください。"
+  },
+  "apiDocs": {
+    "title": "drop API",
+    "subtitle": "drop.leod.me のプログラム向けアップロード API —— curl 一行で共有用の短縮リンクを取得できます。",
+    "contentsLabel": "目次",
+    "toc": {
+      "intro": "はじめに",
+      "auth": "認証",
+      "upload": "POST /upload",
+      "multipartInit": "POST /upload/init",
+      "multipartSign": "POST /upload/{id}/sign-part",
+      "multipartComplete": "POST /upload/{id}/complete",
+      "multipartAbort": "DELETE /upload/{id}",
+      "listShares": "GET /shares",
+      "getShare": "GET /shares/{code}",
+      "clients": "クライアントライブラリ",
+      "expireStyles": "expire_style の値",
+      "errors": "エラーコード",
+      "quota": "クォータ",
+      "requestKey": "鍵のリクエスト"
+    },
+    "intro": {
+      "heading": "はじめに",
+      "p1": "drop API は yui-drop の公開 HTTP インターフェースです。スクリプト、CLI ツール、その他のアプリケーションからファイルをプログラム的にアップロードし、共有用の短いコードを取得できます。",
+      "baseUrlLabel": "ベース URL:",
+      "envelopeLabel": "すべてのレスポンスは統一エンベロープを使用します:",
+      "envelopeSuffix": " —— code === 2000 は成功を意味します。",
+      "signupLabel": "セルフサインアップはありません。",
+      "signupLink": "鍵のリクエスト",
+      "signupSuffix": "をご参照ください。"
+    },
+    "auth": {
+      "heading": "認証",
+      "p1": "すべての /api/v1/* エンドポイントは Authorization ヘッダーに Bearer トークンが必要です:",
+      "p2": "トークンの形式は yd_ + 8 文字の公開 ID + _ + 32 文字のシークレットです。最初の 11 文字は管理画面と監査ログに表示されますが、完全な平文は発行時に一度だけ表示され、その後は復元できません。",
+      "errorsHeading": "認証関連のエラーコード:",
+      "errorMissing": "401 —— API キーがない、または無効",
+      "errorRevoked": "401 —— キーが取消済みまたは期限切れ",
+      "errorScope": "403 —— スコープ不足 (upload または read が不足)"
+    },
+    "endpoints": {
+      "upload": {
+        "title": "シンプルアップロード —— ファイル ≤ 10 MiB",
+        "description": "multipart/form-data で小さなファイルをアップロードします。レスポンスには 5-8 文字のピックアップコード、直接ダウンロード URL、短縮リンクが含まれます。サーバーの simple-upload 上限を超えるファイルは下記のマルチパートエンドポイントを使用してください。",
+        "paramFile": "multipart フィールド、ファイル本体",
+        "paramExpireValue": "有効期限の値 (≥ 1、デフォルト 1)",
+        "paramExpireStyle": "有効期限の単位 (デフォルト day; expire_style の値を参照)"
+      },
+      "multipartInit": {
+        "title": "マルチパートアップロード —— ステップ 1: 初期化",
+        "description": "大きなファイルは R2 multipart presigned URL プロトコルを使用します。クライアントはまず init を呼び出して upload_id を取得し、parts_total の数だけ part presigned URL をリクエストし、R2 に直接 PUT してアップロード完了後 complete を呼び出します。",
+        "paramFileName": "ファイル名、1-512 文字",
+        "paramFileSize": "バイト数、≥ 1 かつ ≤ max_file_size",
+        "paramContentType": "MIME タイプ、省略可",
+        "paramExpireValue": "有効期限の値、デフォルト 1",
+        "paramExpireStyle": "有効期限の単位、デフォルト day"
+      },
+      "multipartSign": {
+        "title": "マルチパートアップロード —— ステップ 2: 単一 part の署名",
+        "description": "各 part (1 から parts_total まで) ごとに 1 回呼び出して presigned PUT URL を取得します。クライアントはバイトを R2 に直接 PUT し、レスポンスヘッダーの ETag を記録します。",
+        "paramPartNumber": "Part 番号、1-10000"
+      },
+      "multipartComplete": {
+        "title": "マルチパートアップロード —— ステップ 3: 完了",
+        "description": "すべての part のアップロード完了後に呼び出します。サーバーは part マニフェストを R2 に送信して最終オブジェクトを組み立て、サイズを検証 (5% を超える偏差で失敗)、共有を作成してシンプルアップロードと同じレスポンスを返します。",
+        "paramParts": "完全な part リスト (番号 + ETag)、長さは parts_total と一致する必要があります"
+      },
+      "multipartAbort": {
+        "title": "マルチパートアップロード —— 中止",
+        "description": "進行中のマルチパートセッションを破棄します。アップロード済みの part は R2 によって回収され、DB のセッション行が削除されます。"
+      },
+      "listShares": {
+        "title": "このキーで作成された共有の一覧",
+        "description": "現在の API キーでアップロードされたすべての共有のページネーション付きクエリ。status はデフォルトで active、expired または all を渡せます。",
+        "paramLimit": "1-200、デフォルト 50",
+        "paramOffset": "≥ 0、デフォルト 0",
+        "paramStatus": "active / expired / all"
+      },
+      "getShare": {
+        "title": "単一の共有を取得",
+        "description": "リストアイテムと同じ形状を返します。現在のキーで作成された共有のみが返されます —— それ以外は 404 (他人のキーで共有の存在を列挙するのを防ぐため)。"
+      }
+    },
+    "params": {
+      "name": "名前",
+      "type": "型",
+      "required": "必須",
+      "description": "説明",
+      "requiredMarker": "必須",
+      "optionalMarker": "任意"
+    },
+    "sections": {
+      "request": "リクエスト",
+      "response": "レスポンス",
+      "example": "例"
+    },
+    "clients": {
+      "heading": "クライアントライブラリ",
+      "p1": "クライアントはローカルでファイルをチャンク化し、各 part を R2 に直接アップロードします —— yui-drop サーバーは presigned URL の発行のみを担当します。次の 3 つの方法で大半のユースケースをカバーできます:",
+      "curlTitle": "curl + jq",
+      "curlBody": "シェルでの一回限りのアップロードに適しています。約 30 行、curl と jq 以外の依存関係はありません。リポジトリの scripts/yui-drop-upload.sh を参照してください。",
+      "pythonTitle": "Python (requests)",
+      "pythonBody": "スクリプトと自動化に適しています。scripts/yui-drop-upload.py のリファレンス実装は requests とスレッドプールで part を並行アップロードします。",
+      "uppyTitle": "JavaScript (Uppy)",
+      "uppyBody": "ブラウザと Node クライアントには @uppy/aws-s3-multipart が本 API に直接マッピングできます。4 つのライフサイクルメソッド (createMultipartUpload、signPart、completeMultipartUpload、abortMultipartUpload) を /api/v1/upload/* にプロキシすれば、Uppy がチャンク化、並行処理、リトライを自動で処理します。"
+    },
+    "expireStyles": {
+      "heading": "expire_style の値",
+      "headerValue": "値",
+      "headerMeaning": "意味",
+      "footnote": "expire_value は表の N に該当します。≥ 1 が必須 (forever では無視されます)。",
+      "minute": "N 分後に期限切れ",
+      "hour": "N 時間後に期限切れ",
+      "day": "N 日後に期限切れ (デフォルト)",
+      "week": "N 週間後に期限切れ",
+      "month": "N ヶ月後に期限切れ",
+      "year": "N 年後に期限切れ",
+      "count": "N 回ダウンロード後に無効化 (expired_count をカウントダウン)",
+      "forever": "期限切れなし"
+    },
+    "errors": {
+      "heading": "エラーコード",
+      "headerCode": "code",
+      "headerHttp": "HTTP",
+      "headerMeaning": "意味",
+      "missing": "API キーがない / 無効",
+      "revoked": "キーが取消済みまたは期限切れ",
+      "scope": "スコープ不足 (必要な権限がない)",
+      "quotaDaily": "1 日のバイトクォータ使い切り",
+      "quotaFileSize": "ファイルが max_file_size を超過",
+      "notFound": "共有またはアップロードセッションが存在しない、または現在のキーが所有していない"
+    },
+    "quota": {
+      "heading": "クォータ",
+      "p1": "各 API キーには 3 つの独立したクォータがあり、管理者は発行時に個別に上書きできます。デフォルト:",
+      "maxFileSize": "max_file_size: 500 MiB —— 単一ファイル上限",
+      "quotaDailyBytes": "quota_daily_bytes: 5 GiB / 日 —— UTC 日の累積バイト",
+      "quotaPerMinute": "quota_per_minute: 30 / 分 —— 呼び出しレート (予約、まだ有効化されていません)",
+      "p2": "quota_daily_bytes = 0 は無制限を意味します。使用量は api_key_usage で日次集計されます: シンプルアップロードはレスポンス成功時に、マルチパートアップロードは complete 段階で記録されます。"
+    },
+    "requestKey": {
+      "heading": "鍵のリクエスト",
+      "p1": "drop API は現在セルフサインアップを提供していません。スクリプト用または yui-drop をプロジェクトに統合するためにキーをリクエストするには:",
+      "contactEmail": "メール:",
+      "contactGithub": "GitHub:",
+      "githubLink": "issue を開く",
+      "p2": "各キーは発行時にメモ、スコープ、クォータ、有効期限を個別に設定できます。平文の鍵は発行時に一度だけ表示されます —— すぐにパスワードマネージャーに保存してください。"
+    }
   }
 }

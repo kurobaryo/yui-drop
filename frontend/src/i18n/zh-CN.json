@@ -374,5 +374,153 @@
     "verifying": "验证中…",
     "failed": "验证失败，请重试。",
     "required": "请先完成验证。"
+  },
+  "apiDocs": {
+    "title": "drop API",
+    "subtitle": "drop.leod.me 的程序化上传接口 —— 用一条 curl 就能拿到可分享的短链接。",
+    "contentsLabel": "目录",
+    "toc": {
+      "intro": "介绍",
+      "auth": "鉴权",
+      "upload": "POST /upload",
+      "multipartInit": "POST /upload/init",
+      "multipartSign": "POST /upload/{id}/sign-part",
+      "multipartComplete": "POST /upload/{id}/complete",
+      "multipartAbort": "DELETE /upload/{id}",
+      "listShares": "GET /shares",
+      "getShare": "GET /shares/{code}",
+      "clients": "客户端库",
+      "expireStyles": "expire_style 取值",
+      "errors": "错误码",
+      "quota": "配额",
+      "requestKey": "申请 key"
+    },
+    "intro": {
+      "heading": "介绍",
+      "p1": "drop API 是 yui-drop 的公开 HTTP 接口。设计目标是让脚本、命令行工具和其他应用都能用一行 curl 把文件丢上来，并拿到一个可分享的短链接。",
+      "baseUrlLabel": "基础 URL:",
+      "envelopeLabel": "所有响应统一封装为:",
+      "envelopeSuffix": " —— code === 2000 表示成功。",
+      "signupLabel": "不开放自助注册,详见",
+      "signupLink": "申请 key",
+      "signupSuffix": "。"
+    },
+    "auth": {
+      "heading": "鉴权",
+      "p1": "所有 /api/v1/* 端点都要求在 Authorization header 中携带 Bearer token:",
+      "p2": "Token 格式固定为 yd_ + 8 位公开 ID + _ + 32 位密钥。前 11 个字符是公开前缀,会出现在 admin 后台与审计日志中;完整明文仅在签发时显示一次,之后无法再次查看。",
+      "errorsHeading": "鉴权相关错误码:",
+      "errorMissing": "401 —— 缺失或无效的 API key",
+      "errorRevoked": "401 —— key 已撤销或已过期",
+      "errorScope": "403 —— scope 不足(key 缺少 upload 或 read 权限)"
+    },
+    "endpoints": {
+      "upload": {
+        "title": "简单上传 —— 文件 ≤ 10 MiB",
+        "description": "使用 multipart/form-data 上传一个小文件。响应中包含 5-8 字符的取件码、直接下载 URL 与短链接。超过服务器 simple-upload 上限的文件应改用下面的分片接口。",
+        "paramFile": "multipart 字段,文件本体",
+        "paramExpireValue": "过期数值(≥ 1,默认 1)",
+        "paramExpireStyle": "过期单位(默认 day;见 expire_style 取值)"
+      },
+      "multipartInit": {
+        "title": "分片上传 —— 第一步:初始化",
+        "description": "大文件走 R2 multipart presigned URL 协议。客户端先调 init 拿到 upload_id,然后按 parts_total 数量逐个请求 part presigned URL,直接 PUT 上传完整后再调 complete 收尾。",
+        "paramFileName": "文件名,1-512 字符",
+        "paramFileSize": "字节数,≥ 1 且 ≤ max_file_size",
+        "paramContentType": "MIME 类型,可空",
+        "paramExpireValue": "过期数值,默认 1",
+        "paramExpireStyle": "过期单位,默认 day"
+      },
+      "multipartSign": {
+        "title": "分片上传 —— 第二步:取单 part presigned URL",
+        "description": "对每个 part(1 到 parts_total)调用一次,拿到该 part 的 PUT presigned URL。客户端将字节直接 PUT 到 R2,记录返回头中的 ETag。",
+        "paramPartNumber": "Part 编号,1-10000"
+      },
+      "multipartComplete": {
+        "title": "分片上传 —— 第三步:完成",
+        "description": "全部 part 上传完成后调用一次。服务端将 part 清单提交给 R2 拼装成最终对象,校验大小(>5% 偏差会失败),创建分享并返回与简单上传一致的响应。",
+        "paramParts": "完整的 part 清单(编号 + ETag),长度必须等于 parts_total"
+      },
+      "multipartAbort": {
+        "title": "分片上传 —— 取消",
+        "description": "放弃进行中的分片会话。已上传的 part 由 R2 回收,DB 中的 session 行被删除。"
+      },
+      "listShares": {
+        "title": "列出本 key 创建的分享",
+        "description": "分页查询当前 API key 上传的所有分享。status 默认为 active,可改为 expired 或 all。",
+        "paramLimit": "1-200,默认 50",
+        "paramOffset": "≥ 0,默认 0",
+        "paramStatus": "active / expired / all"
+      },
+      "getShare": {
+        "title": "查询单个分享",
+        "description": "返回与列表项相同的形状。仅返回当前 key 创建的分享,否则 404(防止用别人的 key 枚举分享是否存在)。"
+      }
+    },
+    "params": {
+      "name": "名称",
+      "type": "类型",
+      "required": "必填",
+      "description": "描述",
+      "requiredMarker": "必填",
+      "optionalMarker": "可选"
+    },
+    "sections": {
+      "request": "请求",
+      "response": "响应",
+      "example": "示例"
+    },
+    "clients": {
+      "heading": "客户端库",
+      "p1": "客户端在本地分块,每个 part 直接 PUT 到 R2 —— yui-drop 服务端只负责签 URL。下面三种方式覆盖了大多数场景:",
+      "curlTitle": "curl + jq",
+      "curlBody": "适合一次性的 shell 上传。约 30 行,除 curl 和 jq 外没有依赖。仓库中 scripts/yui-drop-upload.sh 有可直接使用的脚本。",
+      "pythonTitle": "Python (requests)",
+      "pythonBody": "适合脚本和自动化。仓库中的 scripts/yui-drop-upload.py 用 requests + 线程池并发上传 part。",
+      "uppyTitle": "JavaScript (Uppy)",
+      "uppyBody": "对浏览器和 Node 客户端,@uppy/aws-s3-multipart 直接对应本 API。实现四个生命周期方法 (createMultipartUpload、signPart、completeMultipartUpload、abortMultipartUpload) 代理到 /api/v1/upload/*,Uppy 会自动处理分块、并发与重试。"
+    },
+    "expireStyles": {
+      "heading": "expire_style 取值",
+      "headerValue": "取值",
+      "headerMeaning": "含义",
+      "footnote": "expire_value 即表中的 N,必须 ≥ 1(forever 模式下忽略此值)。",
+      "minute": "N 分钟后过期",
+      "hour": "N 小时后过期",
+      "day": "N 天后过期(默认)",
+      "week": "N 周后过期",
+      "month": "N 月后过期",
+      "year": "N 年后过期",
+      "count": "被下载 N 次后失效(expired_count 计数)",
+      "forever": "永不过期"
+    },
+    "errors": {
+      "heading": "错误码",
+      "headerCode": "code",
+      "headerHttp": "HTTP",
+      "headerMeaning": "含义",
+      "missing": "缺失 / 无效的 API key",
+      "revoked": "key 已撤销或已过期",
+      "scope": "scope 不足(key 缺少所需权限)",
+      "quotaDaily": "当日字节配额已用尽",
+      "quotaFileSize": "文件超过 max_file_size",
+      "notFound": "分享或 upload 会话不存在,或不属于当前 key"
+    },
+    "quota": {
+      "heading": "配额",
+      "p1": "每把 API key 都有三个独立配额,admin 在签发时可独立覆盖。默认值:",
+      "maxFileSize": "max_file_size: 500 MiB —— 单文件上限",
+      "quotaDailyBytes": "quota_daily_bytes: 5 GiB / 天 —— UTC 日累计字节",
+      "quotaPerMinute": "quota_per_minute: 30 / 分钟 —— 调用频率(预留,尚未启用)",
+      "p2": "quota_daily_bytes = 0 表示不限。配额统计走 api_key_usage 的当日汇总:简单上传在响应成功后计入,分片上传在 complete 阶段计入。"
+    },
+    "requestKey": {
+      "heading": "申请 key",
+      "p1": "drop API 目前不开放自助注册。如需获取一把 key 用于脚本或将 yui-drop 接入你的项目,请联系:",
+      "contactEmail": "邮箱:",
+      "contactGithub": "GitHub:",
+      "githubLink": "提一个 issue",
+      "p2": "每把 key 可独立设置备注、scope、配额与过期时间。明文 key 仅在签发时显示一次,请立即保存到密码管理器中。"
+    }
   }
 }
