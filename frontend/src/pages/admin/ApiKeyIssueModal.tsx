@@ -8,6 +8,7 @@
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Copy, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 import {
@@ -52,6 +53,7 @@ export default function ApiKeyIssueModal({
   open,
   onClose,
 }: ApiKeyIssueModalProps) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [issued, setIssued] = useState<ApiKeyCreateResponse | null>(null);
@@ -107,10 +109,10 @@ export default function ApiKeyIssueModal({
     try {
       await navigator.clipboard.writeText(issued.plaintext);
       setCopied(true);
-      toast.success('Copied to clipboard');
+      toast.success(t('admin.apiKeys.issue.copiedToast'));
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error('Copy failed — select the text manually');
+      toast.error(t('admin.apiKeys.issue.copyFailedToast'));
     }
   }
 
@@ -118,7 +120,7 @@ export default function ApiKeyIssueModal({
     <Modal
       open={open}
       onClose={handleClose}
-      title={issued ? 'API key issued' : 'Issue a new API key'}
+      title={issued ? t('admin.apiKeys.issue.titleIssued') : t('admin.apiKeys.issue.title')}
       widthClassName="w-[90vw] max-w-xl"
     >
       <div className="p-4 space-y-4">
@@ -129,16 +131,15 @@ export default function ApiKeyIssueModal({
               <AlertTriangle className="h-5 w-5 shrink-0" />
               <div>
                 <strong className="block">
-                  This is the only time this key will be shown.
+                  {t('admin.apiKeys.issue.warningTitle')}
                 </strong>
-                Save it to your password manager now — closing this dialog will
-                discard the plaintext forever.
+                {t('admin.apiKeys.issue.warning')}
               </div>
             </div>
 
             <div>
               <label className="text-xs uppercase tracking-wider text-[--text-2]">
-                Plaintext secret
+                {t('admin.apiKeys.issue.plaintextLabel')}
               </label>
               <div className="mt-1 rounded-md border border-[--border] bg-[--bg-2] p-3 font-mono text-sm text-[--text-1] break-all select-all">
                 {issued.plaintext}
@@ -147,23 +148,23 @@ export default function ApiKeyIssueModal({
 
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-xs text-[--text-2]">Key ID</div>
+                <div className="text-xs text-[--text-2]">{t('admin.apiKeys.table.keyId')}</div>
                 <div className="font-mono text-[--text-1]">{issued.key_id}</div>
               </div>
               <div>
-                <div className="text-xs text-[--text-2]">Note</div>
+                <div className="text-xs text-[--text-2]">{t('admin.apiKeys.table.note')}</div>
                 <div className="text-[--text-1]">{issued.note ?? '—'}</div>
               </div>
               <div>
-                <div className="text-xs text-[--text-2]">Scopes</div>
+                <div className="text-xs text-[--text-2]">{t('admin.apiKeys.table.scopes')}</div>
                 <div className="text-[--text-1]">
                   {issued.scopes.join(', ')}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-[--text-2]">Expires</div>
+                <div className="text-xs text-[--text-2]">{t('admin.apiKeys.issue.expiresLabel')}</div>
                 <div className="text-[--text-1]">
-                  {issued.expires_at ?? 'Never'}
+                  {issued.expires_at ?? t('admin.apiKeys.issue.never')}
                 </div>
               </div>
             </div>
@@ -180,10 +181,10 @@ export default function ApiKeyIssueModal({
                 }
                 onClick={copyPlaintext}
               >
-                {copied ? 'Copied' : 'Copy'}
+                {copied ? t('admin.apiKeys.issue.copied') : t('admin.apiKeys.issue.copy')}
               </Button>
               <Button variant="primary" onClick={handleClose}>
-                I've saved it
+                {t('admin.apiKeys.issue.done')}
               </Button>
             </div>
           </>
@@ -192,11 +193,11 @@ export default function ApiKeyIssueModal({
           <>
             <div>
               <label className="text-xs uppercase tracking-wider text-[--text-2]">
-                Note
+                {t('admin.apiKeys.table.note')}
               </label>
               <Input
                 inputSize="sm"
-                placeholder="What is this key for?"
+                placeholder={t('admin.apiKeys.issue.notePlaceholder')}
                 value={form.note}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, note: e.target.value }))
@@ -207,7 +208,7 @@ export default function ApiKeyIssueModal({
 
             <div>
               <label className="text-xs uppercase tracking-wider text-[--text-2]">
-                Scopes
+                {t('admin.apiKeys.table.scopes')}
               </label>
               <div className="mt-1 flex gap-4">
                 {(['upload', 'read'] as ApiKeyScope[]).map((scope) => (
@@ -229,7 +230,7 @@ export default function ApiKeyIssueModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs uppercase tracking-wider text-[--text-2]">
-                  Daily quota (bytes)
+                  {t('admin.apiKeys.issue.dailyQuota')}
                 </label>
                 <Input
                   inputSize="sm"
@@ -245,13 +246,13 @@ export default function ApiKeyIssueModal({
                   className="mt-1"
                 />
                 <div className="mt-1 text-xs text-[--text-2]">
-                  {humanBytes(form.quota_daily_bytes)} per day
+                  {humanBytes(form.quota_daily_bytes)} {t('admin.apiKeys.issue.perDay')}
                 </div>
               </div>
 
               <div>
                 <label className="text-xs uppercase tracking-wider text-[--text-2]">
-                  Max file size (bytes)
+                  {t('admin.apiKeys.issue.maxFileSize')}
                 </label>
                 <Input
                   inputSize="sm"
@@ -267,13 +268,13 @@ export default function ApiKeyIssueModal({
                   className="mt-1"
                 />
                 <div className="mt-1 text-xs text-[--text-2]">
-                  {humanBytes(form.max_file_size)} per file
+                  {humanBytes(form.max_file_size)} {t('admin.apiKeys.issue.perFile')}
                 </div>
               </div>
 
               <div>
                 <label className="text-xs uppercase tracking-wider text-[--text-2]">
-                  Requests / minute
+                  {t('admin.apiKeys.issue.reqPerMin')}
                 </label>
                 <Input
                   inputSize="sm"
@@ -292,7 +293,7 @@ export default function ApiKeyIssueModal({
 
               <div>
                 <label className="text-xs uppercase tracking-wider text-[--text-2]">
-                  Expires in (days)
+                  {t('admin.apiKeys.issue.expiresInDays')}
                 </label>
                 <Input
                   inputSize="sm"
@@ -319,14 +320,14 @@ export default function ApiKeyIssueModal({
                       }))
                     }
                   />
-                  Never expires
+                  {t('admin.apiKeys.issue.neverExpires')}
                 </label>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={handleClose}>
-                Cancel
+                {t('admin.apiKeys.issue.cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -334,7 +335,7 @@ export default function ApiKeyIssueModal({
                 loading={mut.isPending}
                 disabled={form.scopes.length === 0}
               >
-                Issue key
+                {t('admin.apiKeys.issue.submit')}
               </Button>
             </div>
           </>

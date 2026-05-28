@@ -149,10 +149,10 @@ export default function AdminSettings() {
             label={t('admin.settings.turnstile.label')}
             value={
               data.env.turnstile_enabled
-                ? 'enabled'
+                ? t('admin.settings.turnstileState.enabled')
                 : data.env.turnstile_site_key_present
-                ? 'configured · disabled'
-                : 'not configured'
+                ? t('admin.settings.turnstileState.configuredDisabled')
+                : t('admin.settings.turnstileState.notConfigured')
             }
           />
         </dl>
@@ -209,7 +209,7 @@ export default function AdminSettings() {
               </div>
               {!canEnableTurnstile && (
                 <div className="text-xs text-[--text-muted]">
-                  Site key not configured.
+                  {t('admin.settings.turnstile.siteKeyMissing')}
                 </div>
               )}
             </div>
@@ -687,7 +687,7 @@ function TurnstileCard() {
         </div>
 
         <label className="mb-4 flex items-center justify-between gap-3">
-          <span className="text-sm text-[--text-1]">Enabled</span>
+          <span className="text-sm text-[--text-1]">{t('admin.settings.turnstile.enabled')}</span>
           <input
             type="checkbox"
             checked={form.enabled}
@@ -697,7 +697,7 @@ function TurnstileCard() {
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-[--text-2]">Site key</span>
+            <span className="text-[--text-2]">{t('admin.settings.turnstile.siteKey')}</span>
             <Input
               inputSize="sm"
               value={form.site_key}
@@ -707,7 +707,7 @@ function TurnstileCard() {
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-[--text-2]">Secret key</span>
+            <span className="text-[--text-2]">{t('admin.settings.turnstile.secretKey')}</span>
             {!form.secretEdited && form.hadExistingSecret ? (
               <div className="flex items-center gap-2">
                 <Input
@@ -729,7 +729,7 @@ function TurnstileCard() {
                     })
                   }
                 >
-                  Change
+                  {t('admin.settings.storage.change')}
                 </Button>
               </div>
             ) : form.secretEdited ? (
@@ -757,7 +757,7 @@ function TurnstileCard() {
                     })
                   }
                 >
-                  Cancel
+                  {t('admin.apiKeys.revokeConfirm.cancel')}
                 </Button>
               </div>
             ) : (
@@ -939,23 +939,22 @@ function UploadLimitsCard() {
     <form onSubmit={onSubmit}>
       <Card>
         <div className="mb-3 text-xs uppercase tracking-wider text-[--text-2]">
-          Upload limits
+          {t('admin.settings.uploadLimits.title')}
         </div>
 
         <div className="grid grid-cols-1 gap-3">
-          {numberRow('simple_upload_max_bytes', 'simple_upload_max_bytes')}
-          {numberRow('chunk_upload_max_bytes', 'chunk_upload_max_bytes')}
-          {numberRow('multi_total_max_bytes', 'multi_total_max_bytes')}
+          {numberRow(t('admin.settings.uploadLimits.simpleUploadMax'), 'simple_upload_max_bytes')}
+          {numberRow(t('admin.settings.uploadLimits.chunkUploadMax'), 'chunk_upload_max_bytes')}
+          {numberRow(t('admin.settings.uploadLimits.multiTotalMax'), 'multi_total_max_bytes')}
         </div>
 
         <label className="mt-4 flex items-start justify-between gap-3">
           <div className="flex-1">
             <div className="text-sm text-[--text-1]">
-              Enable chunked upload (≥ 5MB files)
+              {t('admin.settings.uploadLimits.chunkEnableLabel')}
             </div>
             <div className="mt-1 text-xs text-[--text-muted]">
-              When off, the server rejects chunked init and the browser
-              refuses files at or above the simple upload limit.
+              {t('admin.settings.uploadLimits.chunkEnableDesc')}
             </div>
           </div>
           <input

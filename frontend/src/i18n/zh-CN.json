@@ -134,7 +134,67 @@
       "logs": "日志",
       "settings": "设置",
       "logout": "退出",
-      "backToSite": "返回前台"
+      "backToSite": "返回前台",
+      "openMenu": "打开管理菜单",
+      "closeMenu": "关闭管理菜单"
+    },
+    "apiKeys": {
+      "title": "API 密钥",
+      "issueNew": "签发新 Key",
+      "empty": "暂无 API 密钥。点击\"签发新 Key\"创建第一把。",
+      "revoked": "已撤销 API 密钥",
+      "dayUnit": "天",
+      "fileUnit": "文件",
+      "minUnit": "分钟",
+      "statuses": {
+        "active": "活跃",
+        "revoked": "已撤销",
+        "expired": "已过期"
+      },
+      "table": {
+        "keyId": "Key ID",
+        "note": "备注",
+        "scopes": "权限",
+        "quota": "配额",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "actions": {
+        "edit": "编辑",
+        "usage": "用量",
+        "revoke": "撤销"
+      },
+      "revokeConfirm": {
+        "title": "撤销此 API 密钥?",
+        "bodyPrefix": "确认撤销 key",
+        "bodySuffix": "?此操作不可恢复 —— 任何使用它的服务都会立即收到 401。",
+        "cancel": "取消",
+        "confirm": "撤销"
+      },
+      "issue": {
+        "title": "签发新 API 密钥",
+        "titleIssued": "API 密钥已签发",
+        "submit": "签发",
+        "cancel": "取消",
+        "warningTitle": "此密钥仅显示这一次。",
+        "warning": "请立即保存此密钥。关闭此对话框后将无法再次查看。请将其保存在密码管理器中。",
+        "plaintextLabel": "明文密钥",
+        "expiresLabel": "过期时间",
+        "never": "永不过期",
+        "copy": "复制",
+        "copied": "已复制",
+        "done": "完成",
+        "copiedToast": "已复制到剪贴板",
+        "copyFailedToast": "复制失败,请手动选择文本",
+        "notePlaceholder": "这把 key 用来做什么?",
+        "dailyQuota": "每日配额(字节)",
+        "perDay": "每天",
+        "maxFileSize": "单文件上限(字节)",
+        "perFile": "每个文件",
+        "reqPerMin": "请求 / 分钟",
+        "expiresInDays": "有效期(天)",
+        "neverExpires": "永不过期"
+      }
     },
     "dashboard": {
       "title": "总览",
@@ -243,9 +303,26 @@
       "storageBackend": "存储后端",
       "turnstile": {
         "label": "Turnstile 人机校验",
+        "enabled": "已启用",
+        "siteKey": "Site Key",
+        "secretKey": "Secret Key",
+        "siteKeyMissing": "未配置 Site Key。",
         "protectUpload": "保护上传",
         "protectPickup": "保护取件",
         "protectAdminLogin": "保护管理员登录（即将上线）"
+      },
+      "turnstileState": {
+        "enabled": "已启用",
+        "configuredDisabled": "已配置 · 未启用",
+        "notConfigured": "未配置"
+      },
+      "uploadLimits": {
+        "title": "上传上限",
+        "simpleUploadMax": "simple_upload_max_bytes",
+        "chunkUploadMax": "chunk_upload_max_bytes",
+        "multiTotalMax": "multi_total_max_bytes",
+        "chunkEnableLabel": "启用分片上传(≥ 5MB 的文件)",
+        "chunkEnableDesc": "关闭后,服务端会拒绝分片初始化,浏览器对达到或超过简单上传上限的文件也会拒绝。"
       },
       "appName": "应用名称",
       "maxUpload": "上传上限",
@@ -332,6 +409,8 @@
     "pickupAgain": "再取一次",
     "docs": "文档",
     "admin": "管理",
+    "backToHome": "返回首页",
+    "footerCopyright": "Yui-Drop · MIT",
     "theme": "主题",
     "mode": "模式",
     "lang": "语言",
@@ -469,6 +548,17 @@
       "request": "请求",
       "response": "响应",
       "example": "示例"
+    },
+    "endpoint": {
+      "request": "请求",
+      "response": "响应",
+      "example": "示例",
+      "fieldName": "字段",
+      "fieldType": "类型",
+      "fieldRequired": "必填",
+      "fieldDescription": "说明",
+      "optional": "可选",
+      "required": "必填"
     },
     "clients": {
       "heading": "客户端库",

@@ -2,9 +2,16 @@
  * Header — left-aligned brand mark (結 stamp + "Yui Drop" + tagline) and a
  * settings gear on the right. The tagline string ("文件快递柜" /
  * "ファイル宅配ボックス" / "FILE LOCKER") comes from `washi.tagBrand`.
+ *
+ * The brand mark is wrapped in <Link to="/">, so clicking the logo anywhere
+ * the washi Header is rendered (home, /docs) routes back to the home page.
+ *
+ * The right-side pill toggles between two states based on useLocation():
+ *   - on `/`           → "API" link (jumps to /docs)
+ *   - anywhere else    → "Home" / "返回首页" / "ホーム" link (jumps to /)
  */
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 import type { WashiColors, WashiMode, WashiPaletteName } from './palettes';
 import { MobileMenu } from './MobileMenu';
@@ -26,6 +33,8 @@ type CSSWithVars = CSSProperties & Record<`--${string}`, string>;
 
 export function Header({ c, palette, setPalette, mode, setMode, lang, setLang }: HeaderProps) {
   const { t } = useTranslation();
+  const location = useLocation();
+  const isHome = location.pathname === '/';
   const headerStyle: CSSWithVars = {
     display: 'flex',
     alignItems: 'center',
@@ -34,9 +43,31 @@ export function Header({ c, palette, setPalette, mode, setMode, lang, setLang }:
     '--paper-blur': `${c.paper}d9`,
     '--soft-c': c.soft,
   };
+  const pillStyle: CSSProperties = {
+    color: c.sub,
+    fontSize: 12,
+    letterSpacing: '0.08em',
+    textDecoration: 'none',
+    padding: '6px 12px',
+    border: `1px solid ${c.soft}`,
+    borderRadius: 999,
+    flexShrink: 0,
+    fontFamily: 'inherit',
+  };
   return (
     <div data-yui="header" style={headerStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, minWidth: 0 }}>
+      <Link
+        to="/"
+        style={{
+          textDecoration: 'none',
+          color: 'inherit',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          flexShrink: 0,
+          minWidth: 0,
+        }}
+      >
         <div
           style={{
             width: 34,
@@ -59,25 +90,18 @@ export function Header({ c, palette, setPalette, mode, setMode, lang, setLang }:
           <div style={{ fontWeight: 600, fontSize: 15, letterSpacing: '0.02em' }}>{t('washi.brand')}</div>
           <div style={{ fontSize: 10.5, color: c.sub, letterSpacing: '0.18em' }}>{t('washi.tagBrand')}</div>
         </div>
-      </div>
+      </Link>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <Link
-          to="/docs"
-          style={{
-            color: c.sub,
-            fontSize: 12,
-            letterSpacing: '0.08em',
-            textDecoration: 'none',
-            padding: '6px 12px',
-            border: `1px solid ${c.soft}`,
-            borderRadius: 999,
-            flexShrink: 0,
-            fontFamily: 'inherit',
-          }}
-        >
-          API
-        </Link>
+        {isHome ? (
+          <Link to="/docs" style={pillStyle}>
+            API
+          </Link>
+        ) : (
+          <Link to="/" style={pillStyle}>
+            {t('washi.backToHome')}
+          </Link>
+        )}
         <MobileMenu
           c={c}
           palette={palette}
