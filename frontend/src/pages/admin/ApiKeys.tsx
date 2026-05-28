@@ -15,6 +15,7 @@
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Pencil, BarChart3, Trash2, Plus, KeyRound } from 'lucide-react';
 
 import {
@@ -43,12 +44,13 @@ function statusOf(row: ApiKeyListItem): Status {
 }
 
 function StatusBadge({ status }: { status: Status }) {
+  const { t } = useTranslation();
   const styles: Record<Status, string> = {
     active: 'border-emerald-500/40 text-emerald-300 bg-emerald-500/5',
     revoked: 'border-red-500/40 text-red-300 bg-red-500/5',
     expired: 'border-amber-500/40 text-amber-300 bg-amber-500/5',
   };
-  const label = status[0].toUpperCase() + status.slice(1);
+  const label = t(`admin.apiKeys.statuses.${status}`);
   return (
     <span
       className={
@@ -61,6 +63,7 @@ function StatusBadge({ status }: { status: Status }) {
 }
 
 export default function AdminApiKeys() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -76,7 +79,7 @@ export default function AdminApiKeys() {
   const revokeMut = useMutation({
     mutationFn: (pk: number) => revokeApiKey(pk),
     onSuccess: () => {
-      toast.success('API key revoked');
+      toast.success(t('admin.apiKeys.revoked'));
       qc.invalidateQueries({ queryKey: ['admin', 'api-keys'] });
       setRevokeTarget(null);
     },
@@ -92,14 +95,14 @@ export default function AdminApiKeys() {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-xl font-semibold text-[--text-1] flex items-center gap-2">
           <KeyRound className="h-5 w-5" />
-          API Keys
+          {t('admin.apiKeys.title')}
         </h1>
         <Button
           variant="primary"
           leftIcon={<Plus className="h-4 w-4" />}
           onClick={() => setIssueOpen(true)}
         >
-          Issue new key
+          {t('admin.apiKeys.issueNew')}
         </Button>
       </div>
 
@@ -110,19 +113,19 @@ export default function AdminApiKeys() {
           </div>
         ) : items.length === 0 ? (
           <div className="py-12 text-center text-sm text-[--text-2]">
-            No API keys yet. Click <em>Issue new key</em> to mint your first.
+            {t('admin.apiKeys.empty')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-xs uppercase tracking-wider text-[--text-2]">
                 <tr className="border-b border-[--border]">
-                  <th className="py-2 px-2 text-left font-medium">Key ID</th>
-                  <th className="py-2 px-2 text-left font-medium">Note</th>
-                  <th className="py-2 px-2 text-left font-medium">Scopes</th>
-                  <th className="py-2 px-2 text-left font-medium">Quota</th>
-                  <th className="py-2 px-2 text-left font-medium">Status</th>
-                  <th className="py-2 px-2 text-right font-medium">Actions</th>
+                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.keyId')}</th>
+                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.note')}</th>
+                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.scopes')}</th>
+                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.quota')}</th>
+                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.status')}</th>
+                  <th className="py-2 px-2 text-right font-medium">{t('admin.apiKeys.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -145,9 +148,9 @@ export default function AdminApiKeys() {
                           .join(' ')}
                       </td>
                       <td className="py-2 px-2 text-[--text-2] whitespace-nowrap">
-                        {humanBytes(row.quota_daily_bytes)}/day ·{' '}
-                        {humanBytes(row.max_file_size)}/file ·{' '}
-                        {row.quota_per_minute}/min
+                        {humanBytes(row.quota_daily_bytes)}/{t('admin.apiKeys.dayUnit')} ·{' '}
+                        {humanBytes(row.max_file_size)}/{t('admin.apiKeys.fileUnit')} ·{' '}
+                        {row.quota_per_minute}/{t('admin.apiKeys.minUnit')}
                       </td>
                       <td className="py-2 px-2">
                         <StatusBadge status={status} />
@@ -156,8 +159,8 @@ export default function AdminApiKeys() {
                         <div className="inline-flex items-center gap-1">
                           <button
                             type="button"
-                            aria-label="Edit"
-                            title="Edit"
+                            aria-label={t('admin.apiKeys.actions.edit')}
+                            title={t('admin.apiKeys.actions.edit')}
                             onClick={() => setEditTarget(row)}
                             disabled={status === 'revoked'}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[--text-2] hover:text-[--text-1] hover:bg-[--bg-2] disabled:opacity-40 disabled:cursor-not-allowed"
@@ -166,8 +169,8 @@ export default function AdminApiKeys() {
                           </button>
                           <button
                             type="button"
-                            aria-label="Usage"
-                            title="Usage"
+                            aria-label={t('admin.apiKeys.actions.usage')}
+                            title={t('admin.apiKeys.actions.usage')}
                             onClick={() => setUsageTarget(row.id)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[--text-2] hover:text-[--text-1] hover:bg-[--bg-2]"
                           >
@@ -175,8 +178,8 @@ export default function AdminApiKeys() {
                           </button>
                           <button
                             type="button"
-                            aria-label="Revoke"
-                            title="Revoke"
+                            aria-label={t('admin.apiKeys.actions.revoke')}
+                            title={t('admin.apiKeys.actions.revoke')}
                             onClick={() => setRevokeTarget(row)}
                             disabled={status === 'revoked'}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-300 hover:text-red-200 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -214,19 +217,18 @@ export default function AdminApiKeys() {
       <Modal
         open={revokeTarget != null}
         onClose={() => setRevokeTarget(null)}
-        title="Revoke API key?"
+        title={t('admin.apiKeys.revokeConfirm.title')}
         widthClassName="w-[90vw] max-w-md"
       >
         <div className="p-4 space-y-4">
           <p className="text-sm text-[--text-1]">
-            Revoke key{' '}
-            <span className="font-mono">{revokeTarget?.key_id}</span>? This is
-            irreversible — any service using it will immediately start getting
-            401s.
+            {t('admin.apiKeys.revokeConfirm.bodyPrefix')}{' '}
+            <span className="font-mono">{revokeTarget?.key_id}</span>
+            {t('admin.apiKeys.revokeConfirm.bodySuffix')}
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setRevokeTarget(null)}>
-              Cancel
+              {t('admin.apiKeys.revokeConfirm.cancel')}
             </Button>
             <Button
               variant="danger"
@@ -235,7 +237,7 @@ export default function AdminApiKeys() {
                 if (revokeTarget) revokeMut.mutate(revokeTarget.id);
               }}
             >
-              Revoke
+              {t('admin.apiKeys.revokeConfirm.confirm')}
             </Button>
           </div>
         </div>

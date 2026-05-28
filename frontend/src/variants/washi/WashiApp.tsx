@@ -26,6 +26,7 @@ import {
 } from './palettes';
 import { PaperTexture } from './PaperTexture';
 import { Header } from './Header';
+import { Footer } from './Footer';
 import { Stamp } from './Stamp';
 import { Tabs, type WashiTab } from './Tabs';
 import { Pickup } from './tabs/Pickup';
@@ -307,40 +308,7 @@ export function WashiApp() {
 
         <Recent c={c} />
 
-        <div
-          data-yui="footer"
-          style={{
-            marginTop: 48,
-            paddingTop: 20,
-            borderTop: `1px solid ${c.soft}`,
-            display: 'flex',
-            justifyContent: 'flex-end',
-            fontSize: 12,
-            color: c.sub,
-          }}
-        >
-          <span style={{ display: 'flex', gap: 16, marginLeft: 'auto' }}>
-            <a
-              href="https://github.com/kurobaryo/yui-drop#readme"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: c.sub, textDecoration: 'none' }}
-            >
-              {t('washi.docs')}
-            </a>
-            <a
-              href="https://github.com/kurobaryo/yui-drop"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: c.sub, textDecoration: 'none' }}
-            >
-              GitHub
-            </a>
-            <a href="/admin" style={{ color: c.sub, textDecoration: 'none' }}>
-              {t('washi.admin')}
-            </a>
-          </span>
-        </div>
+        <Footer c={c} />
       </div>
     </div>
   );

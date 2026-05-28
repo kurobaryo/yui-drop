@@ -135,7 +135,67 @@
       "logs": "Logs",
       "settings": "Settings",
       "logout": "Sign out",
-      "backToSite": "Back to site"
+      "backToSite": "Back to site",
+      "openMenu": "Open admin menu",
+      "closeMenu": "Close admin menu"
+    },
+    "apiKeys": {
+      "title": "API keys",
+      "issueNew": "Issue new key",
+      "empty": "No API keys yet. Click \"Issue new key\" to mint your first.",
+      "revoked": "API key revoked",
+      "dayUnit": "day",
+      "fileUnit": "file",
+      "minUnit": "min",
+      "statuses": {
+        "active": "Active",
+        "revoked": "Revoked",
+        "expired": "Expired"
+      },
+      "table": {
+        "keyId": "Key ID",
+        "note": "Note",
+        "scopes": "Scopes",
+        "quota": "Quota",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "actions": {
+        "edit": "Edit",
+        "usage": "Usage",
+        "revoke": "Revoke"
+      },
+      "revokeConfirm": {
+        "title": "Revoke API key?",
+        "bodyPrefix": "Revoke key",
+        "bodySuffix": "? This is irreversible — any service using it will immediately start getting 401s.",
+        "cancel": "Cancel",
+        "confirm": "Revoke"
+      },
+      "issue": {
+        "title": "Issue a new API key",
+        "titleIssued": "API key issued",
+        "submit": "Issue key",
+        "cancel": "Cancel",
+        "warningTitle": "This is the only time this key will be shown.",
+        "warning": "Save it to your password manager now — closing this dialog will discard the plaintext forever.",
+        "plaintextLabel": "Plaintext secret",
+        "expiresLabel": "Expires",
+        "never": "Never",
+        "copy": "Copy",
+        "copied": "Copied",
+        "done": "Done",
+        "copiedToast": "Copied to clipboard",
+        "copyFailedToast": "Copy failed — select the text manually",
+        "notePlaceholder": "What is this key for?",
+        "dailyQuota": "Daily quota (bytes)",
+        "perDay": "per day",
+        "maxFileSize": "Max file size (bytes)",
+        "perFile": "per file",
+        "reqPerMin": "Requests / minute",
+        "expiresInDays": "Expires in (days)",
+        "neverExpires": "Never expires"
+      }
     },
     "dashboard": {
       "title": "Dashboard",
@@ -244,9 +304,26 @@
       "storageBackend": "Storage backend",
       "turnstile": {
         "label": "Turnstile (challenge)",
+        "enabled": "Enabled",
+        "siteKey": "Site key",
+        "secretKey": "Secret key",
+        "siteKeyMissing": "Site key not configured.",
         "protectUpload": "Protect upload",
         "protectPickup": "Protect pickup",
         "protectAdminLogin": "Protect admin login (coming soon)"
+      },
+      "turnstileState": {
+        "enabled": "enabled",
+        "configuredDisabled": "configured · disabled",
+        "notConfigured": "not configured"
+      },
+      "uploadLimits": {
+        "title": "Upload limits",
+        "simpleUploadMax": "simple_upload_max_bytes",
+        "chunkUploadMax": "chunk_upload_max_bytes",
+        "multiTotalMax": "multi_total_max_bytes",
+        "chunkEnableLabel": "Enable chunked upload (≥ 5MB files)",
+        "chunkEnableDesc": "When off, the server rejects chunked init and the browser refuses files at or above the simple upload limit."
       },
       "appName": "App name",
       "maxUpload": "Max upload",
@@ -333,6 +410,8 @@
     "pickupAgain": "Pick another",
     "docs": "Docs",
     "admin": "Admin",
+    "backToHome": "Home",
+    "footerCopyright": "Yui-Drop · MIT",
     "theme": "Theme",
     "mode": "Mode",
     "lang": "Language",
@@ -470,6 +549,17 @@
       "request": "Request",
       "response": "Response",
       "example": "Example"
+    },
+    "endpoint": {
+      "request": "REQUEST",
+      "response": "RESPONSE",
+      "example": "EXAMPLE",
+      "fieldName": "NAME",
+      "fieldType": "TYPE",
+      "fieldRequired": "REQUIRED",
+      "fieldDescription": "DESCRIPTION",
+      "optional": "optional",
+      "required": "required"
     },
     "clients": {
       "heading": "Client libraries",

@@ -134,7 +134,67 @@
       "logs": "ログ",
       "settings": "設定",
       "logout": "ログアウト",
-      "backToSite": "サイトに戻る"
+      "backToSite": "サイトに戻る",
+      "openMenu": "管理メニューを開く",
+      "closeMenu": "管理メニューを閉じる"
+    },
+    "apiKeys": {
+      "title": "API キー",
+      "issueNew": "新しいキーを発行",
+      "empty": "API キーはまだありません。「新しいキーを発行」から最初のキーを作成してください。",
+      "revoked": "API キーを取り消しました",
+      "dayUnit": "日",
+      "fileUnit": "ファイル",
+      "minUnit": "分",
+      "statuses": {
+        "active": "有効",
+        "revoked": "取消済",
+        "expired": "期限切れ"
+      },
+      "table": {
+        "keyId": "Key ID",
+        "note": "メモ",
+        "scopes": "スコープ",
+        "quota": "クォータ",
+        "status": "ステータス",
+        "actions": "操作"
+      },
+      "actions": {
+        "edit": "編集",
+        "usage": "使用状況",
+        "revoke": "取り消し"
+      },
+      "revokeConfirm": {
+        "title": "この API キーを取り消しますか?",
+        "bodyPrefix": "キー",
+        "bodySuffix": "を取り消しますか? 元に戻せません —— 使用中のサービスは直ちに 401 を受け取ります。",
+        "cancel": "キャンセル",
+        "confirm": "取り消し"
+      },
+      "issue": {
+        "title": "新しい API キーを発行",
+        "titleIssued": "API キーを発行しました",
+        "submit": "発行",
+        "cancel": "キャンセル",
+        "warningTitle": "このキーが表示されるのはこの一度だけです。",
+        "warning": "今すぐこのキーを保存してください。このダイアログを閉じた後は再取得できません。パスワードマネージャーに保管してください。",
+        "plaintextLabel": "平文シークレット",
+        "expiresLabel": "有効期限",
+        "never": "なし",
+        "copy": "コピー",
+        "copied": "コピーしました",
+        "done": "完了",
+        "copiedToast": "クリップボードにコピーしました",
+        "copyFailedToast": "コピーに失敗しました。手動で選択してください",
+        "notePlaceholder": "このキーの用途は?",
+        "dailyQuota": "1 日あたりのクォータ (バイト)",
+        "perDay": "/ 日",
+        "maxFileSize": "ファイル上限 (バイト)",
+        "perFile": "/ ファイル",
+        "reqPerMin": "リクエスト / 分",
+        "expiresInDays": "有効期限 (日)",
+        "neverExpires": "無期限"
+      }
     },
     "dashboard": {
       "title": "ダッシュボード",
@@ -243,9 +303,26 @@
       "storageBackend": "ストレージバックエンド",
       "turnstile": {
         "label": "Turnstile(チャレンジ)",
+        "enabled": "有効",
+        "siteKey": "サイトキー",
+        "secretKey": "シークレットキー",
+        "siteKeyMissing": "サイトキーが未設定です。",
         "protectUpload": "アップロードを保護",
         "protectPickup": "受け取りを保護",
         "protectAdminLogin": "管理ログインを保護（近日公開）"
+      },
+      "turnstileState": {
+        "enabled": "有効",
+        "configuredDisabled": "設定済 · 無効",
+        "notConfigured": "未設定"
+      },
+      "uploadLimits": {
+        "title": "アップロード上限",
+        "simpleUploadMax": "simple_upload_max_bytes",
+        "chunkUploadMax": "chunk_upload_max_bytes",
+        "multiTotalMax": "multi_total_max_bytes",
+        "chunkEnableLabel": "分割アップロードを有効化(≥ 5MB のファイル)",
+        "chunkEnableDesc": "オフにすると、サーバーは分割初期化を拒否し、ブラウザもシンプルアップロード上限を超えるファイルを拒否します。"
       },
       "appName": "アプリ名",
       "maxUpload": "アップロード上限",
@@ -332,6 +409,8 @@
     "pickupAgain": "もう一度",
     "docs": "ドキュメント",
     "admin": "管理",
+    "backToHome": "ホーム",
+    "footerCopyright": "Yui-Drop · MIT",
     "theme": "テーマ",
     "mode": "モード",
     "lang": "言語",
@@ -469,6 +548,17 @@
       "request": "リクエスト",
       "response": "レスポンス",
       "example": "例"
+    },
+    "endpoint": {
+      "request": "リクエスト",
+      "response": "レスポンス",
+      "example": "例",
+      "fieldName": "フィールド",
+      "fieldType": "型",
+      "fieldRequired": "必須",
+      "fieldDescription": "説明",
+      "optional": "省略可",
+      "required": "必須"
     },
     "clients": {
       "heading": "クライアントライブラリ",

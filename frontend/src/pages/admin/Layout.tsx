@@ -126,7 +126,7 @@ export default function AdminLayout() {
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 pt-3">
           <button
             type="button"
-            aria-label="Open admin menu"
+            aria-label={t('admin.nav.openMenu')}
             onClick={() => setDrawerOpen(true)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[--border] text-[--text-1]"
           >
@@ -177,7 +177,7 @@ export default function AdminLayout() {
               </span>
               <button
                 type="button"
-                aria-label="Close admin menu"
+                aria-label={t('admin.nav.closeMenu')}
                 onClick={() => setDrawerOpen(false)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[--border] text-[--text-1]"
               >

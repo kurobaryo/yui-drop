@@ -16,6 +16,7 @@
  * stay recognisable across washi palettes.
  */
 import type { CSSProperties, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { WashiColors } from '../../variants/washi/palettes';
 import { CodeBlock } from './CodeBlock';
 
@@ -58,6 +59,7 @@ export function EndpointBlock({
   responseShape,
   curlExample,
 }: EndpointBlockProps) {
+  const { t } = useTranslation();
   const sectionStyle: CSSProperties = {
     marginTop: 32,
     padding: 20,
@@ -120,7 +122,7 @@ export function EndpointBlock({
 
       {requestParams && requestParams.length > 0 ? (
         <>
-          <div style={sectionLabelStyle}>Request</div>
+          <div style={sectionLabelStyle}>{t('apiDocs.endpoint.request')}</div>
           <div
             style={{
               border: `1px solid ${c.ink}14`,
@@ -138,10 +140,10 @@ export function EndpointBlock({
             >
               <thead>
                 <tr style={{ background: c.soft }}>
-                  <th style={thStyle(c)}>name</th>
-                  <th style={thStyle(c)}>type</th>
-                  <th style={thStyle(c)}>required</th>
-                  <th style={thStyle(c)}>description</th>
+                  <th style={thStyle(c)}>{t('apiDocs.endpoint.fieldName')}</th>
+                  <th style={thStyle(c)}>{t('apiDocs.endpoint.fieldType')}</th>
+                  <th style={thStyle(c)}>{t('apiDocs.endpoint.fieldRequired')}</th>
+                  <th style={thStyle(c)}>{t('apiDocs.endpoint.fieldDescription')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,10 +159,10 @@ export function EndpointBlock({
                     <td style={tdStyle(c, false)}>
                       {p.required ? (
                         <span style={{ color: c.accent, fontWeight: 600 }}>
-                          required
+                          {t('apiDocs.endpoint.required')}
                         </span>
                       ) : (
-                        <span style={{ color: c.sub }}>optional</span>
+                        <span style={{ color: c.sub }}>{t('apiDocs.endpoint.optional')}</span>
                       )}
                     </td>
                     <td style={tdStyle(c, false)}>{p.description}</td>
@@ -172,10 +174,10 @@ export function EndpointBlock({
         </>
       ) : null}
 
-      <div style={sectionLabelStyle}>Response</div>
+      <div style={sectionLabelStyle}>{t('apiDocs.endpoint.response')}</div>
       <CodeBlock c={c} code={responseShape} language="JSON" />
 
-      <div style={sectionLabelStyle}>Example</div>
+      <div style={sectionLabelStyle}>{t('apiDocs.endpoint.example')}</div>
       <CodeBlock c={c} code={curlExample} language="BASH" />
     </section>
   );

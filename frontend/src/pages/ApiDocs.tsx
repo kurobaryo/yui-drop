@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
 
 import { Header } from "../variants/washi/Header";
+import { Footer } from "../variants/washi/Footer";
 import { PaperTexture } from "../variants/washi/PaperTexture";
 import {
   WASHI_DARK,
@@ -579,6 +580,7 @@ export default function ApiDocs() {
 
           </main>
         </div>
+        <Footer c={c} />
       </div>
     </div>
   );
