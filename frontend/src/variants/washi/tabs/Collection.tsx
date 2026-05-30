@@ -28,6 +28,7 @@ import {
 } from '@/lib/api/collection';
 import { ApiError } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
+import { useCollectionMemberStore } from '@/stores/collectionMember';
 import type { WashiColors } from '../palettes';
 
 type QuickLifetime = '7' | '30' | 'permanent';
@@ -39,6 +40,7 @@ export interface CollectionProps {
 export function Collection({ c }: CollectionProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const setMember = useCollectionMemberStore((s) => s.set);
 
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -139,6 +141,15 @@ export function Collection({ c }: CollectionProps) {
         admin_password: adminPassword,
         lifetime_days,
       });
+      // Persist the auto-issued creator token so Room.tsx skips the join form.
+      if (res.member_token && res.member_id != null) {
+        setMember(res.code, {
+          memberToken: res.member_token,
+          nickname: 'Owner',
+          isCreator: true,
+          adminPassword,
+        });
+      }
       navigate(`/c/${res.code}?created=1`);
     } catch (err) {
       if (err instanceof ApiError) {

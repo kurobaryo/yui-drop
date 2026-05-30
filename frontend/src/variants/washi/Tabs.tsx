@@ -3,15 +3,17 @@
  * underlines in the accent colour and shifts ink colour.
  */
 import { useTranslation } from 'react-i18next';
+import { Inbox } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { WashiColors } from './palettes';
 
 export type WashiTab = 'pickup' | 'sendfile' | 'sendtext' | 'collection';
 
-const TABS: Array<{ id: WashiTab; labelKey: string; glyph: string }> = [
+const TABS: Array<{ id: WashiTab; labelKey: string; glyph: ReactNode }> = [
   { id: 'pickup', labelKey: 'washi.tabPickup', glyph: '↘' },
   { id: 'sendfile', labelKey: 'washi.tabSendFile', glyph: '↗' },
   { id: 'sendtext', labelKey: 'washi.tabSendText', glyph: '✎' },
-  { id: 'collection', labelKey: 'washi.tabCollection', glyph: '□' },
+  { id: 'collection', labelKey: 'washi.tabCollection', glyph: <Inbox size={13} strokeWidth={2.2} /> },
 ];
 
 export interface TabsProps {

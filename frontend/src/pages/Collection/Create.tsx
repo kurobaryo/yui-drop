@@ -28,6 +28,7 @@ import {
 } from '@/lib/api/collection';
 import { ApiError } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
+import { useCollectionMemberStore } from '@/stores/collectionMember';
 import type { WashiColors } from '@/variants/washi/palettes';
 
 type LifetimePreset = '1' | '7' | '30' | '365' | 'custom' | 'permanent';
@@ -35,6 +36,7 @@ type LifetimePreset = '1' | '7' | '30' | '365' | 'custom' | 'permanent';
 function Inner({ c }: { c: WashiColors }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const setMember = useCollectionMemberStore((s) => s.set);
 
   const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<CollectionVisibility>('public');
@@ -108,9 +110,17 @@ function Inner({ c }: { c: WashiColors }) {
         admin_password: adminPassword,
         lifetime_days,
       });
+      // Persist the auto-issued creator token so Room.tsx skips the join form.
+      if (res.member_token && res.member_id != null) {
+        setMember(res.code, {
+          memberToken: res.member_token,
+          nickname: 'Owner',
+          isCreator: true,
+          adminPassword,
+        });
+      }
       // Hand off to Room.tsx — it picks up the freshly created code and
-      // performs the first /join itself so we don't smear member-session
-      // logic across two pages.
+      // uses the persisted member token instead of re-prompting for /join.
       navigate(`/c/${res.code}?created=1`);
     } catch (e) {
       if (e instanceof ApiError) {
