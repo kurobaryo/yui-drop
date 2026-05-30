@@ -495,6 +495,7 @@
     "tabPickup": "Pickup",
     "tabSendFile": "Send file",
     "tabSendText": "Send text",
+    "tabCollection": "Collection",
     "enterCode": "Enter pickup code",
     "settings": "Settings",
     "palette": "Palette",
@@ -743,6 +744,13 @@
     }
   },
   "collection": {
+    "quick": {
+      "title": "Create a collection",
+      "adminPasswordPlaceholder": "Admin password (≥ 4 chars)",
+      "createBtn": "Create",
+      "moreOptions": "More options",
+      "enterTitle": "Or enter a room code"
+    },
     "landing": {
       "title": "Shared Collection",
       "subtitle": "Enter a room code to join, or create a new collection.",

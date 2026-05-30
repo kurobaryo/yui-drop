@@ -221,7 +221,7 @@ async def messages_list(
         out = await svc.list_messages(db, collection=collection, member=member, after_id=after_id)
     except ServiceError as e:
         raise _service_to_http(e) from e
-    return ok(out)
+    return ok({"messages": out})
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -671,7 +671,7 @@ async def files_list(
         out = await svc.list_files(db, collection=collection, member=member)
     except ServiceError as e:
         raise _service_to_http(e) from e
-    return ok(out)
+    return ok({"files": out})
 
 
 @router.get("/{code}/files/{file_id}/download")
