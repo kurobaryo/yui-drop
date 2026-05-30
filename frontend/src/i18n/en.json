@@ -548,7 +548,9 @@
       "envelopeSuffix": " — code === 2000 indicates success.",
       "signupLabel": "API keys are not self-served. See",
       "signupLink": "Request a key",
-      "signupSuffix": "below."
+      "signupSuffix": "below.",
+      "encryptionLabel": "Encryption at rest:",
+      "encryptionBody": " all uploads are encrypted at rest — R2/S3 backends via SSE-S3, the local backend via streaming AES-GCM. This is transparent to API consumers; the request/response contracts on this page are unchanged."
     },
     "auth": {
       "heading": "Authentication",

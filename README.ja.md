@@ -4,9 +4,11 @@
 
 ### 6桁の暗証番号でファイルとテキストを共有するセルフホスト型ファイル宅配ロッカー
 
-[English](./README.md) · [中文](./README.zh.md) · 日本語 (このページ)
+[中文 (デフォルト)](./README.md) · [English](./README.en.md) · 日本語 (このページ)
 
 [ライブデモ](https://drop.leod.me) · [クイックスタート](#quick-start)
+
+![Yui-Drop ホーム — 受け取りビュー（ダークテーマ）](./docs/screenshots/home-pickup-dark.png)
 
 </div>
 
@@ -189,8 +191,8 @@ Cloudflare Turnstile によるボット対策も組み込まれていますが�
 
 ```
 yui-drop/
-├── README.md              ← English（デフォルト）
-├── README.zh.md           ← 中文
+├── README.md              ← 中文（デフォルト）
+├── README.en.md           ← English
 ├── README.ja.md           ← 日本語（本ファイル）
 ├── LICENSE                ← MIT
 ├── docker-compose.yml     ← ワンコマンドでデプロイ

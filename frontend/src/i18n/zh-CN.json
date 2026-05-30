@@ -547,7 +547,9 @@
       "envelopeSuffix": " —— code === 2000 表示成功。",
       "signupLabel": "不开放自助注册,详见",
       "signupLink": "申请 key",
-      "signupSuffix": "。"
+      "signupSuffix": "。",
+      "encryptionLabel": "静态加密:",
+      "encryptionBody": " 所有上传内容在存储侧都做了加密 —— R2 / S3 后端通过 SSE-S3，本地后端使用流式 AES-GCM。对 API 调用方完全透明，本页的请求 / 响应契约保持不变。"
     },
     "auth": {
       "heading": "鉴权",
