@@ -32,6 +32,8 @@ import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from '@/components/ui/Toast';
 import { humanBytes } from '@/lib/format';
+import OidcSettingsSection from './auth/OidcSettingsSection';
+import WebAuthnSettingsSection from './auth/WebAuthnSettingsSection';
 
 interface FormState {
   newPassword: string;
@@ -264,6 +266,12 @@ export default function AdminSettings() {
 
       {/* ── Upload limits + chunk toggle (#7/#8) — independent card. */}
       <UploadLimitsCard />
+
+      {/* ── OIDC (admin SSO) ─────────────────────────────────────────── */}
+      <OidcSettingsSection />
+
+      {/* ── WebAuthn / passkeys ──────────────────────────────────────── */}
+      <WebAuthnSettingsSection />
     </div>
   );
 }

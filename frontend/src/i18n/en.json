@@ -356,6 +356,71 @@
         "savedNoMigrate": "Storage saved. Existing local files were not migrated.",
         "change": "Change"
       }
+    },
+    "auth": {
+      "allDisabled": "All sign-in methods are currently disabled. Contact the site operator."
+    },
+    "oidc": {
+      "title": "OIDC single sign-on",
+      "enabled": "Enable OIDC",
+      "enabledDesc": "When enabled, an external identity provider can sign you in via OpenID Connect.",
+      "issuer": "Issuer URL",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "scopes": "Scopes",
+      "providerLabel": "Provider label",
+      "redirectUri": "Redirect URI (override)",
+      "redirectUriHint": "Leave empty to use the auto-derived value: {{effective}}",
+      "defaultProvider": "OIDC",
+      "signInWith": "Sign in with {{provider}}",
+      "signingIn": "Signing in…",
+      "binding": "Linking identity…",
+      "bindOk": "Identity linked.",
+      "bindFailed": "Could not link identity",
+      "unbound": "Identity unlinked.",
+      "bindings": {
+        "title": "Bound identities",
+        "bindNew": "Bind new identity",
+        "empty": "No external identities are bound yet.",
+        "lastLogin": "last sign-in",
+        "unbind": "Unbind",
+        "unbindConfirm": "Unbind this identity? They will lose admin access immediately."
+      },
+      "errors": {
+        "not_bound": "That identity is not bound to this admin account yet.",
+        "missing_token": "Sign-in response was missing the token. Please try again.",
+        "missing_code": "The identity provider did not return an authorization code.",
+        "missing_state_cookie": "Sign-in session expired. Please try again.",
+        "bad_state": "Sign-in state was tampered with. Please try again.",
+        "oidc_disabled": "OIDC sign-in is currently disabled.",
+        "oidc_misconfigured": "OIDC is enabled but missing required fields.",
+        "bind_requires_session": "Please sign in before linking a new identity.",
+        "oidc_nonce_mismatch": "Sign-in token failed verification (nonce). Please try again."
+      }
+    },
+    "webauthn": {
+      "title": "Passkeys",
+      "subtitle": "Registered authenticators that can sign you in without a password.",
+      "empty": "No passkeys registered yet.",
+      "unlabelled": "(unnamed passkey)",
+      "created": "registered",
+      "lastUsed": "last used"
+    },
+    "passkey": {
+      "signInWith": "Sign in with a passkey",
+      "signingIn": "Waiting for passkey…",
+      "registerNew": "Register new passkey",
+      "registered": "Passkey registered.",
+      "deleted": "Passkey removed.",
+      "labelPrompt": "Give this passkey a name (e.g. \"YubiKey 5C\")",
+      "deleteConfirm": "Remove this passkey? You won't be able to use it to sign in anymore.",
+      "cancelled": "Passkey prompt was cancelled.",
+      "unsupported": "This browser does not support passkeys.",
+      "error": "Passkey sign-in failed.",
+      "disablePassword": "Disable password sign-in",
+      "disablePasswordDesc": "Once disabled, the admin password can no longer be used to sign in — only passkeys and OIDC will work.",
+      "disablePasswordNeedsCred": "Register at least one passkey before disabling password sign-in.",
+      "disablePasswordConfirm": "Disable password sign-in? If you lose all passkeys you'll be locked out of the admin panel."
     }
   },
   "notFound": {
