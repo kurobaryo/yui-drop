@@ -20,6 +20,8 @@ import AdminFiles from './pages/admin/Files';
 import AdminApiKeys from './pages/admin/ApiKeys';
 import AdminLogs from './pages/admin/Logs';
 import AdminSettings from './pages/admin/Settings';
+import OidcCallback from './pages/admin/auth/OidcCallback';
+import OidcBound from './pages/admin/auth/OidcBound';
 import { ToastProvider } from './components/ui/Toast';
 
 export default function App() {
@@ -33,6 +35,10 @@ export default function App() {
         <Route path="/m/:code" element={<Home />} />
         <Route path="/docs" element={<ApiDocs />} />
         <Route path="/admin/login" element={<AdminLogin />} />
+        {/* OIDC SPA-side landings — must sit *outside* the AdminLayout so they
+            don't require an existing admin token to render. */}
+        <Route path="/admin/oidc/callback" element={<OidcCallback />} />
+        <Route path="/admin/oidc/bound" element={<OidcBound />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="files" element={<AdminFiles />} />

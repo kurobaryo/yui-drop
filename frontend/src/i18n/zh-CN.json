@@ -355,6 +355,71 @@
         "savedNoMigrate": "存储已保存。已有的本地文件未迁移。",
         "change": "修改"
       }
+    },
+    "auth": {
+      "allDisabled": "目前所有登录方式都已停用。请联系站点管理员。"
+    },
+    "oidc": {
+      "title": "OIDC 单点登录",
+      "enabled": "启用 OIDC",
+      "enabledDesc": "启用后，可通过外部身份提供方（OpenID Connect）登录管理后台。",
+      "issuer": "Issuer URL",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "scopes": "Scopes",
+      "providerLabel": "提供方名称",
+      "redirectUri": "回调地址（覆盖）",
+      "redirectUriHint": "留空则自动使用：{{effective}}",
+      "defaultProvider": "OIDC",
+      "signInWith": "使用 {{provider}} 登录",
+      "signingIn": "正在登录…",
+      "binding": "正在绑定身份…",
+      "bindOk": "身份已绑定。",
+      "bindFailed": "绑定身份失败",
+      "unbound": "已解除绑定。",
+      "bindings": {
+        "title": "已绑定身份",
+        "bindNew": "绑定新身份",
+        "empty": "尚未绑定任何外部身份。",
+        "lastLogin": "最近登录",
+        "unbind": "解除绑定",
+        "unbindConfirm": "确定解除此身份的绑定？该身份将立即失去管理员访问权限。"
+      },
+      "errors": {
+        "not_bound": "该身份尚未绑定到此管理员账号。",
+        "missing_token": "登录回调缺少令牌，请重试。",
+        "missing_code": "身份提供方未返回授权码。",
+        "missing_state_cookie": "登录会话已过期，请重试。",
+        "bad_state": "登录状态被篡改，请重试。",
+        "oidc_disabled": "OIDC 登录当前未启用。",
+        "oidc_misconfigured": "OIDC 已启用但缺少必填字段。",
+        "bind_requires_session": "请先登录管理员账号再绑定新身份。",
+        "oidc_nonce_mismatch": "登录令牌校验失败（nonce 不匹配），请重试。"
+      }
+    },
+    "webauthn": {
+      "title": "通行密钥（Passkey）",
+      "subtitle": "已注册的认证器，可无需密码直接登录。",
+      "empty": "尚未注册任何通行密钥。",
+      "unlabelled": "（未命名通行密钥）",
+      "created": "注册时间",
+      "lastUsed": "最近使用"
+    },
+    "passkey": {
+      "signInWith": "使用通行密钥登录",
+      "signingIn": "等待通行密钥…",
+      "registerNew": "注册新通行密钥",
+      "registered": "通行密钥已注册。",
+      "deleted": "通行密钥已删除。",
+      "labelPrompt": "为此通行密钥取个名字（例如 “YubiKey 5C”）",
+      "deleteConfirm": "确定删除此通行密钥？删除后将无法用它登录。",
+      "cancelled": "通行密钥操作已取消。",
+      "unsupported": "当前浏览器不支持通行密钥。",
+      "error": "通行密钥登录失败。",
+      "disablePassword": "停用密码登录",
+      "disablePasswordDesc": "停用后，将无法再用管理员密码登录 — 只能通过通行密钥或 OIDC 登录。",
+      "disablePasswordNeedsCred": "请先至少注册一个通行密钥，再停用密码登录。",
+      "disablePasswordConfirm": "确定停用密码登录？若所有通行密钥丢失，将彻底无法进入管理后台。"
     }
   },
   "notFound": {

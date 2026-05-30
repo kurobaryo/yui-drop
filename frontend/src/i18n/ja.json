@@ -355,6 +355,71 @@
         "savedNoMigrate": "ストレージを保存しました。既存のローカルファイルは移行されません。",
         "change": "変更"
       }
+    },
+    "auth": {
+      "allDisabled": "現在、すべてのサインイン方法が無効になっています。サイト管理者にお問い合わせください。"
+    },
+    "oidc": {
+      "title": "OIDC シングルサインオン",
+      "enabled": "OIDC を有効化",
+      "enabledDesc": "有効にすると、外部 ID プロバイダー（OpenID Connect）経由でサインインできます。",
+      "issuer": "Issuer URL",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "scopes": "Scopes",
+      "providerLabel": "プロバイダー名",
+      "redirectUri": "リダイレクト URI（上書き）",
+      "redirectUriHint": "空欄の場合、自動的に次の値を使用します：{{effective}}",
+      "defaultProvider": "OIDC",
+      "signInWith": "{{provider}} でサインイン",
+      "signingIn": "サインイン中…",
+      "binding": "ID をリンク中…",
+      "bindOk": "ID をリンクしました。",
+      "bindFailed": "ID のリンクに失敗しました",
+      "unbound": "リンクを解除しました。",
+      "bindings": {
+        "title": "リンク済み ID",
+        "bindNew": "新しい ID をリンク",
+        "empty": "まだ外部 ID がリンクされていません。",
+        "lastLogin": "最終サインイン",
+        "unbind": "リンクを解除",
+        "unbindConfirm": "この ID のリンクを解除しますか？このアカウントは即座に管理者アクセスを失います。"
+      },
+      "errors": {
+        "not_bound": "この ID はまだこの管理者アカウントにリンクされていません。",
+        "missing_token": "サインイン応答にトークンがありません。再度お試しください。",
+        "missing_code": "ID プロバイダーが認可コードを返しませんでした。",
+        "missing_state_cookie": "サインインセッションの有効期限が切れました。再度お試しください。",
+        "bad_state": "サインインの state が改ざんされました。再度お試しください。",
+        "oidc_disabled": "OIDC サインインは現在無効です。",
+        "oidc_misconfigured": "OIDC は有効ですが必須項目が不足しています。",
+        "bind_requires_session": "新しい ID をリンクする前にサインインしてください。",
+        "oidc_nonce_mismatch": "サインイントークンの検証に失敗しました（nonce）。再度お試しください。"
+      }
+    },
+    "webauthn": {
+      "title": "パスキー",
+      "subtitle": "パスワードなしでサインインできる、登録済みの認証器です。",
+      "empty": "まだパスキーが登録されていません。",
+      "unlabelled": "（名前なしのパスキー）",
+      "created": "登録日",
+      "lastUsed": "最終使用"
+    },
+    "passkey": {
+      "signInWith": "パスキーでサインイン",
+      "signingIn": "パスキーを待機中…",
+      "registerNew": "新しいパスキーを登録",
+      "registered": "パスキーを登録しました。",
+      "deleted": "パスキーを削除しました。",
+      "labelPrompt": "このパスキーに名前を付けてください（例：「YubiKey 5C」）",
+      "deleteConfirm": "このパスキーを削除しますか？以降このパスキーではサインインできなくなります。",
+      "cancelled": "パスキーの操作がキャンセルされました。",
+      "unsupported": "このブラウザはパスキーに対応していません。",
+      "error": "パスキーサインインに失敗しました。",
+      "disablePassword": "パスワードサインインを無効化",
+      "disablePasswordDesc": "無効化すると、管理者パスワードではサインインできなくなります — パスキーまたは OIDC のみ利用可能になります。",
+      "disablePasswordNeedsCred": "パスワードサインインを無効化する前に、少なくとも 1 つのパスキーを登録してください。",
+      "disablePasswordConfirm": "パスワードサインインを無効化しますか？すべてのパスキーを失うと、管理パネルから完全にロックアウトされます。"
     }
   },
   "notFound": {

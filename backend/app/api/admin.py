@@ -67,6 +67,7 @@ from ..services.admin_uploads import (
     resolve_upload_limits,
     save_upload_limits,
 )
+from ..services.admin_webauthn import is_password_login_enabled
 from ..services.common import ServiceError, record_access
 from ..services.share import open_download_stream
 from .deps import require_admin
@@ -136,6 +137,13 @@ async def admin_login(
     """
     ip = real_client_ip(request)
     ua = _ua(request)
+
+    # Short-circuit when the admin has disabled password login. Passkey / OIDC
+    # flows are unaffected. Returning 403 (not 404) so the client can render a
+    # specific "password login disabled" message and surface the alternatives.
+    if not await is_password_login_enabled(db):
+        raise HTTPException(status_code=403, detail="password_login_disabled")
+
     try:
         verified = await verify_admin_password(db, body.password)
     except Exception:
