@@ -57,6 +57,16 @@ def _utcnow() -> datetime:
     return datetime.now(tz=UTC)
 
 
+def _ensure_aware(d: datetime) -> datetime:
+    """Return ``d`` with UTC tzinfo if it's naive. SQLite's ``DateTime(timezone=True)``
+    columns don't preserve tzinfo on read, so values come back naive even
+    though we wrote them as aware. Comparing a naive value with a tz-aware
+    ``_utcnow()`` raises ``TypeError``; this helper coerces safely."""
+    if d.tzinfo is None:
+        return d.replace(tzinfo=UTC)
+    return d
+
+
 async def _exists_code(db: AsyncSession, code: str) -> bool:
     res = await db.execute(select(Collection.id).where(Collection.code == code))
     return res.scalar_one_or_none() is not None
@@ -269,8 +279,21 @@ async def get_member_by_token(
     member = res.scalar_one_or_none()
     if member is None:
         raise ServiceError("invalid_token", code=4010, http_status=401)
-    member.last_seen_at = _utcnow()
-    await db.flush()
+    # Throttle ``last_seen_at`` writes — under SSE-style polling, every
+    # connected client hits this code path every few seconds. Without a gate,
+    # each call issues an UPDATE that contends for the SQLite write lock and
+    # under load can deadlock the whole room (the symptom we observed in
+    # v0.3.3 production: every collection-room message_list / send /
+    # files/init returning HTTP 500 "database is locked").
+    #
+    # We only need ``last_seen_at`` for "online member" UX heuristics, so a
+    # 60-second resolution is fine. Compare in-Python rather than via a SQL
+    # condition so SQLite doesn't even round-trip for a no-op write.
+    now = _utcnow()
+    last = member.last_seen_at
+    if last is None or (now - _ensure_aware(last)).total_seconds() >= 60:
+        member.last_seen_at = now
+        await db.flush()
     return collection, member
 
 
