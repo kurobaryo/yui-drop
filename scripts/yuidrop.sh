@@ -144,6 +144,7 @@ ${_C_BOLD}Usage:${_C_RESET}
 
 ${_C_BOLD}Commands:${_C_RESET}
     update              git pull --ff-only, rebuild image, run migrations, health check
+                        (use --force / -f to rebuild even when git is up to date)
     status              container state, /api/health JSON, disk usage, memory
     logs [-f]           show container logs (tail 200; -f to follow)
     restart             docker compose restart (no rebuild)
@@ -175,9 +176,18 @@ cmd_version() {
 }
 
 cmd_update() {
-    local repo new_count
+    local repo new_count force=0
     repo="$(resolve_repo)"
     detect_compose
+
+    # Support `yuidrop update --force` / `-f` for the case where the git tree
+    # is already up to date but the running container is stale (e.g. you
+    # pulled manually earlier, or a previous rebuild was skipped).
+    for arg in "$@"; do
+        case "$arg" in
+            --force|-f) force=1 ;;
+        esac
+    done
 
     _info "Repo: $repo"
 
@@ -195,19 +205,24 @@ cmd_update() {
     local_sha="$(git -C "$repo" rev-parse HEAD)"
     remote_sha="$(git -C "$repo" rev-parse origin/main)"
 
-    if [[ "$local_sha" == "$remote_sha" ]]; then
+    if [[ "$local_sha" == "$remote_sha" ]] && [[ "$force" -eq 0 ]]; then
         _ok "Already up to date (HEAD = ${local_sha:0:12})"
+        _info "Tip: run 'yuidrop update --force' to rebuild the container against the current source anyway"
         print_container_status
         return 0
     fi
 
-    new_count="$(git -C "$repo" rev-list --count HEAD..origin/main)"
-    _info "Incoming commits (${new_count}):"
-    git -C "$repo" --no-pager log --oneline --no-decorate "HEAD..origin/main"
-    echo
+    if [[ "$local_sha" != "$remote_sha" ]]; then
+        new_count="$(git -C "$repo" rev-list --count HEAD..origin/main)"
+        _info "Incoming commits (${new_count}):"
+        git -C "$repo" --no-pager log --oneline --no-decorate "HEAD..origin/main"
+        echo
 
-    _info "Pulling fast-forward…"
-    git -C "$repo" pull --ff-only origin main
+        _info "Pulling fast-forward…"
+        git -C "$repo" pull --ff-only origin main
+    else
+        _warn "Forced rebuild requested — repo already at ${local_sha:0:12}"
+    fi
 
     _info "Rebuilding container…"
     ( cd "$repo" && "${DC_CMD[@]}" up -d --build )
