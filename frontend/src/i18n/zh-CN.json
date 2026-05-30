@@ -3,6 +3,9 @@
     "name": "Yui-Drop",
     "tagline": "文件快递柜"
   },
+  "nav": {
+    "collection": "共享空间"
+  },
   "hero": {
     "badge": "匿名 · 无需账号",
     "title": "文件快递柜",
@@ -130,6 +133,7 @@
     "nav": {
       "dashboard": "总览",
       "files": "文件",
+      "collections": "共享空间",
       "apiKeys": "API 密钥",
       "logs": "日志",
       "settings": "设置",
@@ -280,6 +284,62 @@
           "ip": "IP",
           "ua": "UA"
         }
+      }
+    },
+    "collections": {
+      "title": "共享空间",
+      "search": "按房间号搜索…",
+      "empty": "暂无共享空间。",
+      "page": "第 {{page}} / {{total}} 页",
+      "filter": {
+        "active": "活跃",
+        "closed": "已关闭",
+        "expired": "已过期",
+        "all": "全部"
+      },
+      "statuses": {
+        "active": "活跃",
+        "closed": "已关闭",
+        "expired": "已过期"
+      },
+      "visibilities": {
+        "public": "公开",
+        "creator_only": "仅创建者"
+      },
+      "columns": {
+        "code": "房间号",
+        "name": "名称",
+        "created": "创建时间",
+        "expires": "过期时间",
+        "members": "成员数",
+        "files": "文件数",
+        "messages": "留言数",
+        "visibility": "可见性",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "action": {
+        "view": "查看",
+        "close": "关闭",
+        "delete": "删除"
+      },
+      "closeConfirm": {
+        "title": "关闭共享空间?",
+        "bodyPrefix": "确认解散共享空间",
+        "bodySuffix": "?所有在线成员将被断开,房间将被标记为已关闭。数据保留 7 天后彻底删除。",
+        "cancel": "取消",
+        "confirm": "关闭"
+      },
+      "deleteConfirm": {
+        "title": "删除共享空间?",
+        "bodyPrefix": "彻底删除共享空间",
+        "bodySuffix": "?将移除房间、所有成员、所有留言以及全部上传的文件,且无法恢复。",
+        "cancel": "取消",
+        "confirm": "删除"
+      },
+      "toast": {
+        "closed": "共享空间已关闭",
+        "deleted": "共享空间已删除"
       }
     },
     "logs": {
@@ -492,7 +552,8 @@
     "stampSubtitle": "文件 快递柜",
     "preview_pdf": "PDF 预览",
     "copy_link": "复制链接",
-    "loading": "加载中…"
+    "loading": "加载中…",
+    "navLabel": "导航"
   },
   "common": {
     "copy": "复制",
@@ -678,6 +739,101 @@
       "contactGithub": "GitHub:",
       "githubLink": "提一个 issue",
       "p2": "每把 key 可独立设置备注、scope、配额与过期时间。明文 key 仅在签发时显示一次,请立即保存到密码管理器中。"
+    }
+  },
+  "collection": {
+    "landing": {
+      "title": "共享空间",
+      "subtitle": "输入房间号即可加入，或创建一个新的共享空间。",
+      "codeLabel": "房间号",
+      "enter": "进入",
+      "createLink": "创建新的共享空间",
+      "invalidCode": "请输入有效的 6 位房间号。"
+    },
+    "create": {
+      "title": "创建共享空间",
+      "subtitle": "知道房间号的人都可以加入,上传文件并留言。",
+      "nameLabel": "房间名称（可选)",
+      "namePlaceholder": "例如:二班作业收集",
+      "visibilityLabel": "可见性",
+      "visibilityPublic": "公开",
+      "visibilityPublicHint": "所有成员可以查看彼此的文件和留言。",
+      "visibilityCreatorOnly": "仅创建者可见",
+      "visibilityCreatorOnlyHint": "成员只能看到自己上传的内容,只有创建者能看到所有人的。",
+      "entryPasswordLabel": "进入密码(可选)",
+      "entryPasswordPlaceholder": "留空则无需密码",
+      "adminPasswordLabel": "管理密码",
+      "adminPasswordPlaceholder": "至少 4 位",
+      "adminPasswordHint": "用于管理房间(暂停上传、关闭、删除留言)。请妥善保存。",
+      "lifetimeLabel": "存活时间",
+      "lifetime1d": "1 天",
+      "lifetime7d": "7 天",
+      "lifetime30d": "30 天",
+      "lifetime365d": "365 天",
+      "lifetimeCustom": "自定义",
+      "lifetimePermanent": "永久",
+      "customDaysUnit": "天",
+      "submit": "创建",
+      "submitting": "正在创建…"
+    },
+    "room": {
+      "loading": "加载中…",
+      "codeLabel": "房间号",
+      "nicknameLabel": "您的昵称",
+      "nicknamePlaceholder": "输入昵称",
+      "entryPasswordLabel": "进入密码",
+      "entryPasswordPlaceholder": "输入进入密码",
+      "joinBtn": "加入",
+      "joining": "正在加入…",
+      "claimCreator": "我是创建者",
+      "adminPasswordPrompt": "请输入管理密码",
+      "adminVerified": "已验证 — 您已获得创建者权限",
+      "closedTitle": "房间已关闭",
+      "closedBanner": "此房间已被创建者关闭。",
+      "filesHeader": "文件",
+      "filesEmpty": "暂无文件。",
+      "messages": "留言",
+      "empty": "暂无内容。",
+      "messageInputPlaceholder": "留下一条备注…",
+      "sendBtn": "发送",
+      "uploadFiles": "上传文件",
+      "uploadDisabled": "创建者已暂停上传",
+      "uploadFailed": "上传失败",
+      "dropHint": "拖放文件到此处",
+      "download": "下载",
+      "delete": "删除",
+      "deleteConfirm": "确定删除此项?",
+      "tabFiles": "文件",
+      "tabMessages": "留言"
+    },
+    "admin": {
+      "admin": "管理",
+      "pauseUploads": "暂停上传",
+      "resumeUploads": "恢复上传",
+      "closeRoom": "关闭房间",
+      "closeConfirm": "确定关闭此房间?所有成员将断开连接,上传也将停止。"
+    },
+    "common": {
+      "cancel": "取消"
+    },
+    "confirmations": {
+      "deleteFile": "确定删除此文件?此操作不可撤销。"
+    },
+    "errors": {
+      "roomNotFound": "未找到房间。",
+      "joinFailed": "加入房间失败。",
+      "sendFailed": "发送留言失败。",
+      "createFailed": "创建房间失败。",
+      "deleteFailed": "删除失败。",
+      "uploadDisabled": "上传已暂停。",
+      "sseDisconnected": "连接中断 — 正在重连…",
+      "serverError": "服务器错误,请重试。",
+      "adminPasswordTooShort": "管理密码至少需要 4 位。",
+      "adminVerifyFailed": "管理密码错误。",
+      "entryPasswordRequired": "需要输入进入密码。",
+      "nicknameRequired": "请输入昵称。",
+      "messageTooLong": "留言过长(最多 2000 字符)。",
+      "customDaysRange": "自定义天数应在 1 到 365 之间。"
     }
   }
 }

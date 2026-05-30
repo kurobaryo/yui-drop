@@ -3,6 +3,9 @@
     "name": "Yui-Drop",
     "tagline": "Drop. Code. Done."
   },
+  "nav": {
+    "collection": "Collection"
+  },
   "hero": {
     "badge": "Anonymous · No account needed",
     "title": "Drop. Code. Done.",
@@ -131,6 +134,7 @@
     "nav": {
       "dashboard": "Dashboard",
       "files": "Files",
+      "collections": "Collections",
       "apiKeys": "API Keys",
       "logs": "Logs",
       "settings": "Settings",
@@ -281,6 +285,62 @@
           "ip": "IP",
           "ua": "UA"
         }
+      }
+    },
+    "collections": {
+      "title": "Collections",
+      "search": "Search by code…",
+      "empty": "No collections.",
+      "page": "Page {{page}} / {{total}}",
+      "filter": {
+        "active": "Active",
+        "closed": "Closed",
+        "expired": "Expired",
+        "all": "All"
+      },
+      "statuses": {
+        "active": "Active",
+        "closed": "Closed",
+        "expired": "Expired"
+      },
+      "visibilities": {
+        "public": "Public",
+        "creator_only": "Creator only"
+      },
+      "columns": {
+        "code": "Code",
+        "name": "Name",
+        "created": "Created",
+        "expires": "Expires",
+        "members": "Members",
+        "files": "Files",
+        "messages": "Messages",
+        "visibility": "Visibility",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "action": {
+        "view": "View",
+        "close": "Close",
+        "delete": "Delete"
+      },
+      "closeConfirm": {
+        "title": "Close collection?",
+        "bodyPrefix": "Disband collection",
+        "bodySuffix": "? All connected members will be disconnected and the room will be marked closed. The data is retained for 7 days before hard deletion.",
+        "cancel": "Cancel",
+        "confirm": "Close"
+      },
+      "deleteConfirm": {
+        "title": "Delete collection?",
+        "bodyPrefix": "Permanently delete collection",
+        "bodySuffix": "? This removes the room, all members, all messages, and every uploaded file from storage. This cannot be undone.",
+        "cancel": "Cancel",
+        "confirm": "Delete"
+      },
+      "toast": {
+        "closed": "Collection closed",
+        "deleted": "Collection deleted"
       }
     },
     "logs": {
@@ -493,7 +553,8 @@
     "stampSubtitle": "FILE LOCKER",
     "preview_pdf": "PDF preview",
     "copy_link": "Copy link",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "navLabel": "Navigation"
   },
   "common": {
     "copy": "Copy",
@@ -679,6 +740,101 @@
       "contactGithub": "GitHub:",
       "githubLink": "open an issue",
       "p2": "Each key can be issued with an independent note, scopes, quotas, and expiry. The plaintext key is shown exactly once at issuance — save it immediately to your password manager."
+    }
+  },
+  "collection": {
+    "landing": {
+      "title": "Shared Collection",
+      "subtitle": "Enter a room code to join, or create a new collection.",
+      "codeLabel": "Room code",
+      "enter": "Enter",
+      "createLink": "Create a new collection",
+      "invalidCode": "Please enter a valid 6-digit room code."
+    },
+    "create": {
+      "title": "Create a collection",
+      "subtitle": "Anyone with the room code can join, upload files, and leave notes.",
+      "nameLabel": "Room name (optional)",
+      "namePlaceholder": "e.g. Class 2A homework",
+      "visibilityLabel": "Visibility",
+      "visibilityPublic": "Public",
+      "visibilityPublicHint": "Every member sees everyone's files and messages.",
+      "visibilityCreatorOnly": "Creator only",
+      "visibilityCreatorOnlyHint": "Members only see their own uploads; only the creator sees everything.",
+      "entryPasswordLabel": "Entry password (optional)",
+      "entryPasswordPlaceholder": "Leave blank for no password",
+      "adminPasswordLabel": "Admin password",
+      "adminPasswordPlaceholder": "At least 4 characters",
+      "adminPasswordHint": "Used to manage the room (pause uploads, close, delete messages). Keep it safe.",
+      "lifetimeLabel": "Lifetime",
+      "lifetime1d": "1 day",
+      "lifetime7d": "7 days",
+      "lifetime30d": "30 days",
+      "lifetime365d": "365 days",
+      "lifetimeCustom": "Custom",
+      "lifetimePermanent": "Permanent",
+      "customDaysUnit": "days",
+      "submit": "Create",
+      "submitting": "Creating…"
+    },
+    "room": {
+      "loading": "Loading…",
+      "codeLabel": "Room code",
+      "nicknameLabel": "Your nickname",
+      "nicknamePlaceholder": "Enter a nickname",
+      "entryPasswordLabel": "Entry password",
+      "entryPasswordPlaceholder": "Enter the entry password",
+      "joinBtn": "Join",
+      "joining": "Joining…",
+      "claimCreator": "I'm the creator",
+      "adminPasswordPrompt": "Enter the admin password",
+      "adminVerified": "Verified — you are now the creator",
+      "closedTitle": "Room closed",
+      "closedBanner": "This room has been closed by the creator.",
+      "filesHeader": "Files",
+      "filesEmpty": "No files yet.",
+      "messages": "Messages",
+      "empty": "Nothing here yet.",
+      "messageInputPlaceholder": "Leave a note…",
+      "sendBtn": "Send",
+      "uploadFiles": "Upload files",
+      "uploadDisabled": "Uploads paused by creator",
+      "uploadFailed": "Upload failed",
+      "dropHint": "Drag and drop files here",
+      "download": "Download",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this item?",
+      "tabFiles": "Files",
+      "tabMessages": "Messages"
+    },
+    "admin": {
+      "admin": "Admin",
+      "pauseUploads": "Pause uploads",
+      "resumeUploads": "Resume uploads",
+      "closeRoom": "Close room",
+      "closeConfirm": "Close this room? All members will be disconnected and uploads stop."
+    },
+    "common": {
+      "cancel": "Cancel"
+    },
+    "confirmations": {
+      "deleteFile": "Delete this file? This cannot be undone."
+    },
+    "errors": {
+      "roomNotFound": "Room not found.",
+      "joinFailed": "Could not join the room.",
+      "sendFailed": "Could not send the message.",
+      "createFailed": "Could not create the room.",
+      "deleteFailed": "Could not delete.",
+      "uploadDisabled": "Uploads are paused.",
+      "sseDisconnected": "Disconnected — trying to reconnect…",
+      "serverError": "Server error. Please try again.",
+      "adminPasswordTooShort": "Admin password must be at least 4 characters.",
+      "adminVerifyFailed": "Wrong admin password.",
+      "entryPasswordRequired": "An entry password is required.",
+      "nicknameRequired": "Please enter a nickname.",
+      "messageTooLong": "Message is too long (max 2000 characters).",
+      "customDaysRange": "Custom days must be between 1 and 365."
     }
   }
 }

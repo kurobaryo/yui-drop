@@ -582,3 +582,87 @@ export async function webauthnLoginComplete(
   );
   return data;
 }
+
+// ── Admin Collections ─────────────────────────────────────────────────────
+/**
+ * One row in the admin Collections list. Mirrors
+ * ``GET /api/admin/collections`` exactly — see the backend route docstring
+ * for field semantics. ``status`` is derived from ``closed_at`` / ``expires_at``
+ * client-side via the page's ``rowStatus`` helper, but a server-rendered
+ * ``status`` field is also accepted (and preferred if present in future).
+ */
+export type AdminCollectionStatus = 'active' | 'closed' | 'expired';
+export type AdminCollectionVisibility = 'public' | 'creator_only';
+
+export interface AdminCollectionRow {
+  id: number;
+  code: string;
+  name: string | null;
+  visibility: AdminCollectionVisibility;
+  created_at: string | null;
+  expires_at: string | null;
+  closed_at: string | null;
+  member_count: number;
+  file_count: number;
+  message_count: number;
+  upload_enabled: boolean;
+  created_by_ip: string | null;
+}
+
+export interface AdminCollectionListResponse {
+  items: AdminCollectionRow[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface AdminCollectionListParams {
+  page?: number;
+  size?: number;
+  keyword?: string;
+  /**
+   * Server-side status filter. Pass ``undefined`` to disable filtering
+   * (the "All" pill in the UI). The backend accepts ``active`` / ``closed`` /
+   * ``expired``.
+   */
+  status?: AdminCollectionStatus;
+}
+
+export async function listCollections(
+  params: AdminCollectionListParams = {},
+): Promise<AdminCollectionListResponse> {
+  const { data } = await api.get<AdminCollectionListResponse>(
+    '/admin/collections',
+    {
+      params: {
+        page: params.page ?? 1,
+        size: params.size ?? 20,
+        keyword: params.keyword || undefined,
+        status: params.status || undefined,
+      },
+    },
+  );
+  return data;
+}
+
+/**
+ * Admin override: disband a Collection. Soft action — sets ``closed_at``
+ * on the row, broadcasts a ``closed`` SSE event so any connected members'
+ * UIs disable inputs, and starts the 7-day retention countdown after which
+ * the row + R2 objects are hard-deleted by the sweeper.
+ */
+export async function closeCollection(id: number): Promise<AdminCollectionRow> {
+  const { data } = await api.post<AdminCollectionRow>(
+    `/admin/collections/${id}/close`,
+  );
+  return data;
+}
+
+/**
+ * Hard delete: removes the Collection row, all members, all messages,
+ * and all uploaded files from R2 / local storage. Audit-logged.
+ * Irreversible — use ``closeCollection`` for a reversible action.
+ */
+export async function deleteCollection(id: number): Promise<void> {
+  await api.delete(`/admin/collections/${id}`);
+}

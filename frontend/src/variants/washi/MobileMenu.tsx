@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import type { WashiColors, WashiMode, WashiPaletteName } from './palettes';
 import { PalettePicker } from './pickers/PalettePicker';
 import { ModePicker } from './pickers/ModePicker';
@@ -122,6 +123,32 @@ export function MobileMenu({ c, palette, setPalette, mode, setMode, lang, setLan
           <div>
             <div style={{ fontSize: 11, color: c.sub, marginBottom: 8 }}>{t('washi.langLabel')}</div>
             <LangPicker c={c} lang={lang} setLang={setLang} />
+          </div>
+          {/* Mobile nav — mirrors the top-nav pills that the desktop Header
+              renders inline. The Collection entry was added in v0.3.0; the
+              modal also collapses other top-nav links here when needed. */}
+          <div>
+            <div style={{ fontSize: 11, color: c.sub, marginBottom: 8 }}>{t('washi.navLabel')}</div>
+            <Link
+              to="/collection"
+              onClick={() => setOpen(false)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 38,
+                padding: '0 14px',
+                borderRadius: 999,
+                border: `1px solid ${c.soft}`,
+                color: c.ink,
+                textDecoration: 'none',
+                fontSize: 13,
+                letterSpacing: '0.08em',
+                boxSizing: 'border-box',
+              }}
+            >
+              {t('nav.collection')}
+            </Link>
           </div>
         </div>
       </>,
