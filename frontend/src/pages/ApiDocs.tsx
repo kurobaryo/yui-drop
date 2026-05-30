@@ -401,6 +401,10 @@ export default function ApiDocs() {
                   <a href="#request-key" style={linkStyle(c)}>{t("apiDocs.intro.signupLink")}</a>
                   {t("apiDocs.intro.signupSuffix")}
                 </li>
+                <li>
+                  <strong>{t("apiDocs.intro.encryptionLabel")}</strong>
+                  {t("apiDocs.intro.encryptionBody")}
+                </li>
               </ul>
             </section>
 
