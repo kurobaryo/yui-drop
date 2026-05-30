@@ -9,7 +9,7 @@
  * verification is still required — the user must explicitly tap "Pick up"
  * after solving the challenge.
  */
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { shareSelect, type ShareSelectResponse } from '@/lib/api/share';
@@ -45,6 +45,7 @@ export function Pickup({
   onPrefillConsumed,
 }: PickupProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const config = usePublicConfig();
   const [state, setState] = useState<PickupState>('idle');
   const [item, setItem] = useState<ShareSelectResponse | null>(null);
@@ -65,6 +66,15 @@ export function Pickup({
     if (code.length !== 6) return;
     if (lastSubmitted.current === code && state === 'loading') return;
     lastSubmitted.current = code;
+
+    // Branch: a leading "C" + 5 digits routes to the collection room, not the
+    // pickup-code resolver. This is what lets a single 6-cell input serve
+    // both surfaces (pickup codes are 6 digits; collection codes are C+5).
+    if (/^C\d{5}$/.test(code)) {
+      navigate(`/c/${code}`);
+      return;
+    }
+
     setState('loading');
     setErrMsg(null);
 
@@ -122,19 +132,24 @@ export function Pickup({
     }
   };
 
-  const cin = useCodeInput(6, (val) => {
-    // Auto-submit when 6th digit is typed. With invisible-on-submit Turnstile
-    // the challenge will fire inside submit() and award a token (silently on
-    // trusted IPs, with a popup on suspicious ones).
-    void submit(val);
-  });
+  const cin = useCodeInput(
+    6,
+    (val) => {
+      // Auto-submit when 6th character is typed. With invisible-on-submit
+      // Turnstile the challenge will fire inside submit() and award a token.
+      void submit(val);
+    },
+    { accept: /[A-Z0-9]/, uppercase: true },
+  );
 
   // Deep-link prefill: when /s/:code or /v/:code lands here, fill cells and
   // (depending on the source) auto-submit. For ?code= query-string prefills
   // we skip the auto-submit so the user must explicitly tap "Pick up".
   useEffect(() => {
     if (!prefillCode) return;
-    const clean = prefillCode.replace(/[^0-9]/g, '').slice(0, 6);
+    // Accept either a 6-digit pickup code OR a C+5 collection code from the
+    // deep-link route. ``setValue`` runs the hook's accept-regex itself.
+    const clean = prefillCode.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
     if (clean.length !== 6) return;
     cin.setValue(clean);
     if (autoSubmitOnPrefill) {
@@ -183,7 +198,9 @@ export function Pickup({
               onChange={(e) => cin.setDigit(i, e.target.value)}
               onKeyDown={(e) => cin.handleKey(i, e)}
               disabled={state === 'loading'}
-              inputMode="numeric"
+              inputMode="text"
+              autoCapitalize="characters"
+              spellCheck={false}
               data-yui="code-cell"
               style={{
                 width: 64,
@@ -258,7 +275,7 @@ export function Pickup({
           ? errMsg ?? t('washi.notFound')
           : state === 'loading'
             ? t('washi.pickingUp')
-            : t('washi.pasteHint')}
+            : t('washi.unifiedHint')}
       </div>
 
       {state === 'success' && item && (
@@ -273,111 +290,7 @@ export function Pickup({
           }}
         />
       )}
-
-      <CollectionEntry c={c} />
     </div>
-  );
-}
-
-/**
- * Inline "or enter a collection box" affordance. Sits below the pickup-code
- * input so users have a single home for "I received a code, take me there"
- * regardless of whether the sender's code is a 6-digit pickup code or a
- * C-prefixed collection room code.
- */
-function CollectionEntry({ c }: { c: WashiColors }) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [code, setCode] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-
-  // C followed by exactly 5 digits. Case-insensitive on input.
-  const normalized = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
-  const valid = /^C\d{5}$/.test(normalized);
-
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!valid) {
-      setErr(t('washi.collectionEntryInvalid'));
-      return;
-    }
-    navigate(`/c/${normalized}`);
-  };
-
-  return (
-    <form
-      onSubmit={onSubmit}
-      style={{
-        marginTop: 28,
-        paddingTop: 22,
-        borderTop: `1px dashed ${c.soft}`,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 13,
-          color: c.sub,
-          marginBottom: 14,
-          letterSpacing: '0.08em',
-        }}
-      >
-        {t('washi.collectionEntryTitle').toUpperCase()}
-      </div>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
-        <input
-          value={normalized}
-          onChange={(e) => {
-            setCode(e.target.value);
-            setErr(null);
-          }}
-          placeholder="C00000"
-          maxLength={6}
-          autoCapitalize="characters"
-          spellCheck={false}
-          style={{
-            flex: 1,
-            height: 50,
-            fontSize: 18,
-            letterSpacing: '0.2em',
-            textAlign: 'center',
-            fontFamily: '"JetBrains Mono", "Noto Sans Mono", monospace',
-            background: 'transparent',
-            border: `1px solid ${err ? '#c44a3e' : c.soft}`,
-            borderRadius: 8,
-            color: c.ink,
-            outline: 'none',
-            boxSizing: 'border-box',
-            transition: 'border-color .15s',
-          }}
-        />
-        <button
-          type="submit"
-          disabled={!valid}
-          style={{
-            padding: '0 22px',
-            height: 50,
-            background: valid ? c.accent : c.soft,
-            color: valid ? c.paper : c.sub,
-            border: 'none',
-            borderRadius: 8,
-            cursor: valid ? 'pointer' : 'not-allowed',
-            fontFamily: 'inherit',
-            fontSize: 14,
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            transition: 'all .15s',
-          }}
-        >
-          {t('washi.collectionEntryBtn')}
-        </button>
-      </div>
-      {err && (
-        <div style={{ marginTop: 8, fontSize: 12, color: '#c44a3e' }}>{err}</div>
-      )}
-      <div style={{ marginTop: 8, fontSize: 12, color: c.sub }}>
-        {t('washi.collectionEntryHint')}
-      </div>
-    </form>
   );
 }
 
