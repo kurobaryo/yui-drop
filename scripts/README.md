@@ -1,162 +1,153 @@
-# Yui-Drop Operations Scripts
+# yuidrop — Yui-Drop 运维 CLI
 
-This directory contains the `yuidrop` operational CLI for managing a Yui-Drop
-deployment running under Docker Compose, plus a small installer.
+中文 (默认) · [English](./README.en.md) · [日本語](./README.ja.md)
 
-| File | Purpose |
+本目录提供管理 Docker Compose 部署的 Yui-Drop 实例所需的 `yuidrop` 运维 CLI，以及一个轻量级安装脚本。
+
+| 文件 | 用途 |
 | --- | --- |
-| `yuidrop.sh` | Main CLI dispatcher (installed as `/usr/local/bin/yuidrop`). |
-| `install-yuidrop.sh` | One-shot installer — copies the CLI to `/usr/local/bin` and writes `/etc/yuidrop.conf`. |
-| `yui-drop-upload.sh` / `yui-drop-upload.py` | Client upload helpers (unrelated to operations). |
+| `yuidrop.sh` | CLI 主分发脚本（安装为 `/usr/local/bin/yuidrop`）。 |
+| `install-yuidrop.sh` | 一次性安装器 —— 将 CLI 软链入 `/usr/local/bin`，并写入 `/etc/yuidrop.conf`。 |
+| `yui-drop-upload.sh` / `yui-drop-upload.py` | 客户端上传辅助脚本（与运维无关）。 |
 
-## Installation
+## 安装
 
-From a fresh checkout of the Yui-Drop repo on the production host:
+在生产主机上从 Yui-Drop 仓库的全新 checkout 中运行：
 
 ```bash
 sudo ./scripts/install-yuidrop.sh
 ```
 
-This will:
+安装器会：
 
-1. Copy `scripts/yuidrop.sh` to `/usr/local/bin/yuidrop` and `chmod +x`.
-2. Write `YUIDROP_REPO=<absolute repo path>` to `/etc/yuidrop.conf`.
-3. Warn (but not fail) about any missing dependencies.
+1. **以软链接的方式**（`ln -sf`）把 `scripts/yuidrop.sh` 链到 `/usr/local/bin/yuidrop`，并对源文件 `chmod +x`。因为是软链接而不是拷贝，每次执行 `yuidrop update` 跑完 `git pull` 之后，`PATH` 上的 CLI 也会自动同步刷新 —— 升级后无需再次运行安装器。
+2. 把 `YUIDROP_REPO=<仓库绝对路径>` 写入 `/etc/yuidrop.conf`。
+3. 对缺失的依赖给出警告（仅警告，不会让安装失败）。
 
-After install, verify:
+安装完成后验证：
 
 ```bash
 yuidrop --version
 yuidrop status
 ```
 
-## Requirements
+## 依赖要求
 
-- **Docker Engine** with the `docker compose` v2 plugin (recommended).
-  Legacy `docker-compose` v1 is auto-detected as a fallback.
-- **git**, **curl**, **bash 4+**.
-- **sudo** access. Every `docker` invocation is prefixed with `sudo` because
-  on the production VPS the deploy user is not in the `docker` group.
-  `sudo NOPASSWD` is recommended for unattended `yuidrop update` runs;
-  otherwise you'll be prompted for the password several times per command.
+- **Docker Engine** 以及 `docker compose` v2 插件（推荐）。会自动回退到旧版 `docker-compose` v1。
+- **git**、**curl**、**bash 4+**。
+- **sudo** 权限。所有 `docker` 调用都加 `sudo` 前缀，因为生产 VPS 上的部署用户不在 `docker` 组里。建议为部署账号配置 `sudo NOPASSWD`，否则 `yuidrop update` 会多次提示输入密码。
 
-## Configuration
+## 配置
 
-The CLI resolves the repo path in this order:
+CLI 解析仓库路径的顺序：
 
-1. `$YUIDROP_REPO` environment variable, if set.
-2. The `YUIDROP_REPO=…` line in **`/etc/yuidrop.conf`**.
-3. Default: `/opt/yui-drop/repo`.
+1. 环境变量 `$YUIDROP_REPO`（若已设置）。
+2. **`/etc/yuidrop.conf`** 中的 `YUIDROP_REPO=…` 行。
+3. 默认值：`/opt/yui-drop/repo`。
 
-Example `/etc/yuidrop.conf`:
+`/etc/yuidrop.conf` 示例：
 
 ```ini
 YUIDROP_REPO=/opt/yui-drop/repo
 ```
 
-The container name is hard-coded to `yui-drop` (matches the Compose service).
-Health endpoint is `http://127.0.0.1:8000/api/health`.
+容器名硬编码为 `yui-drop`（与 Compose service 一致）。健康检查端点是 `/api/health`；CLI 会通过 `docker port <container> 8000` **自动发现 host 侧映射端口**，所以即使你把容器的 8000 映射到非默认主机端口（例如 nginx-proxy-manager 后端的 `18823`），健康检查也照常工作。如果想从反向代理上探测，可用 `YUIDROP_HEALTH_URL=https://…/api/health` 覆盖。
 
-## Commands
+## 命令
 
 ```text
-yuidrop update              Pull origin/main (fast-forward only), rebuild image,
-                            run alembic migrations, hit the health endpoint.
-                            Refuses to run if the working tree is dirty.
+yuidrop update [--force|-f]  fast-forward 拉取 origin/main、重建镜像、跑 alembic
+                             迁移、调健康检查。工作区脏的话直接拒绝执行。
+                             --force / -f 即使 git 已经是最新版也强制重建 ——
+                             适用于运行中的容器已经过期的场景（例如之前手动
+                             pull 过、或上次重建被中断）。
 
-yuidrop status              Show: HEAD, branch, container state, /api/health JSON,
-                            container memory + CPU, repo dir disk usage,
-                            docker volume listing.
+yuidrop status               显示：HEAD、分支、容器状态、/api/health JSON、
+                             容器内存 + CPU、仓库目录磁盘占用、docker volume
+                             清单。
 
-yuidrop logs [-f]           Show last 200 lines of container logs.
-                            -f / --follow streams indefinitely.
+yuidrop logs [-f]            打印容器日志最后 200 行。
+                             -f / --follow 切换为持续 tail。
 
-yuidrop restart             docker compose restart of the yui-drop service.
-                            No rebuild, no migrations.
+yuidrop restart              对 yui-drop service 执行 docker compose restart。
+                             不重建、不迁移。
 
-yuidrop rollback            git reset --hard HEAD~1, rebuild image,
-                            run alembic migrations, hit the health endpoint.
-                            (Note: down-migrations are NOT automatic — if the
-                            reverted commit added an irreversible schema change
-                            you may need to restore from backup.)
+yuidrop rollback             git reset --hard HEAD~1、重建镜像、跑 alembic
+                             迁移、调健康检查。
+                             （注意：不会自动执行 down-migration —— 如果被
+                             回滚的 commit 引入了不可逆的 schema 变更，可能
+                             需要从备份恢复。）
 
-yuidrop --help, -h          Usage.
-yuidrop --version, -v       Script version + repo HEAD SHA + container image SHA.
+yuidrop --help, -h           显示用法。
+yuidrop --version, -v        脚本版本号 + 仓库 HEAD SHA + 容器镜像 SHA。
 ```
 
-### Examples
+### 用例
 
 ```bash
-# Standard production deploy
+# 标准生产部署
 yuidrop update
 
-# Quick service bounce after a config change picked up at startup
+# git 已是最新但要强制重建（例如上次构建中途失败）
+yuidrop update --force
+
+# 修改启动期生效的配置后快速重启服务
 yuidrop restart
 
-# Tail logs while debugging
+# 调试时持续 tail 日志
 yuidrop logs -f
 
-# Emergency: revert the last commit and rebuild
+# 紧急情况：回滚到上一个 commit 并重建
 yuidrop rollback
 ```
 
-## Uninstall
+## 卸载
 
 ```bash
 sudo rm /usr/local/bin/yuidrop /etc/yuidrop.conf
 ```
 
-The repo checkout itself and the Docker containers/volumes are left untouched.
+仓库 checkout 本身以及 Docker 容器 / volume 不会被动到。
 
-## Troubleshooting
+## 故障排查
 
 ### `docker not found, install Docker first`
-The `docker` binary isn't on `PATH`. Install Docker Engine + Compose v2
-(see https://docs.docker.com/engine/install/).
+`PATH` 上找不到 `docker` 可执行文件。安装 Docker Engine 以及 Compose v2（参见 <https://docs.docker.com/engine/install/>）。
 
 ### `Repo path not found: /opt/yui-drop/repo`
-Either `/etc/yuidrop.conf` is missing, `$YUIDROP_REPO` is unset, or the
-configured path doesn't exist. Re-run `sudo ./scripts/install-yuidrop.sh`
-from the actual repo checkout.
+原因是 `/etc/yuidrop.conf` 缺失、`$YUIDROP_REPO` 未设置，或者配置中的路径不存在。在真实的仓库 checkout 中重新跑一次 `sudo ./scripts/install-yuidrop.sh` 即可。
 
 ### `Working tree has local changes — refusing to update.`
-`yuidrop update` and `rollback` refuse to run on a dirty tree because a
-fast-forward pull would fail or a `reset --hard` would silently drop work.
-On the production host this usually means root edited a tracked file in
-place (e.g. `docker-compose.override.yml`). Either commit, stash, or
-`git checkout --` the change before retrying.
+`yuidrop update` 和 `rollback` 拒绝在脏工作区上运行：fast-forward 拉取会失败，`reset --hard` 会默默丢掉未提交的改动。在生产主机上通常意味着 root 直接修改了 tracked 文件（例如 `docker-compose.override.yml`）。先 commit、stash 或 `git checkout --` 这些改动再重试。
 
-### Health check fails after `update`
-Check container logs: `yuidrop logs`. Common causes:
-- Alembic migration failed → look for `alembic.runtime.migration` errors.
-- New env var required but not set in `.env` or compose override.
-- Port 8000 already in use by something else.
+### `update` 之后健康检查失败
+检查容器日志：`yuidrop logs`。常见原因：
+- Alembic 迁移失败 → 找 `alembic.runtime.migration` 报错。
+- 新增的环境变量没在 `.env` 或 compose override 里设置。
+- 端口 8000（或你的 host 映射端口）被其他进程占用。
 
-If the new build is broken, `yuidrop rollback` to revert the last commit
-and rebuild.
+如果新构建确实坏了，用 `yuidrop rollback` 回到上个 commit 并重建。
 
 ### `sudo: a password is required`
-Either run `yuidrop` from an interactive shell so you can type the
-password, or configure `sudo NOPASSWD` for the deploy user (recommended
-for unattended deploys).
+要么交互式运行 `yuidrop`（这样能在终端输入密码），要么为部署用户配置 `sudo NOPASSWD`（推荐，便于无人值守部署）。
 
 ### `Neither 'docker compose' (v2) nor 'docker-compose' (v1) is available`
-Compose plugin is missing. On Debian/Ubuntu:
+缺少 Compose 插件。Debian / Ubuntu：
 
 ```bash
 sudo apt-get install docker-compose-plugin
 ```
 
-## Internals / hacking
+## 内部实现 / hacking
 
-`yuidrop.sh` is a single self-contained Bash script using `set -euo pipefail`.
-Sections are separated with `# ---------- header ----------` banners.
-Colored helpers `_info`, `_ok`, `_warn`, `_err` auto-disable when stdout
-is not a TTY (so log capture stays clean).
+`yuidrop.sh` 是单文件自包含的 Bash 脚本，开头使用 `set -euo pipefail`。各部分以 `# ---------- header ----------` 形式的横幅分隔。带颜色的辅助函数 `_info`、`_ok`、`_warn`、`_err` 会在 stdout 不是 TTY 时自动关闭颜色（避免污染日志采集）。
 
-Compose command selection lives in `detect_compose()` — it prefers
-`sudo docker compose` and falls back to `sudo docker-compose`.
+Compose 命令的选择逻辑在 `detect_compose()` 中：优先 `sudo docker compose`，回退到 `sudo docker-compose`。
 
-For a CI/dry-run override, set `YUIDROP_REPO` to a scratch checkout and
-the container name in the script can be edited (look for the
-`CONTAINER_NAME` variable near the top).
+健康检查的 URL 由 `resolve_health_url()` 决定，按以下优先级寻找：
+
+1. 显式覆盖的 `$YUIDROP_HEALTH_URL`；
+2. `sudo docker port <container> 8000` 的输出（host 端口自动发现，覆盖 nginx-proxy-manager 等场景）；
+3. 兜底使用 `http://127.0.0.1:8000/api/health`。
+
+若要做 CI / dry-run，可以把 `YUIDROP_REPO` 指向一个临时 checkout；容器名见脚本顶部的 `CONTAINER_NAME` 变量。

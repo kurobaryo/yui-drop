@@ -547,7 +547,9 @@
       "envelopeSuffix": " —— code === 2000 は成功を意味します。",
       "signupLabel": "セルフサインアップはありません。",
       "signupLink": "鍵のリクエスト",
-      "signupSuffix": "をご参照ください。"
+      "signupSuffix": "をご参照ください。",
+      "encryptionLabel": "保存時の暗号化:",
+      "encryptionBody": " アップロードされたファイルはすべて保存時に暗号化されます —— R2 / S3 バックエンドは SSE-S3、ローカルバックエンドはストリーミング AES-GCM を使用します。API 利用者には透過的で、本ページのリクエスト / レスポンス契約に変更はありません。"
     },
     "auth": {
       "heading": "認証",

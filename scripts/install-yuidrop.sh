@@ -59,9 +59,13 @@ fi
 # ---------- install ----------
 _info "Installing yuidrop CLI from: $REPO_DIR"
 
-sudo cp "$SCRIPT_DIR/yuidrop.sh" /usr/local/bin/yuidrop
-sudo chmod +x /usr/local/bin/yuidrop
-_ok "Copied → /usr/local/bin/yuidrop"
+# Symlink (not copy) so that 'yuidrop update' — which runs 'git pull' inside
+# $REPO_DIR — automatically refreshes /usr/local/bin/yuidrop. With a plain
+# 'cp' the CLI would go stale after every update until the user reran the
+# installer.
+sudo ln -sf "$SCRIPT_DIR/yuidrop.sh" /usr/local/bin/yuidrop
+sudo chmod +x "$SCRIPT_DIR/yuidrop.sh"
+_ok "Symlinked → /usr/local/bin/yuidrop → $SCRIPT_DIR/yuidrop.sh"
 
 echo "YUIDROP_REPO=$REPO_DIR" | sudo tee /etc/yuidrop.conf >/dev/null
 sudo chmod 0644 /etc/yuidrop.conf
