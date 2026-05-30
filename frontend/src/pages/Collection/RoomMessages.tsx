@@ -271,7 +271,7 @@ export function RoomMessages({
                     }}
                   >
                     <span style={{ color: isOwn ? c.accent : c.sub }}>
-                      {m.member_nickname}
+                      {m.nickname}
                     </span>
                     <span>·</span>
                     <span>{new Date(m.created_at).toLocaleString()}</span>

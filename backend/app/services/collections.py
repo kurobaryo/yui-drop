@@ -421,7 +421,20 @@ def _slug(name: str) -> str:
 
 
 def _backend_name() -> str:
-    """Normalized current storage-backend name (lowercased)."""
+    """Normalized current storage-backend name (lowercased).
+
+    Reads the *active* storage singleton's class name rather than the env
+    default, so the answer reflects any runtime ``settings_kv`` overlay
+    written by the admin UI (e.g. env says ``local`` but admin switched to
+    ``s3``). The singleton is primed in the app lifespan via
+    :func:`reload_storage` so by the time any request hits this helper, it
+    matches what ``get_storage()`` actually returns.
+    """
+    cls = type(get_storage()).__name__.lower()
+    # LocalStorage → local, S3Storage → s3, OneDriveStorage → onedrive, ...
+    for name in ("local", "s3", "onedrive", "webdav"):
+        if name in cls:
+            return name
     return (settings.storage_backend or "local").lower()
 
 
