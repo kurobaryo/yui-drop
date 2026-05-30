@@ -32,8 +32,17 @@ export function Footer({ c }: FooterProps) {
         color: c.sub,
       }}
     >
+      {/* Mobile: when the WashiApp stylesheet (or any host page) flips the
+          footer into a vertical stack on narrow viewports, keep the links
+          group right-aligned so it visually matches the desktop layout.
+          Scoped to [data-yui="footer-links"] so it only affects this row. */}
+      <style>{`
+        @media (max-width: 768px) {
+          [data-yui="footer-links"] { align-self: flex-end !important; }
+        }
+      `}</style>
       <span>{t('washi.footerCopyright')}</span>
-      <span style={{ display: 'flex', gap: 16 }}>
+      <span data-yui="footer-links" style={{ display: 'flex', gap: 16 }}>
         <a
           href="https://github.com/kurobaryo/yui-drop#readme"
           target="_blank"

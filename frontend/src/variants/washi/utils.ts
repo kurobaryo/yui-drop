@@ -31,7 +31,7 @@ export function expiryToApi(e: WashiExpiry): { expire_value: number; expire_styl
     return { expire_value: Math.max(0, Math.min(999, Math.floor(e.count))), expire_style: 'count' };
   }
   if (!Number.isFinite(e.days)) {
-    return { expire_value: 0, expire_style: 'forever' };
+    return { expire_value: 1, expire_style: 'forever' };
   }
   const days = Math.max(1, Math.floor(e.days));
   return { expire_value: days, expire_style: 'day' };

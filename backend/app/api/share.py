@@ -240,7 +240,9 @@ async def _stream_share_payload(
     """
     try:
         target = await resolve_download_target(db, code=code, file_id=file_id)
-        body, head = await open_download_stream(target["key"])
+        body, head = await open_download_stream(
+            target["key"], wrapped_dek=target.get("wrapped_dek")
+        )
     except ServiceError as e:
         raise _service_to_http(e) from e
 

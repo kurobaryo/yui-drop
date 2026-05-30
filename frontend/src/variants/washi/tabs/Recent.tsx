@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { loadRecent, clearRecent, type RecentEntry } from '@/lib/recent';
+import { loadRecent, clearRecent, RECENT_CHANGED_EVENT, type RecentEntry } from '@/lib/recent';
 import type { WashiColors } from '../palettes';
 import { fmtSize, expiryShort } from '../utils';
 
@@ -24,9 +24,11 @@ export function Recent({ c }: { c: WashiColors }) {
       if (e.key === 'yui-drop:recent') refresh();
     };
     window.addEventListener('storage', onStorage);
+    window.addEventListener(RECENT_CHANGED_EVENT, refresh);
     const id = window.setTimeout(refresh, 300);
     return () => {
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener(RECENT_CHANGED_EVENT, refresh);
       window.clearTimeout(id);
     };
   }, []);
