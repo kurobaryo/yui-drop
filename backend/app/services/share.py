@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
+from ..core.crypto import generate_dek, wrap_dek
 from ..core.filenames import build_storage_key, sanitize_filename
 from ..core.rate_limit import retrieve_fail_tracker
 from ..core.security import generate_unique_pickup_code
@@ -42,6 +43,16 @@ FORCE_DOWNLOAD_MIMES: frozenset[str] = frozenset(
 # :func:`app.services.admin_uploads.resolve_upload_limits`.
 SIMPLE_UPLOAD_MAX = 10 * 1024 * 1024  # 10 MiB
 SHA_BUF = 1024 * 1024  # 1 MiB read buffer
+
+
+def _use_local_at_rest_encryption() -> bool:
+    """True when on-disk encryption should be applied to new local writes.
+
+    Local backend → encrypt (DEK wrapped + stored on the FileCode row).
+    Other backends → no-op (S3/R2 rely on bucket-side SSE-S3; future
+    backends decide their own story).
+    """
+    return (settings.storage_backend or "local").lower() == "local"
 
 
 async def _code_exists(db: AsyncSession, code: str) -> bool:
@@ -181,11 +192,23 @@ async def create_simple_file_share(
 
     if existing is not None:
         storage_key = existing.file_path
+        wrapped: bytes | None = existing.wrapped_dek
     else:
         storage_key = build_storage_key(None, safe)
         import io
 
-        await get_storage().server_write(storage_key, io.BytesIO(data), file_size)
+        if _use_local_at_rest_encryption():
+            dek = generate_dek()
+            wrapped = wrap_dek(dek)
+            storage = get_storage()
+            # LocalStorage exposes server_write_encrypted; other backends
+            # don't (and shouldn't be reached on the local-encryption path).
+            await storage.server_write_encrypted(  # type: ignore[attr-defined]
+                storage_key, io.BytesIO(data), dek
+            )
+        else:
+            wrapped = None
+            await get_storage().server_write(storage_key, io.BytesIO(data), file_size)
 
     expired_at, expired_count = compute_expiry(expire_value, expire_style)
     code = await generate_unique_pickup_code(lambda c: _code_exists(db, c))
@@ -204,6 +227,7 @@ async def create_simple_file_share(
         used_count=0,
         is_chunked=False,
         upload_id=None,
+        wrapped_dek=wrapped,
         created_by_ip=ip,
         created_by_ua=ua,
         created_by_key_id=created_by_key_id,
@@ -457,14 +481,29 @@ async def authorize_download_token(token: str) -> tuple[str, str | None]:
     return key, fn
 
 
-async def open_download_stream(key: str):
-    """Return ``(async-iter, head)`` for the given storage key."""
+async def open_download_stream(key: str, wrapped_dek: bytes | None = None):
+    """Return ``(async-iter, head)`` for the given storage key.
+
+    If ``wrapped_dek`` is non-None the bytes are decrypted on the way out
+    via :meth:`LocalStorage.server_read_encrypted`; the reported
+    ``head['size']`` is adjusted so callers don't advertise the on-disk
+    (header-padded) size to the client.
+    """
+    from ..core.crypto import HEADER_BYTES, unwrap_dek
+
     storage = get_storage()
     try:
         head = await storage.head(key)
     except FileNotFoundError as exc:
         raise NotFoundError("object_not_found") from exc
-    body = await storage.server_read(key)
+    if wrapped_dek:
+        dek = unwrap_dek(wrapped_dek)
+        body = await storage.server_read_encrypted(key, dek)  # type: ignore[attr-defined]
+        # Plaintext size = on-disk size − fixed header (nonce + tag).
+        if head.get("size") is not None:
+            head = {**head, "size": max(0, int(head["size"]) - HEADER_BYTES)}
+    else:
+        body = await storage.server_read(key)
     return body, head
 
 
@@ -526,6 +565,8 @@ async def resolve_download_target(
             "content_type": ct,
             "force_download": force_dl,
             "size": sf.size,
+            # Multi-share files inherit the parent FileCode's wrapped DEK.
+            "wrapped_dek": row.wrapped_dek,
         }
 
     # Single-file share. Text shares have no payload to stream.
@@ -543,6 +584,7 @@ async def resolve_download_target(
         "content_type": ct,
         "force_download": force_dl,
         "size": row.size,
+        "wrapped_dek": row.wrapped_dek,
     }
 
 
