@@ -73,7 +73,19 @@ SessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency: yield an AsyncSession; rollback on unhandled error.
+    """FastAPI dependency: yield an AsyncSession; auto-commit on success, rollback on error.
+
+    Auto-commit is important: read endpoints (e.g. ``files_list``, ``stream``)
+    don't issue an explicit ``await db.commit()`` but ``require_member``
+    inside them may issue an UPDATE on ``last_seen_at``. Without commit the
+    UPDATE sits inside an open transaction; on SQLite that means the
+    connection holds the database write lock until session close. For a
+    long-lived SSE stream that's the **entire connection lifetime** — every
+    subsequent request will hit ``database is locked``. Committing on yield
+    completion releases the lock immediately.
+
+    Idempotent for endpoints that already commit themselves (a second commit
+    on an already-committed session is a no-op).
 
     Usage::
 
@@ -84,6 +96,7 @@ async def get_db() -> AsyncIterator[AsyncSession]:
     async with SessionLocal() as session:
         try:
             yield session
+            await session.commit()
         except Exception:
             await session.rollback()
             raise
