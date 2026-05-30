@@ -20,6 +20,25 @@ export interface RecentEntry {
 const KEY = 'yui-drop:recent';
 const MAX = 20;
 
+/**
+ * Custom event dispatched on the window whenever the recent-shares list
+ * changes from within the current tab (push/save/clear). Native `storage`
+ * events do NOT fire for same-tab writes, so listeners that need to react
+ * to a same-tab mutation (e.g. the Recent panel re-rendering after a
+ * successful upload) should subscribe to this event in addition to the
+ * built-in `storage` event.
+ */
+export const RECENT_CHANGED_EVENT = 'yui-drop:recent-changed';
+
+function emitChanged(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent(RECENT_CHANGED_EVENT));
+  } catch {
+    /* CustomEvent unsupported — ignore */
+  }
+}
+
 function safeParse(raw: string | null): RecentEntry[] {
   if (!raw) return [];
   try {
@@ -50,6 +69,7 @@ export function saveRecent(entries: RecentEntry[]): void {
     .slice(0, MAX);
   try {
     localStorage.setItem(KEY, JSON.stringify(sliced));
+    emitChanged();
   } catch {
     /* quota / disabled storage — ignore */
   }
@@ -66,6 +86,7 @@ export function clearRecent(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(KEY);
+    emitChanged();
   } catch {
     /* ignore */
   }
