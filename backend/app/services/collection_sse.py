@@ -37,9 +37,15 @@ from typing import Any
 # ── State ──────────────────────────────────────────────────────────────────
 
 
-@dataclass
+@dataclass(eq=False)
 class Subscriber:
-    """One active SSE listener for one room."""
+    """One active SSE listener for one room.
+
+    eq=False keeps ``__hash__`` as object-identity (the default for any plain
+    class). We need that because Subscriber instances live in a ``set`` and
+    each connection is unique by identity, not by member_id (a single member
+    can have multiple tabs open).
+    """
 
     member_id: int
     is_creator: bool

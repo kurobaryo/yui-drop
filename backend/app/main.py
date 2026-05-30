@@ -106,7 +106,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "default-src 'self'; "
         "img-src 'self' data: blob:; "
         "media-src 'self' blob:; "
-        "style-src 'self' 'unsafe-inline'; "
+        # Google Fonts: stylesheet host (fonts.googleapis.com) needs to be
+        # allowed for style-src so the <link rel=stylesheet> in index.html can
+        # load; font-src must allow fonts.gstatic.com because that's where the
+        # actual .woff2 files live.
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
         # 'unsafe-inline' on script-src is required for the FOUC-prevention
         # inline script in the SPA's index.html (sets data-theme/data-accent
         # before the bundle loads). All actual app code ships in hashed

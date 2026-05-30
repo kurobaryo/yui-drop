@@ -5,12 +5,13 @@
 import { useTranslation } from 'react-i18next';
 import type { WashiColors } from './palettes';
 
-export type WashiTab = 'pickup' | 'sendfile' | 'sendtext';
+export type WashiTab = 'pickup' | 'sendfile' | 'sendtext' | 'collection';
 
 const TABS: Array<{ id: WashiTab; labelKey: string; glyph: string }> = [
   { id: 'pickup', labelKey: 'washi.tabPickup', glyph: '↘' },
   { id: 'sendfile', labelKey: 'washi.tabSendFile', glyph: '↗' },
   { id: 'sendtext', labelKey: 'washi.tabSendText', glyph: '✎' },
+  { id: 'collection', labelKey: 'washi.tabCollection', glyph: '□' },
 ];
 
 export interface TabsProps {

@@ -494,6 +494,7 @@
     "tabPickup": "受取",
     "tabSendFile": "ファイルを送る",
     "tabSendText": "テキストを送る",
+    "tabCollection": "コレクション",
     "enterCode": "受取コードを入力",
     "settings": "設定",
     "palette": "テーマ",
@@ -742,6 +743,13 @@
     }
   },
   "collection": {
+    "quick": {
+      "title": "コレクションを作成",
+      "adminPasswordPlaceholder": "管理パスワード（4 文字以上）",
+      "createBtn": "作成",
+      "moreOptions": "詳細設定",
+      "enterTitle": "またはルームコードを入力"
+    },
     "landing": {
       "title": "共有スペース",
       "subtitle": "部屋番号を入力して参加するか、新しいコレクションを作成します。",

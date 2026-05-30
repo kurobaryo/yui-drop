@@ -32,6 +32,7 @@ import { Tabs, type WashiTab } from './Tabs';
 import { Pickup } from './tabs/Pickup';
 import { SendFile } from './tabs/SendFile';
 import { SendText } from './tabs/SendText';
+import { Collection } from './tabs/Collection';
 import { Recent } from './tabs/Recent';
 import type { WashiLang } from './pickers/LangPicker';
 
@@ -304,6 +305,7 @@ export function WashiApp() {
           )}
           {tab === 'sendfile' && <SendFile c={c} />}
           {tab === 'sendtext' && <SendText c={c} />}
+          {tab === 'collection' && <Collection c={c} />}
         </div>
 
         <Recent c={c} />
