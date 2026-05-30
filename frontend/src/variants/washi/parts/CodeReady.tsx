@@ -18,6 +18,7 @@ export interface CodeReadyProps {
 export function CodeReady({ c, code, expiry, onReset }: CodeReadyProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   return (
     <div
@@ -83,6 +84,7 @@ export function CodeReady({ c, code, expiry, onReset }: CodeReadyProps) {
           display: 'flex',
           gap: 10,
           justifyContent: 'center',
+          flexWrap: 'wrap',
         }}
       >
         <button
@@ -104,6 +106,28 @@ export function CodeReady({ c, code, expiry, onReset }: CodeReadyProps) {
           }}
         >
           {copied ? '✓ ' + t('washi.copied') : t('washi.copy')}
+        </button>
+        <button
+          onClick={() => {
+            void navigator.clipboard?.writeText(
+              `${window.location.origin}/s/${code}`,
+            );
+            setLinkCopied(true);
+            window.setTimeout(() => setLinkCopied(false), 1500);
+          }}
+          style={{
+            padding: '10px 22px',
+            background: c.accent,
+            color: c.paper,
+            border: 'none',
+            borderRadius: 999,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            fontWeight: 600,
+            fontSize: 14,
+          }}
+        >
+          {linkCopied ? '✓ ' + t('washi.copied') : t('washi.copy_link')}
         </button>
         <button
           onClick={onReset}

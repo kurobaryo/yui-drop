@@ -8,9 +8,11 @@ from .api_key import ApiKey
 from .api_key_usage import ApiKeyUsage
 from .file_code import FileCode
 from .multipart_session import MultipartSession
+from .oidc_binding import OidcBinding
 from .settings_kv import SettingsKV
 from .share_file import ShareFile
 from .upload_chunk import UploadChunk
+from .webauthn_credential import WebauthnCredential
 
 __all__ = [
     "AccessLog",
@@ -19,7 +21,9 @@ __all__ = [
     "ApiKeyUsage",
     "FileCode",
     "MultipartSession",
+    "OidcBinding",
     "SettingsKV",
     "ShareFile",
     "UploadChunk",
+    "WebauthnCredential",
 ]

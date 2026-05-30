@@ -389,3 +389,196 @@ export async function putAdminUploads(
   const { data } = await api.put<UploadLimitsResponse>('/admin/uploads', body);
   return data;
 }
+
+// ── Auth methods probe ────────────────────────────────────────────────────
+/**
+ * Shape returned by ``GET /api/admin/auth/methods``. Public — the login page
+ * uses it to decide which auth UI to render. ``webauthn_enabled`` flips to
+ * true as soon as any passkey is registered; ``oidc_enabled`` reflects the
+ * admin's ``/api/admin/oidc/config`` toggle.
+ */
+export interface AdminAuthMethodsResponse {
+  password_enabled: boolean;
+  webauthn_enabled: boolean;
+  oidc_enabled: boolean;
+  oidc_provider_label: string;
+}
+
+export async function getAuthMethods(): Promise<AdminAuthMethodsResponse> {
+  const { data } = await api.get<AdminAuthMethodsResponse>(
+    '/admin/auth/methods',
+  );
+  return data;
+}
+
+// ── OIDC (admin) ──────────────────────────────────────────────────────────
+/**
+ * OIDC config shape (``GET/PUT /api/admin/oidc/config``). The
+ * ``client_secret`` field comes back as ``"****"`` whenever a secret is
+ * stored — leave it as the mask to keep the existing value on save.
+ */
+export interface OidcConfigResponse {
+  enabled: boolean;
+  issuer: string;
+  client_id: string;
+  client_secret: string;
+  has_secret: boolean;
+  scopes: string;
+  redirect_uri: string;
+  effective_redirect_uri: string;
+  provider_label: string;
+  allow_self_binding: boolean;
+}
+
+export interface OidcConfigUpdateRequest {
+  enabled?: boolean;
+  issuer?: string;
+  client_id?: string;
+  /** Send ``"****"`` (or omit) to keep the existing encrypted secret. */
+  client_secret?: string;
+  scopes?: string;
+  redirect_uri?: string;
+  provider_label?: string;
+  allow_self_binding?: boolean;
+}
+
+export async function getOidcConfig(): Promise<OidcConfigResponse> {
+  const { data } = await api.get<OidcConfigResponse>('/admin/oidc/config');
+  return data;
+}
+
+export async function putOidcConfig(
+  body: OidcConfigUpdateRequest,
+): Promise<OidcConfigResponse> {
+  const { data } = await api.put<OidcConfigResponse>(
+    '/admin/oidc/config',
+    body,
+  );
+  return data;
+}
+
+export interface OidcBindingItem {
+  id: number;
+  provider: string;
+  subject: string;
+  email: string | null;
+  display_name: string | null;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export async function listOidcBindings(): Promise<{ items: OidcBindingItem[] }> {
+  const { data } = await api.get<{ items: OidcBindingItem[] }>(
+    '/admin/oidc/bindings',
+  );
+  return data;
+}
+
+/**
+ * Consume the short-lived bind cookie set by ``GET /admin/oidc/callback?bind=1``
+ * and persist the IdP-validated identity.
+ */
+export async function createOidcBinding(): Promise<OidcBindingItem> {
+  const { data } = await api.post<OidcBindingItem>('/admin/oidc/bindings');
+  return data;
+}
+
+export async function deleteOidcBinding(id: number): Promise<OidcBindingItem> {
+  const { data } = await api.delete<OidcBindingItem>(
+    `/admin/oidc/bindings/${id}`,
+  );
+  return data;
+}
+
+// ── WebAuthn / Passkey (admin) ────────────────────────────────────────────
+/**
+ * Single registered passkey row exposed in the credential list. The actual
+ * public key + credential bytes never leave the server.
+ */
+export interface WebauthnCredentialOut {
+  id: number;
+  label: string | null;
+  transports: string[];
+  created_at: string;
+  last_used_at: string | null;
+  sign_count: number;
+}
+
+/** Public-key creation options forwarded straight to ``navigator.credentials.create()``. */
+export interface WebauthnRegisterBeginResponse {
+  options: Record<string, unknown>;
+}
+
+/** Public-key request options forwarded straight to ``navigator.credentials.get()``. */
+export interface WebauthnLoginBeginResponse {
+  options: Record<string, unknown>;
+}
+
+/** Token envelope returned by ``POST /admin/webauthn/login/complete`` on success. */
+export interface WebauthnLoginCompleteResponse {
+  token: string;
+  token_type: 'Bearer';
+  expires_at: string;
+}
+
+export async function webauthnRegisterBegin(): Promise<WebauthnRegisterBeginResponse> {
+  const { data } = await api.post<WebauthnRegisterBeginResponse>(
+    '/admin/webauthn/register/begin',
+  );
+  return data;
+}
+
+export async function webauthnRegisterComplete(
+  credential: Record<string, unknown>,
+  label?: string | null,
+): Promise<WebauthnCredentialOut> {
+  const { data } = await api.post<WebauthnCredentialOut>(
+    '/admin/webauthn/register/complete',
+    { credential, label: label ?? null },
+  );
+  return data;
+}
+
+export async function listWebauthnCredentials(): Promise<{ items: WebauthnCredentialOut[] }> {
+  const { data } = await api.get<{ items: WebauthnCredentialOut[] }>(
+    '/admin/webauthn/credentials',
+  );
+  return data;
+}
+
+export async function patchWebauthnCredential(
+  id: number,
+  label: string | null,
+): Promise<WebauthnCredentialOut> {
+  const { data } = await api.patch<WebauthnCredentialOut>(
+    `/admin/webauthn/credentials/${id}`,
+    { label },
+  );
+  return data;
+}
+
+export async function deleteWebauthnCredential(
+  id: number,
+): Promise<{ deleted: boolean; id: number }> {
+  const { data } = await api.delete<{ deleted: boolean; id: number }>(
+    `/admin/webauthn/credentials/${id}`,
+  );
+  return data;
+}
+
+export async function webauthnLoginBegin(): Promise<WebauthnLoginBeginResponse> {
+  const { data } = await api.post<WebauthnLoginBeginResponse>(
+    '/admin/webauthn/login/begin',
+  );
+  return data;
+}
+
+export async function webauthnLoginComplete(
+  credential: Record<string, unknown>,
+): Promise<WebauthnLoginCompleteResponse> {
+  const { data } = await api.post<WebauthnLoginCompleteResponse>(
+    '/admin/webauthn/login/complete',
+    { credential },
+  );
+  return data;
+}
