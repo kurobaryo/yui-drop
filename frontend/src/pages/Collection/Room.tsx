@@ -36,6 +36,7 @@ import {
 import { ApiError } from '@/lib/api';
 import { CollectionSse } from '@/lib/collectionSse';
 import { useCollectionMemberStore } from '@/stores/collectionMember';
+import { pushRecent } from '@/lib/recent';
 import { getConfig, DEFAULT_CONFIG, type PublicConfig } from '@/lib/api/public';
 import { toast } from '@/components/ui/Toast';
 import type { WashiColors } from '@/variants/washi/palettes';
@@ -280,8 +281,16 @@ function RoomView({ code, c, preview, storageBackend }: RoomViewProps) {
       setMemberId(mid);
       setIsCreator(creatorFromServer);
       setUploadEnabled(upload);
+      // Surface joined rooms in the home page Recent panel.
+      pushRecent({
+        code,
+        kind: 'collection',
+        name: preview?.name ?? null,
+        created_at: new Date().toISOString(),
+        isCreator: creatorFromServer,
+      });
     },
-    [code, storeSet],
+    [code, storeSet, preview?.name],
   );
 
   // ─── SSE wiring ──────────────────────────────────────────────────────────
