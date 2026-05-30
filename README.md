@@ -8,9 +8,7 @@
 
 [在线 Demo](https://drop.leod.me) · [快速开始](#快速开始)
 
-![Pickup tab](./docs/screenshots/home-pickup-dark.png)
-![Send file tab](./docs/screenshots/home-sendfile-dark.png)
-![Send text tab](./docs/screenshots/home-sendtext-dark.png)
+![Yui-Drop 首页 — 取件视图（深色主题）](./docs/screenshots/home-pickup-dark.png)
 
 </div>
 

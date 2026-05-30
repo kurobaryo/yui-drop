@@ -8,9 +8,7 @@
 
 [Live demo](https://drop.leod.me) · [Quick start](#quick-start)
 
-![Pickup tab](./docs/screenshots/home-pickup-dark.png)
-![Send file tab](./docs/screenshots/home-sendfile-dark.png)
-![Send text tab](./docs/screenshots/home-sendtext-dark.png)
+![Yui-Drop home — pickup view (dark theme)](./docs/screenshots/home-pickup-dark.png)
 
 </div>
 
