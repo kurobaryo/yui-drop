@@ -198,8 +198,14 @@ cmd_update() {
         exit 1
     fi
 
+    # NOTE: git *writes* (fetch / pull / reset) must run as root because the
+    # production .git is root-owned (mixed-ownership trap) — running as the
+    # calling admin user otherwise dies with
+    #   "insufficient permission for adding an object to repository database .git/objects".
+    # Read-only commands (rev-parse, log, status --porcelain) are fine
+    # unprivileged.
     _info "Fetching origin/main…"
-    git -C "$repo" fetch --prune origin main
+    sudo git -C "$repo" fetch --prune origin main
 
     local local_sha remote_sha
     local_sha="$(git -C "$repo" rev-parse HEAD)"
@@ -219,7 +225,7 @@ cmd_update() {
         echo
 
         _info "Pulling fast-forward…"
-        git -C "$repo" pull --ff-only origin main
+        sudo git -C "$repo" pull --ff-only origin main
     else
         _warn "Forced rebuild requested — repo already at ${local_sha:0:12}"
     fi
@@ -327,7 +333,8 @@ cmd_rollback() {
     git -C "$repo" --no-pager log -1 --oneline HEAD
     echo
 
-    git -C "$repo" reset --hard HEAD~1
+    # sudo: root-owned .git on production (see note in cmd_update)
+    sudo git -C "$repo" reset --hard HEAD~1
 
     _info "Rebuilding container…"
     ( cd "$repo" && "${DC_CMD[@]}" up -d --build )
