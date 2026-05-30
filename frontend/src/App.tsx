@@ -7,8 +7,18 @@
  * multi-share short links; it likewise reuses WashiApp.
  *
  * Admin surface (`/admin/*`) is unchanged.
+ *
+ * Route transitions: every page mounts inside a keyed `<div class="route-fade">`
+ * so navigating to a new path triggers a short fade-in. Respects
+ * `prefers-reduced-motion` via the global CSS rule.
  */
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom';
 
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
@@ -28,10 +38,17 @@ import CollectionCreate from './pages/Collection/Create';
 import CollectionRoom from './pages/Collection/Room';
 import { ToastProvider } from './components/ui/Toast';
 
-export default function App() {
+/**
+ * Wraps `<Routes>` so we can read the current location and remount the routed
+ * tree under a path-keyed `<div>`. The CSS class `.route-fade` re-runs its
+ * keyframes every time the key changes — that gives us a soft fade between
+ * pages without bringing in any animation library.
+ */
+function AnimatedRoutes() {
+  const location = useLocation();
   return (
-    <BrowserRouter>
-      <Routes>
+    <div key={location.pathname} className="route-fade">
+      <Routes location={location}>
         <Route path="/" element={<Home />} />
         {/* Deep links — all funnel into WashiApp via Home with `:code` param. */}
         <Route path="/s/:code" element={<Home />} />
@@ -58,6 +75,14 @@ export default function App() {
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AnimatedRoutes />
       <ToastProvider />
     </BrowserRouter>
   );

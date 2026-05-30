@@ -851,6 +851,12 @@
       "nicknameRequired": "ニックネームを入力してください。",
       "messageTooLong": "メッセージが長すぎます(最大 2000 文字)。",
       "customDaysRange": "カスタム日数は 1〜365 の範囲で指定してください。"
+    },
+    "timeline": {
+      "empty": "まだ何もありません — ファイルをドロップするかメッセージを残してね",
+      "attach": "ファイルを添付",
+      "sendPlaceholder": "メッセージを入力…",
+      "dropHere": "ファイルをドロップしてアップロード"
     }
   }
 }

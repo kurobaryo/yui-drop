@@ -108,6 +108,78 @@
   to { transform: translateX(0); }
 }
 
+/* ── Route fade-in (whole-page transition on path change) ───────────────── */
+@keyframes route-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.route-fade {
+  animation: route-fade-in 220ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* ── Modal fade-in (overlay + content) ──────────────────────────────────── */
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.modal-fade {
+  animation: modal-fade-in 180ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.overlay-fade {
+  animation: overlay-fade-in 160ms ease-out both;
+}
+
+/* ── Micro-interactions: buttons, pills, tabs ───────────────────────────── */
+/* Apply a subtle press/scale to any element with [data-press] or .press. */
+.press,
+[data-press] {
+  transition:
+    transform 120ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 120ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+.press:active:not(:disabled),
+[data-press]:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.press:hover:not(:disabled),
+[data-press]:hover:not(:disabled) {
+  opacity: 0.92;
+}
+.press:disabled,
+[data-press]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Native <button> elements get a soft default transition so hover/disabled
+   feel cohesive even without explicit .press. */
+button {
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
 /* ── prefers-reduced-motion: kill decorative animations ─────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,

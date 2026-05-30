@@ -852,6 +852,12 @@
       "nicknameRequired": "Please enter a nickname.",
       "messageTooLong": "Message is too long (max 2000 characters).",
       "customDaysRange": "Custom days must be between 1 and 365."
+    },
+    "timeline": {
+      "empty": "Nothing here yet — drop a file or leave a message",
+      "attach": "Attach files",
+      "sendPlaceholder": "Say something...",
+      "dropHere": "Drop files to upload"
     }
   }
 }
