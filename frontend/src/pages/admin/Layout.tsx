@@ -17,6 +17,7 @@ import {
   LogOut,
   LayoutDashboard,
   FileText,
+  FolderOpen,
   KeyRound,
   ScrollText,
   Settings,
@@ -30,6 +31,7 @@ import { cn } from '@/lib/cn';
 const NAV = [
   { to: '/admin', end: true, key: 'admin.nav.dashboard', Icon: LayoutDashboard },
   { to: '/admin/files', end: false, key: 'admin.nav.files', Icon: FileText },
+  { to: '/admin/collections', end: false, key: 'admin.nav.collections', Icon: FolderOpen },
   { to: '/admin/api-keys', end: false, key: 'admin.nav.apiKeys', Icon: KeyRound },
   { to: '/admin/logs', end: false, key: 'admin.nav.logs', Icon: ScrollText },
   { to: '/admin/settings', end: false, key: 'admin.nav.settings', Icon: Settings },

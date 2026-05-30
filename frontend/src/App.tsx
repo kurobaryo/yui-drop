@@ -20,6 +20,7 @@ import AdminFiles from './pages/admin/Files';
 import AdminApiKeys from './pages/admin/ApiKeys';
 import AdminLogs from './pages/admin/Logs';
 import AdminSettings from './pages/admin/Settings';
+import AdminCollections from './pages/admin/Collections';
 import OidcCallback from './pages/admin/auth/OidcCallback';
 import OidcBound from './pages/admin/auth/OidcBound';
 import { ToastProvider } from './components/ui/Toast';
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="api-keys" element={<AdminApiKeys />} />
           <Route path="logs" element={<AdminLogs />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="collections" element={<AdminCollections />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
         <Route path="*" element={<NotFound />} />
