@@ -238,21 +238,27 @@ async def messages_send(
     x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
 ) -> dict[str, Any]:
     collection, member = await require_member(request, db, code, x_member_token)
-    ip = real_client_ip(request)
-    ua = _ua(request)
     try:
-        out = await svc.send_message(
+        msg = await svc.send_message(
             db,
             collection=collection,
             member=member,
             text=body.text,
-            ip=ip,
-            ua=ua,
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
     await db.commit()
-    return ok(out)
+    return ok(
+        {
+            "message": {
+                "id": msg.id,
+                "member_id": msg.member_id,
+                "nickname": member.nickname,
+                "body": msg.body,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            }
+        }
+    )
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -272,22 +278,18 @@ async def messages_delete(
 ) -> dict[str, Any]:
     collection, member = await require_member(request, db, code, x_member_token)
     is_admin = await require_admin_password_match(db, collection, x_admin_password)
-    ip = real_client_ip(request)
-    ua = _ua(request)
     try:
-        out = await svc.delete_message(
+        await svc.delete_message(
             db,
             collection=collection,
             member=member,
             message_id=message_id,
-            is_admin=is_admin,
-            ip=ip,
-            ua=ua,
+            by_admin=is_admin,
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
     await db.commit()
-    return ok(out)
+    return ok({"deleted": True})
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -341,7 +343,7 @@ async def admin_verify(
         )
 
     try:
-        out = await svc.mark_member_creator(db, collection=collection, member=member)
+        out = await svc.mark_member_creator(db, member)
     except ServiceError as e:
         raise _service_to_http(e) from e
 
@@ -404,8 +406,6 @@ async def admin_upload_toggle(
             db,
             collection=collection,
             enabled=body.enabled,
-            ip=ip,
-            ua=ua,
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
@@ -464,7 +464,7 @@ async def admin_close(
         )
 
     try:
-        out = await svc.admin_close(db, collection=collection, ip=ip, ua=ua)
+        out = await svc.admin_close(db, collection=collection,)
     except ServiceError as e:
         raise _service_to_http(e) from e
 
