@@ -495,6 +495,15 @@
     "tabSendFile": "寄文件",
     "tabSendText": "寄文字",
     "tabCollection": "收集箱",
+    "collectionEntryTitle": "或进入一个收集箱",
+    "collectionEntryBtn": "进入",
+    "collectionEntryHint": "收集箱编号以 C 开头，后跟 5 位数字。",
+    "collectionEntryInvalid": "请输入有效的收集箱编号（C + 5 位数字）。",
+    "recentCollections": "最近收集箱",
+    "collectionCreator": "我创建的",
+    "collectionMember": "我参与的",
+    "collectionUnnamed": "（未命名）",
+    "clearAll": "全部清空",
     "enterCode": "输入取件码",
     "settings": "设置",
     "palette": "配色",
@@ -842,6 +851,12 @@
       "nicknameRequired": "请输入昵称。",
       "messageTooLong": "留言过长(最多 2000 字符)。",
       "customDaysRange": "自定义天数应在 1 到 365 之间。"
+    },
+    "timeline": {
+      "empty": "这里还没有内容～拖文件进来或留一句话试试看",
+      "attach": "上传文件",
+      "sendPlaceholder": "说点什么…",
+      "dropHere": "松开鼠标上传文件"
     }
   }
 }

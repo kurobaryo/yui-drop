@@ -127,7 +127,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; "
         "connect-src 'self' https://challenges.cloudflare.com https://*.r2.cloudflarestorage.com; "
         "frame-src 'self' https://challenges.cloudflare.com; "
-        "font-src 'self' data:; "
         "frame-ancestors 'self'; "
         "base-uri 'self'; "
         "form-action 'self'"

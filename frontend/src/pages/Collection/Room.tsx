@@ -22,9 +22,8 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Settings, ShieldCheck } from 'lucide-react';
 import { CollectionShell } from './Shell';
-import { RoomFiles } from './RoomFiles';
-import { RoomMessages } from './RoomMessages';
 import { RoomAdminModal } from './RoomAdminModal';
+import { RoomTimeline } from './RoomTimeline';
 import {
   adminVerify,
   joinCollection,
@@ -36,12 +35,11 @@ import {
 import { ApiError } from '@/lib/api';
 import { CollectionSse } from '@/lib/collectionSse';
 import { useCollectionMemberStore } from '@/stores/collectionMember';
+import { pushRecent } from '@/lib/recent';
 import { getConfig, DEFAULT_CONFIG, type PublicConfig } from '@/lib/api/public';
 import { toast } from '@/components/ui/Toast';
 import type { WashiColors } from '@/variants/washi/palettes';
 import type { StorageBackend } from '@/lib/uploader';
-
-type MobileTab = 'files' | 'messages';
 
 interface RoomViewProps {
   code: string;
@@ -258,7 +256,6 @@ function RoomView({ code, c, preview, storageBackend }: RoomViewProps) {
 
   // UI state.
   const [adminOpen, setAdminOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<MobileTab>('messages');
 
   const sseRef = useRef<CollectionSse | null>(null);
 
@@ -280,8 +277,16 @@ function RoomView({ code, c, preview, storageBackend }: RoomViewProps) {
       setMemberId(mid);
       setIsCreator(creatorFromServer);
       setUploadEnabled(upload);
+      // Surface joined rooms in the home page Recent panel.
+      pushRecent({
+        code,
+        kind: 'collection',
+        name: preview?.name ?? null,
+        created_at: new Date().toISOString(),
+        isCreator: creatorFromServer,
+      });
     },
-    [code, storeSet],
+    [code, storeSet, preview?.name],
   );
 
   // ─── SSE wiring ──────────────────────────────────────────────────────────
@@ -391,44 +396,22 @@ function RoomView({ code, c, preview, storageBackend }: RoomViewProps) {
   };
 
   // ─── Panels ─────────────────────────────────────────────────────────────
-  const filesPanel = (
-    <RoomFiles
+  const timelinePanel = (
+    <RoomTimeline
       code={code}
       c={c}
       memberToken={memberToken}
       memberId={memberId}
-      uploadEnabled={uploadEnabled && !roomClosed}
       isCreator={isCreator}
       adminPassword={adminPassword}
+      uploadEnabled={uploadEnabled && !roomClosed}
       storageBackend={storageBackend}
+      messages={messages}
+      setMessages={setMessages}
       files={files}
       setFiles={setFiles}
     />
   );
-
-  const messagesPanel = (
-    <RoomMessages
-      code={code}
-      c={c}
-      memberToken={memberToken}
-      memberId={memberId}
-      isCreator={isCreator}
-      adminPassword={adminPassword}
-      inputDisabled={roomClosed}
-      messages={messages}
-      setMessages={setMessages}
-    />
-  );
-
-  const tabBtnBase: CSSProperties = {
-    flex: 1,
-    height: 36,
-    border: `1px solid ${c.soft}`,
-    background: 'transparent',
-    color: c.ink,
-    fontSize: 13,
-    cursor: 'pointer',
-  };
 
   return (
     <div style={{ position: 'relative' }}>
@@ -475,65 +458,9 @@ function RoomView({ code, c, preview, storageBackend }: RoomViewProps) {
         </div>
       ) : null}
 
-      {/* Mobile tab switcher (hidden md+) */}
-      <div
-        className="md:hidden"
-        style={{ display: 'flex', gap: 0, marginBottom: 12 }}
-      >
-        <button
-          type="button"
-          onClick={() => setMobileTab('files')}
-          style={{
-            ...tabBtnBase,
-            borderTopLeftRadius: 8,
-            borderBottomLeftRadius: 8,
-            borderRight: 'none',
-            background: mobileTab === 'files' ? `${c.accent}22` : 'transparent',
-          }}
-        >
-          {t('collection.room.tabFiles')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab('messages')}
-          style={{
-            ...tabBtnBase,
-            borderTopRightRadius: 8,
-            borderBottomRightRadius: 8,
-            background:
-              mobileTab === 'messages' ? `${c.accent}22` : 'transparent',
-          }}
-        >
-          {t('collection.room.tabMessages')}
-        </button>
-      </div>
-
-      {/* Desktop: side-by-side. Mobile: only the active tab. */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div
-          className={mobileTab === 'files' ? '' : 'hidden md:block'}
-          style={{
-            border: `1px solid ${c.soft}`,
-            borderRadius: 10,
-            padding: 14,
-          }}
-        >
-          {filesPanel}
-        </div>
-        <div
-          className={mobileTab === 'messages' ? '' : 'hidden md:block'}
-          style={{
-            border: `1px solid ${c.soft}`,
-            borderRadius: 10,
-            padding: 14,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 320,
-          }}
-        >
-          {messagesPanel}
-        </div>
-      </div>
+      {/* Unified timeline — files + messages mixed by created_at, single
+          sticky input bar at the bottom for both text and uploads. */}
+      {timelinePanel}
 
       {isCreator && adminPassword ? (
         <RoomAdminModal
