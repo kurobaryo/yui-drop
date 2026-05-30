@@ -44,7 +44,7 @@ from ..models.collection_file import CollectionFile
 from ..models.collection_member import CollectionMember
 from ..models.collection_message import CollectionMessage
 from ..storage.factory import get_storage
-from . import collection_sse
+from . import collection_sse, presence
 from .common import ServiceError, as_utc
 
 SELF_DELETE_WINDOW = timedelta(minutes=5)
@@ -279,21 +279,12 @@ async def get_member_by_token(
     member = res.scalar_one_or_none()
     if member is None:
         raise ServiceError("invalid_token", code=4010, http_status=401)
-    # Throttle ``last_seen_at`` writes — under SSE-style polling, every
-    # connected client hits this code path every few seconds. Without a gate,
-    # each call issues an UPDATE that contends for the SQLite write lock and
-    # under load can deadlock the whole room (the symptom we observed in
-    # v0.3.3 production: every collection-room message_list / send /
-    # files/init returning HTTP 500 "database is locked").
-    #
-    # We only need ``last_seen_at`` for "online member" UX heuristics, so a
-    # 60-second resolution is fine. Compare in-Python rather than via a SQL
-    # condition so SQLite doesn't even round-trip for a no-op write.
-    now = _utcnow()
-    last = member.last_seen_at
-    if last is None or (now - _ensure_aware(last)).total_seconds() >= 60:
-        member.last_seen_at = now
-        await db.flush()
+    # Record the touch in the in-memory presence tracker. The background
+    # flush loop (see ``services/presence.py``) batches these into a single
+    # short UPDATE every ``FLUSH_INTERVAL_SECONDS``. This is critical for
+    # SSE-style polling: doing the UPDATE inline here held the SQLite
+    # write lock for the lifetime of the SSE connection (v0.3.4 incident).
+    presence.touch(member.id)
     return collection, member
 
 
