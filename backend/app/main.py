@@ -206,6 +206,19 @@ async def lifespan(app: FastAPI):
         log.exception("app.lifespan.storage_prime_failed")
 
     sweeper_task = asyncio.create_task(sweeper_loop(), name="retention-sweeper")
+
+    # Start the in-memory presence flush loop. ``require_member`` records
+    # touches synchronously (lock-free) and this background task batches
+    # them into one short UPDATE every ~60s. Without this loop the touches
+    # accumulate in memory forever (no correctness issue but a tiny leak).
+    try:
+        from .services import presence
+
+        presence.start()
+        log.info("app.lifespan.presence_started")
+    except Exception:
+        log.exception("app.lifespan.presence_start_failed")
+
     log.info("app.lifespan.start", started_at=app.state.startup_time.isoformat())
     try:
         yield
@@ -217,6 +230,16 @@ async def lifespan(app: FastAPI):
             pass
         except Exception:
             log.exception("app.lifespan.sweeper_shutdown_error")
+
+        # Final presence flush so we don't lose in-flight touches on a
+        # graceful shutdown (docker compose down with --timeout).
+        try:
+            from .services import presence
+
+            await presence.stop()
+            log.info("app.lifespan.presence_stopped")
+        except Exception:
+            log.exception("app.lifespan.presence_stop_failed")
         log.info("app.lifespan.stop")
 
 

@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.logging import get_logger
 from ..core.rate_limit import real_client_ip
-from ..db.session import get_db
+from ..db.session import SessionLocal, get_db
 from ..models.access_log import AccessLogAction
 from ..models.collection_file import CollectionFile
 from ..schemas import ok
@@ -722,6 +722,19 @@ async def files_delete(
 # ────────────────────────────────────────────────────────────────────────────
 # GET /api/collections/{code}/stream — SSE
 # EventSource cannot send custom headers, so auth uses ?token=<member_token>.
+#
+# IMPORTANT: this handler does NOT use ``Depends(get_db)``. FastAPI's
+# dependency-injected session would stay open for the lifetime of the SSE
+# generator (potentially hours), holding the SQLite write lock the whole
+# time and producing ``database is locked`` errors for every other request
+# touching the same room.
+#
+# Instead we acquire a short-lived session, authenticate, commit, and
+# release it before entering the long-running event loop. The event loop
+# itself is pure in-memory ``asyncio.Queue.get()`` — no DB session, no
+# transaction, no locks held. This matches the pattern used by Synapse,
+# Mattermost, GoToSocial and other production realtime apps (see
+# yui-drop-deploy skill v0.3.5 lesson for the postmortem and references).
 # ────────────────────────────────────────────────────────────────────────────
 
 
@@ -729,7 +742,6 @@ async def files_delete(
 async def stream(
     request: Request,
     code: str,
-    db: Annotated[AsyncSession, Depends(get_db)],
     token: str | None = None,
 ) -> StreamingResponse:
     if not token:
@@ -737,15 +749,30 @@ async def stream(
             status_code=401,
             detail={"code": 4011, "message": "member_token_required"},
         )
-    try:
-        collection, member = await svc.get_member_by_token(db, code=code, member_token=token)
-    except ServiceError as e:
-        raise _service_to_http(e) from e
+
+    # Short-lived session for auth only. Commit explicitly so any
+    # presence/last_seen-related writes inside ``get_member_by_token`` flush
+    # immediately and release SQLite's writer slot. ``async with`` then
+    # closes the session before we enter the long-running event loop.
+    async with SessionLocal() as auth_session:
+        try:
+            collection, member = await svc.get_member_by_token(
+                auth_session, code=code, member_token=token
+            )
+        except ServiceError as e:
+            raise _service_to_http(e) from e
+        await auth_session.commit()
+        # Snapshot the few fields we need for filtering — accessing
+        # ORM-loaded attributes after session close would lazy-load and
+        # raise ``DetachedInstanceError``.
+        collection_id = collection.id
+        member_id = member.id
+        is_creator = bool(getattr(member, "is_creator", False))
 
     handle = await collection_sse.subscribe(
-        collection.id,
-        member_id=member.id,
-        is_creator=getattr(member, "is_creator", False),
+        collection_id,
+        member_id=member_id,
+        is_creator=is_creator,
     )
 
     async def gen():
@@ -753,7 +780,7 @@ async def stream(
             async for chunk in collection_sse.event_stream(handle):
                 yield chunk
         finally:
-            await collection_sse.unsubscribe(collection.id, handle)
+            await collection_sse.unsubscribe(collection_id, handle)
 
     return StreamingResponse(
         gen(),
