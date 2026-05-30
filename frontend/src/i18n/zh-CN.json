@@ -851,6 +851,12 @@
       "nicknameRequired": "请输入昵称。",
       "messageTooLong": "留言过长(最多 2000 字符)。",
       "customDaysRange": "自定义天数应在 1 到 365 之间。"
+    },
+    "timeline": {
+      "empty": "这里还没有内容～拖文件进来或留一句话试试看",
+      "attach": "上传文件",
+      "sendPlaceholder": "说点什么…",
+      "dropHere": "松开鼠标上传文件"
     }
   }
 }
