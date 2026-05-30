@@ -12,7 +12,11 @@ YUIDROP_VERSION="0.2.1"
 DEFAULT_REPO="/opt/yui-drop/repo"
 CONF_FILE="/etc/yuidrop.conf"
 CONTAINER_NAME="yui-drop"
-HEALTH_URL="http://127.0.0.1:8000/api/health"
+# Internal container port — the app listens on this inside the container.
+# The host-side mapping (e.g. 18823) is discovered at runtime by
+# resolve_health_url() below.
+INTERNAL_APP_PORT="8000"
+DEFAULT_HEALTH_URL="http://127.0.0.1:${INTERNAL_APP_PORT}/api/health"
 
 # ---------- pretty output ----------
 if [[ -t 1 ]]; then
@@ -105,10 +109,12 @@ print_container_status() {
 
 health_check() {
     require_curl
-    _info "Health check: ${HEALTH_URL}"
+    local url
+    url="$(resolve_health_url)"
+    _info "Health check: ${url}"
     local body http_code
     # write body to stdout, http code to stderr capture
-    if body="$(curl -fsS --max-time 10 -w '\n%{http_code}' "$HEALTH_URL" 2>/dev/null)"; then
+    if body="$(curl -fsS --max-time 10 -w '\n%{http_code}' "$url" 2>/dev/null)"; then
         http_code="$(printf '%s' "$body" | tail -n1)"
         body="$(printf '%s' "$body" | sed '$d')"
         printf '%s\n' "$body"
@@ -122,6 +128,40 @@ health_check() {
         _err "Health endpoint unreachable"
         return 1
     fi
+}
+
+# Resolve the URL the local health check should hit.
+#
+# Resolution order (first match wins):
+#   1. $YUIDROP_HEALTH_URL — explicit override, takes precedence
+#      (set this if you front the container with a reverse proxy and
+#      want to probe a different endpoint).
+#   2. `sudo docker port <container> 8000` — production case.
+#      The container exposes 8000 internally but is mapped to a host
+#      port (e.g. 18823 on the Tokyo VPS, behind nginx-proxy-manager).
+#      Output looks like '0.0.0.0:18823' or '[::]:18823'; we extract
+#      the port and build http://127.0.0.1:<port>/api/health.
+#   3. $DEFAULT_HEALTH_URL — fallback for the inside-container /
+#      host-network case (http://127.0.0.1:8000/api/health).
+resolve_health_url() {
+    if [[ -n "${YUIDROP_HEALTH_URL:-}" ]]; then
+        printf '%s' "$YUIDROP_HEALTH_URL"
+        return 0
+    fi
+    if command -v docker >/dev/null 2>&1; then
+        local mapping host_port
+        # `docker port <name> <port>` may print multiple lines (v4/v6);
+        # take the first, then strip everything before the final ':'.
+        mapping="$(sudo docker port "$CONTAINER_NAME" "$INTERNAL_APP_PORT" 2>/dev/null | head -n1 || true)"
+        if [[ -n "$mapping" ]]; then
+            host_port="${mapping##*:}"
+            if [[ "$host_port" =~ ^[0-9]+$ ]]; then
+                printf 'http://127.0.0.1:%s/api/health' "$host_port"
+                return 0
+            fi
+        fi
+    fi
+    printf '%s' "$DEFAULT_HEALTH_URL"
 }
 
 alembic_upgrade() {
