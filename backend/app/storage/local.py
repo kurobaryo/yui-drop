@@ -154,6 +154,26 @@ class LocalStorage(StorageBackend):
 
         await asyncio.to_thread(_write)
 
+    async def server_write_encrypted(
+        self, key: str, fileobj: IO[bytes], dek: bytes
+    ) -> None:
+        """Write ``fileobj`` to ``key`` encrypted under ``dek`` (AES-256-GCM).
+
+        On-disk layout matches :func:`app.core.crypto.stream_encrypt`:
+        ``[nonce(12)][tag(16)][ciphertext]``. The caller owns the wrapped DEK
+        and is responsible for persisting it (typically on the FileCode row).
+        """
+        from ..core.crypto import stream_encrypt
+
+        p = self._abs(key)
+        p.parent.mkdir(parents=True, exist_ok=True)
+
+        def _write() -> None:
+            with open(p, "wb") as out:
+                stream_encrypt(fileobj, out, dek)
+
+        await asyncio.to_thread(_write)
+
     async def server_read(
         self,
         key: str,
@@ -177,6 +197,44 @@ class LocalStorage(StorageBackend):
                     if remaining is not None:
                         remaining -= len(buf)
                     yield buf
+
+        return _gen()
+
+    async def server_read_encrypted(
+        self, key: str, dek: bytes
+    ) -> AsyncIterator[bytes]:
+        """Stream-decrypt ``key`` using ``dek`` and yield plaintext chunks.
+
+        Raises :class:`cryptography.exceptions.InvalidTag` on any tamper or
+        wrong key. HTTP Range is intentionally not supported here — partial
+        reads of an AEAD-protected file aren't authenticated without
+        re-streaming from the start.
+        """
+        from ..core.crypto import stream_decrypt
+
+        p = self._abs(key)
+
+        def _open() -> IO[bytes]:
+            return open(p, "rb")
+
+        f = await asyncio.to_thread(_open)
+
+        async def _gen() -> AsyncIterator[bytes]:
+            try:
+                # ``stream_decrypt`` is a sync generator; pump it on a worker
+                # thread so the event loop stays responsive on large files.
+                it = stream_decrypt(f, dek)
+                while True:
+                    try:
+                        chunk = await asyncio.to_thread(next, it, None)
+                    except StopIteration:
+                        break
+                    if chunk is None:
+                        break
+                    if chunk:
+                        yield chunk
+            finally:
+                await asyncio.to_thread(f.close)
 
         return _gen()
 

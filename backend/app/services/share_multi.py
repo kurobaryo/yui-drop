@@ -35,6 +35,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
+from ..core.crypto import generate_dek, unwrap_dek, wrap_dek
 from ..core.filenames import sanitize_filename
 from ..core.logging import get_logger
 from ..core.security import (
@@ -208,6 +209,14 @@ async def init_multi_share(
     code = await generate_unique_pickup_code(_code_exists)
     expired_at, expired_count = compute_expiry(expire_value, expire_style)
 
+    # At-rest encryption (local backend): mint one DEK per share, wrap under
+    # SECRETS_KEY, and store on the parent FileCode row. Every file uploaded
+    # under this share gets a fresh nonce but shares the DEK — keeping the
+    # wrap site to a single row simplifies download-path lookup.
+    wrapped: bytes | None = None
+    if (settings.storage_backend or "local").lower() == "local":
+        wrapped = wrap_dek(generate_dek())
+
     row = FileCode(
         code=code,
         kind="multi",
@@ -217,6 +226,7 @@ async def init_multi_share(
         file_count=0,
         total_size=0,
         is_chunked=False,
+        wrapped_dek=wrapped,
         created_by_ip=ip,
         created_by_ua=(ua or "")[:512] or None,
     )
@@ -399,6 +409,9 @@ async def complete_file(
     #   - calling complete_chunk_upload to actually move bytes into storage
     #   - then immediately soft-deleting the auto-created FileCode (we only
     #     want the bytes; the share_files row is the truth)
+    # Pass the parent share's DEK so every file under the share shares one
+    # wrapped DEK (held on the parent FileCode row).
+    dek_bytes = unwrap_dek(share.wrapped_dek) if share.wrapped_dek else None
     completion = await complete_chunk_upload(
         db,
         upload_id=sf.upload_id,
@@ -408,6 +421,7 @@ async def complete_file(
         ua=ua,
         skip_filecode_creation=True,
         override_key=sf.file_path,
+        dek=dek_bytes,
     )
 
     sf.state = "complete"

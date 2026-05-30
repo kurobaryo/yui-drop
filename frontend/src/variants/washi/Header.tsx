@@ -44,15 +44,20 @@ export function Header({ c, palette, setPalette, mode, setMode, lang, setLang }:
     '--soft-c': c.soft,
   };
   const pillStyle: CSSProperties = {
-    color: c.sub,
-    fontSize: 12,
+    color: c.ink,
+    fontSize: 13,
     letterSpacing: '0.08em',
     textDecoration: 'none',
-    padding: '6px 12px',
+    height: 38,
+    padding: '0 14px',
     border: `1px solid ${c.soft}`,
     borderRadius: 999,
     flexShrink: 0,
     fontFamily: 'inherit',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxSizing: 'border-box',
   };
   return (
     <div data-yui="header" style={headerStyle}>

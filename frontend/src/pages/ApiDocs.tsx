@@ -7,7 +7,9 @@
  * (JSON, curl) stay as constants because they're identifiers, not prose.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Trans, useTranslation } from "react-i18next";
+import { Menu } from "lucide-react";
 
 import { Header } from "../variants/washi/Header";
 import { Footer } from "../variants/washi/Footer";
@@ -235,6 +237,7 @@ export default function ApiDocs() {
   );
   const [mode, setMode] = useState<WashiMode>(() => readLs<WashiMode>(LS_MODE_KEY, "auto"));
   const [lang, setLang] = useState<WashiLang>(() => readLs<WashiLang>(LS_LANG_KEY, "zh"));
+  const [tocOpen, setTocOpen] = useState(false);
 
   useEffect(() => {
     window.localStorage.setItem(LS_PALETTE_KEY, palette);
@@ -295,9 +298,21 @@ export default function ApiDocs() {
             marginTop: 24,
           }}
         >
-          <style>{`@media (min-width: 900px) { .api-docs-grid { grid-template-columns: 200px minmax(0, 1fr) !important; } }`}</style>
+          <style>{`
+            @media (min-width: 768px) {
+              .api-docs-grid { grid-template-columns: 200px minmax(0, 1fr) !important; }
+              .api-docs-toc { display: block !important; }
+              .api-docs-toc-hamburger { display: none !important; }
+            }
+            @media (max-width: 767.98px) {
+              .api-docs-toc { display: none !important; }
+              .api-docs-main pre { overflow-x: auto !important; max-width: 100% !important; }
+              .api-docs-main table { display: block !important; overflow-x: auto !important; max-width: 100% !important; }
+            }
+          `}</style>
 
           <nav
+            className="api-docs-toc"
             style={{
               position: "sticky",
               top: 16,
@@ -341,7 +356,32 @@ export default function ApiDocs() {
             </ul>
           </nav>
 
-          <main style={{ minWidth: 0 }}>
+          <main className="api-docs-main" style={{ minWidth: 0 }}>
+            <button
+              type="button"
+              className="api-docs-toc-hamburger"
+              onClick={() => setTocOpen(true)}
+              aria-label={t("apiDocs.contentsLabel")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: c.paper,
+                color: c.ink,
+                border: "1px solid " + c.soft,
+                borderRadius: 8,
+                padding: "8px 12px",
+                marginBottom: 16,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: 13,
+              }}
+            >
+              <Menu size={16} />
+              <span style={{ letterSpacing: "0.08em" }}>
+                {t("apiDocs.contentsLabel")}
+              </span>
+            </button>
 
             <section id="intro" style={sectionStyle(c)}>
               <h2 style={h2Style(c)}>{t("apiDocs.intro.heading")}</h2>
@@ -582,6 +622,108 @@ export default function ApiDocs() {
         </div>
         <Footer c={c} />
       </div>
+      {tocOpen && typeof document !== "undefined"
+        ? createPortal(
+            <>
+              <div
+                onClick={() => setTocOpen(false)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9000,
+                  background: "rgba(0, 0, 0, 0.5)",
+                  backdropFilter: "blur(6px)",
+                  WebkitBackdropFilter: "blur(6px)",
+                }}
+              />
+              <nav
+                onClick={(e) => e.stopPropagation()}
+                aria-label={t("apiDocs.contentsLabel")}
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  zIndex: 9001,
+                  width: "min(82vw, 320px)",
+                  background: c.paper,
+                  color: c.ink,
+                  borderRight: `1px solid ${c.soft}`,
+                  boxShadow: `0 30px 80px ${c.ink}66`,
+                  padding: "24px 22px",
+                  overflowY: "auto",
+                  fontFamily:
+                    '"Noto Sans JP", "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif',
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 14,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 10.5,
+                      letterSpacing: "0.18em",
+                      color: c.sub,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {t("apiDocs.contentsLabel")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setTocOpen(false)}
+                    aria-label="close"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: c.sub,
+                      fontSize: 22,
+                      lineHeight: 1,
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    padding: 0,
+                    margin: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  {TOC_IDS.map((tocId) => (
+                    <li key={tocId}>
+                      <a
+                        href={"#" + HASH_FOR_TOC[tocId]}
+                        onClick={() => setTocOpen(false)}
+                        style={{
+                          color: c.ink,
+                          textDecoration: "none",
+                          fontSize: 14,
+                          display: "block",
+                          padding: "6px 0",
+                        }}
+                      >
+                        {t("apiDocs.toc." + tocId)}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            </>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

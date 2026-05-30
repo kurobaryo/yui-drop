@@ -28,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
+from ..core.crypto import generate_dek, wrap_dek
 from ..core.filenames import build_storage_key, sanitize_filename
 from ..core.security import generate_unique_pickup_code
 from ..models.access_log import AccessLogAction
@@ -270,6 +271,13 @@ async def complete_chunk_upload(
     # multi-file shares so the share_files row's file_path matches the
     # actual stored object.
     override_key: str | None = None,
+    # Optional: caller-supplied DEK for at-rest encryption (local backend).
+    # Used by multi-file shares so every file under one share is wrapped
+    # under a single per-share DEK held on the parent FileCode row. When
+    # ``None`` and the backend is local, complete_chunk_upload mints a fresh
+    # DEK for this single-file share and stores its wrapped form on the
+    # newly created FileCode row.
+    dek: bytes | None = None,
 ) -> dict[str, Any]:
     sess = (
         await db.execute(
@@ -335,12 +343,28 @@ async def complete_chunk_upload(
 
     if existing is not None:
         storage_key = existing.file_path
+        wrapped_dek_bytes: bytes | None = existing.wrapped_dek
+        # If we're reusing an encrypted dedup target, the caller's DEK (if any)
+        # is moot — we keep the existing wrapped DEK so the row matches the
+        # on-disk encryption parameters.
     else:
         # If caller forced a key (multi-file share), use it; else autogenerate.
         storage_key = override_key or build_storage_key(None, safe)
-        # Stream merged file into storage.
-        with open(merged_path, "rb") as f:
-            await get_storage().server_write(storage_key, f, total)
+        # At-rest encryption gate: local backend only. Multi-file callers pass
+        # the share's DEK in; single-file callers let us mint one here.
+        use_enc = (settings.storage_backend or "local").lower() == "local"
+        if use_enc:
+            effective_dek = dek if dek is not None else generate_dek()
+            wrapped_dek_bytes = wrap_dek(effective_dek)
+            with open(merged_path, "rb") as f:
+                await get_storage().server_write_encrypted(  # type: ignore[attr-defined]
+                    storage_key, f, effective_dek
+                )
+        else:
+            wrapped_dek_bytes = None
+            # Stream merged file into storage.
+            with open(merged_path, "rb") as f:
+                await get_storage().server_write(storage_key, f, total)
 
     await asyncio.to_thread(shutil.rmtree, d, True)
 
@@ -352,6 +376,7 @@ async def complete_chunk_upload(
             "key": storage_key,
             "size": total,
             "hash": sha,
+            "wrapped_dek": wrapped_dek_bytes,
         }
 
     prefix = safe.rsplit(".", 1)[0] if "." in safe else safe
@@ -373,6 +398,7 @@ async def complete_chunk_upload(
         used_count=0,
         is_chunked=True,
         upload_id=upload_id,
+        wrapped_dek=wrapped_dek_bytes,
         created_by_ip=ip,
         created_by_ua=ua,
     )

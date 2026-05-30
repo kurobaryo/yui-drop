@@ -3,7 +3,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db.base import Base
@@ -44,6 +55,12 @@ class FileCode(Base):
     # Upload mechanics
     is_chunked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     upload_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # At-rest encryption (local storage only). NULL means the file is stored
+    # as plain bytes (legacy row, or S3 backend where bucket-side SSE-S3
+    # handles encryption). Non-NULL holds the AES-GCM-wrapped per-file DEK;
+    # see ``app.core.crypto.wrap_dek`` / ``unwrap_dek``.
+    wrapped_dek: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
     # Multi-file share fields (kind='multi'). For kind in {'text','file'} the
     # fields above (name/size/file_path/text) remain authoritative; for 'multi'

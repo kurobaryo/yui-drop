@@ -276,6 +276,17 @@ The OpenAPI spec is served at `GET /api/openapi.json`; an interactive Swagger UI
 
 Inspired by [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox) — the original anonymous file-sharing service that pioneered the "share by code" idea. Yui-Drop is an independent rewrite focused on a Linear-style UI, mobile-first experience, modern Python/JS stacks, and tighter security defaults. No source code is shared with upstream.
 
+## Operations
+
+For self-hosters, the `yuidrop` CLI wraps the deploy / status / rollback dance:
+
+```bash
+sudo ./scripts/install-yuidrop.sh   # one-time install on the server
+yuidrop update                      # git pull + rebuild + migrate + health check
+```
+
+See [`scripts/README.md`](./scripts/README.md) for the full command reference, requirements, configuration (`/etc/yuidrop.conf`), and troubleshooting.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).

@@ -75,6 +75,11 @@ class S3Storage(StorageBackend):
         kwargs: dict[str, Any] = {"Bucket": self.bucket, "Key": self._full_key(key)}
         if content_type:
             kwargs["ContentType"] = content_type
+        # Request SSE-S3 (AES-256) at-rest encryption. AWS S3 honors this
+        # natively; Cloudflare R2 silently accepts the header and applies its
+        # bucket-default encryption regardless. Safe to pass unconditionally
+        # on any S3-compatible endpoint we currently support.
+        kwargs["ServerSideEncryption"] = "AES256"
         async with self._client() as s3:
             resp = await s3.create_multipart_upload(**kwargs)
         return resp["UploadId"]
@@ -172,7 +177,15 @@ class S3Storage(StorageBackend):
 
     async def server_write(self, key: str, fileobj: IO[bytes], size: int) -> None:
         async with self._client() as s3:
-            await s3.put_object(Bucket=self.bucket, Key=self._full_key(key), Body=fileobj)
+            # SSE-S3 (AES-256) at-rest encryption. R2 silently accepts the
+            # header and falls back to bucket-default encryption; AWS honors
+            # it directly. See ``init_multipart`` for the matching call.
+            await s3.put_object(
+                Bucket=self.bucket,
+                Key=self._full_key(key),
+                Body=fileobj,
+                ServerSideEncryption="AES256",
+            )
 
     async def server_read(
         self,
