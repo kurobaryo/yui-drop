@@ -127,7 +127,21 @@ async def create_collection(
     async def exists(c: str) -> bool:
         return await _exists_code(db, c)
 
-    code = await generate_unique_pickup_code(exists, length=6)
+    # Collection room codes use a "C" prefix + 5 digits to keep them
+    # visually and semantically distinct from 6-digit pickup codes. The
+    # input field can tell the difference by leading character, so a
+    # user can type "234567" (pickup) or "C12345" (room) into the same
+    # box without ambiguity.
+    import secrets as _secrets
+
+    code = ""
+    for _ in range(64):
+        cand = "C" + "".join(str(_secrets.randbelow(10)) for _ in range(5))
+        if not await exists(cand):
+            code = cand
+            break
+    if not code:
+        raise RuntimeError("Exhausted attempts generating a collection code")
 
     now = _utcnow()
     expires_at: datetime | None

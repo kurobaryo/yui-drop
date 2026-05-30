@@ -6,7 +6,7 @@
  */
 export interface RecentEntry {
   code: string;
-  kind: 'file' | 'text' | 'multi';
+  kind: 'file' | 'text' | 'multi' | 'collection';
   name?: string | null;
   size?: number | null;
   type?: string | null;
@@ -15,6 +15,10 @@ export interface RecentEntry {
   /** For kind === 'multi'. */
   fileCount?: number;
   totalSize?: number;
+  /** For kind === 'collection' — whether this device is the creator
+   *  (saved member token + admin) or a joined participant. Lets the UI
+   *  show a "manage" affordance only for rooms we own. */
+  isCreator?: boolean;
 }
 
 const KEY = 'yui-drop:recent';
