@@ -4,7 +4,7 @@
     "tagline": "文件快递柜"
   },
   "nav": {
-    "collection": "共享空间"
+    "collection": "收集箱"
   },
   "hero": {
     "badge": "匿名 · 无需账号",
@@ -133,7 +133,7 @@
     "nav": {
       "dashboard": "总览",
       "files": "文件",
-      "collections": "共享空间",
+      "collections": "收集箱",
       "apiKeys": "API 密钥",
       "logs": "日志",
       "settings": "设置",
@@ -287,9 +287,9 @@
       }
     },
     "collections": {
-      "title": "共享空间",
+      "title": "收集箱",
       "search": "按房间号搜索…",
-      "empty": "暂无共享空间。",
+      "empty": "暂无收集箱。",
       "page": "第 {{page}} / {{total}} 页",
       "filter": {
         "active": "活跃",
@@ -324,22 +324,22 @@
         "delete": "删除"
       },
       "closeConfirm": {
-        "title": "关闭共享空间?",
-        "bodyPrefix": "确认解散共享空间",
+        "title": "关闭收集箱?",
+        "bodyPrefix": "确认解散收集箱",
         "bodySuffix": "?所有在线成员将被断开,房间将被标记为已关闭。数据保留 7 天后彻底删除。",
         "cancel": "取消",
         "confirm": "关闭"
       },
       "deleteConfirm": {
-        "title": "删除共享空间?",
-        "bodyPrefix": "彻底删除共享空间",
+        "title": "删除收集箱?",
+        "bodyPrefix": "彻底删除收集箱",
         "bodySuffix": "?将移除房间、所有成员、所有留言以及全部上传的文件,且无法恢复。",
         "cancel": "取消",
         "confirm": "删除"
       },
       "toast": {
-        "closed": "共享空间已关闭",
-        "deleted": "共享空间已删除"
+        "closed": "收集箱已关闭",
+        "deleted": "收集箱已删除"
       }
     },
     "logs": {
@@ -494,6 +494,7 @@
     "tabPickup": "取件",
     "tabSendFile": "寄文件",
     "tabSendText": "寄文字",
+    "tabCollection": "收集箱",
     "enterCode": "输入取件码",
     "settings": "设置",
     "palette": "配色",
@@ -742,16 +743,23 @@
     }
   },
   "collection": {
+    "quick": {
+      "title": "创建收集箱",
+      "adminPasswordPlaceholder": "管理密码（至少 4 位）",
+      "createBtn": "创建",
+      "moreOptions": "更多选项",
+      "enterTitle": "或输入房间号进入"
+    },
     "landing": {
-      "title": "共享空间",
-      "subtitle": "输入房间号即可加入，或创建一个新的共享空间。",
+      "title": "收集箱",
+      "subtitle": "输入房间号即可加入，或创建一个新的收集箱。",
       "codeLabel": "房间号",
       "enter": "进入",
-      "createLink": "创建新的共享空间",
+      "createLink": "创建新的收集箱",
       "invalidCode": "请输入有效的 6 位房间号。"
     },
     "create": {
-      "title": "创建共享空间",
+      "title": "创建收集箱",
       "subtitle": "知道房间号的人都可以加入,上传文件并留言。",
       "nameLabel": "房间名称（可选)",
       "namePlaceholder": "例如:二班作业收集",
