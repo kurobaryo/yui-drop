@@ -505,13 +505,13 @@
     "collectionMember": "Member",
     "collectionUnnamed": "(unnamed)",
     "clearAll": "Clear all",
-    "enterCode": "Enter pickup code",
+    "enterCode": "Enter a pickup or collection code",
     "settings": "Settings",
     "palette": "Palette",
     "modeLabel": "Appearance",
     "langLabel": "Language",
     "pasteHint": "Paste a full code to auto-fill",
-    "pickupBtn": "Pick up",
+    "pickupBtn": "Go",
     "pickingUp": "Picking up…",
     "dropFiles": "Drop files or click to select",
     "dropMore": "Add more",
@@ -564,7 +564,8 @@
     "preview_pdf": "PDF preview",
     "copy_link": "Copy link",
     "loading": "Loading…",
-    "navLabel": "Navigation"
+    "navLabel": "Navigation",
+    "unifiedHint": "6 digits to pick up, or C + 5 digits to open a collection box"
   },
   "common": {
     "copy": "Copy",

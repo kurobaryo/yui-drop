@@ -350,9 +350,13 @@ async def complete_chunk_upload(
     else:
         # If caller forced a key (multi-file share), use it; else autogenerate.
         storage_key = override_key or build_storage_key(None, safe)
-        # At-rest encryption gate: local backend only. Multi-file callers pass
-        # the share's DEK in; single-file callers let us mint one here.
-        use_enc = (settings.storage_backend or "local").lower() == "local"
+        # At-rest encryption gate: only when the active storage exposes
+        # ``server_write_encrypted`` (i.e. the LocalStorage backend). We check
+        # the live singleton rather than ``settings.storage_backend`` so the
+        # gate respects any settings_kv overlay (admin-UI runtime switch).
+        # Multi-file callers pass the share's DEK in; single-file callers let
+        # us mint one here.
+        use_enc = hasattr(get_storage(), "server_write_encrypted")
         if use_enc:
             effective_dek = dek if dek is not None else generate_dek()
             wrapped_dek_bytes = wrap_dek(effective_dek)

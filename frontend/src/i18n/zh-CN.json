@@ -504,13 +504,13 @@
     "collectionMember": "我参与的",
     "collectionUnnamed": "（未命名）",
     "clearAll": "全部清空",
-    "enterCode": "输入取件码",
+    "enterCode": "输入取件码或收集箱编号",
     "settings": "设置",
     "palette": "配色",
     "modeLabel": "外观",
     "langLabel": "语言",
     "pasteHint": "粘贴完整取件码可自动填充",
-    "pickupBtn": "取件",
+    "pickupBtn": "前往",
     "pickingUp": "取件中…",
     "dropFiles": "拖入文件 或 点击选择",
     "dropMore": "继续添加",
@@ -563,7 +563,8 @@
     "preview_pdf": "PDF 预览",
     "copy_link": "复制链接",
     "loading": "加载中…",
-    "navLabel": "导航"
+    "navLabel": "导航",
+    "unifiedHint": "6 位数字取件，或 C + 5 位数字进入收集箱"
   },
   "common": {
     "copy": "复制",
