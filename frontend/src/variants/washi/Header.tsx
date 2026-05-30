@@ -107,6 +107,9 @@ export function Header({ c, palette, setPalette, mode, setMode, lang, setLang }:
             {t('washi.backToHome')}
           </Link>
         )}
+        <Link to="/collection" style={pillStyle}>
+          {t('nav.collection')}
+        </Link>
         <MobileMenu
           c={c}
           palette={palette}

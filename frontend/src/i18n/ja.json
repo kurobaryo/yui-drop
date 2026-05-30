@@ -3,6 +3,9 @@
     "name": "Yui-Drop",
     "tagline": "ファイル宅配ロッカー"
   },
+  "nav": {
+    "collection": "コレクション"
+  },
   "hero": {
     "badge": "匿名 · アカウント不要",
     "title": "ファイル宅配ロッカー",
@@ -130,6 +133,7 @@
     "nav": {
       "dashboard": "ダッシュボード",
       "files": "ファイル",
+      "collections": "コレクション",
       "apiKeys": "APIキー",
       "logs": "ログ",
       "settings": "設定",
@@ -280,6 +284,62 @@
           "ip": "IP",
           "ua": "UA"
         }
+      }
+    },
+    "collections": {
+      "title": "コレクション",
+      "search": "ルームコードで検索…",
+      "empty": "コレクションはありません。",
+      "page": "{{page}} / {{total}} ページ",
+      "filter": {
+        "active": "有効",
+        "closed": "閉鎖済",
+        "expired": "期限切れ",
+        "all": "すべて"
+      },
+      "statuses": {
+        "active": "有効",
+        "closed": "閉鎖済",
+        "expired": "期限切れ"
+      },
+      "visibilities": {
+        "public": "公開",
+        "creator_only": "作成者のみ"
+      },
+      "columns": {
+        "code": "コード",
+        "name": "名前",
+        "created": "作成日時",
+        "expires": "期限",
+        "members": "メンバー数",
+        "files": "ファイル数",
+        "messages": "メッセージ数",
+        "visibility": "公開範囲",
+        "status": "状態",
+        "actions": "操作"
+      },
+      "action": {
+        "view": "表示",
+        "close": "閉鎖",
+        "delete": "削除"
+      },
+      "closeConfirm": {
+        "title": "コレクションを閉鎖しますか?",
+        "bodyPrefix": "コレクション",
+        "bodySuffix": " を閉鎖します。接続中のメンバーは切断され、ルームは閉鎖状態となります。データは7日間保持された後、完全に削除されます。",
+        "cancel": "キャンセル",
+        "confirm": "閉鎖"
+      },
+      "deleteConfirm": {
+        "title": "コレクションを削除しますか?",
+        "bodyPrefix": "コレクション",
+        "bodySuffix": " を完全に削除します。ルーム、全メンバー、全メッセージ、アップロードされたすべてのファイルが削除され、元に戻せません。",
+        "cancel": "キャンセル",
+        "confirm": "削除"
+      },
+      "toast": {
+        "closed": "コレクションを閉鎖しました",
+        "deleted": "コレクションを削除しました"
       }
     },
     "logs": {
@@ -492,7 +552,8 @@
     "stampSubtitle": "ファイル宅配ボックス",
     "preview_pdf": "PDF プレビュー",
     "copy_link": "リンクをコピー",
-    "loading": "読み込み中…"
+    "loading": "読み込み中…",
+    "navLabel": "ナビゲーション"
   },
   "common": {
     "copy": "コピー",
@@ -678,6 +739,101 @@
       "contactGithub": "GitHub:",
       "githubLink": "issue を開く",
       "p2": "各キーは発行時にメモ、スコープ、クォータ、有効期限を個別に設定できます。平文の鍵は発行時に一度だけ表示されます —— すぐにパスワードマネージャーに保存してください。"
+    }
+  },
+  "collection": {
+    "landing": {
+      "title": "共有スペース",
+      "subtitle": "部屋番号を入力して参加するか、新しいコレクションを作成します。",
+      "codeLabel": "部屋番号",
+      "enter": "入室",
+      "createLink": "新しいコレクションを作成",
+      "invalidCode": "有効な 6 桁の部屋番号を入力してください。"
+    },
+    "create": {
+      "title": "コレクションを作成",
+      "subtitle": "部屋番号を知っている人なら誰でも参加し、ファイルやメモを共有できます。",
+      "nameLabel": "部屋名（任意）",
+      "namePlaceholder": "例:2年A組の宿題",
+      "visibilityLabel": "公開範囲",
+      "visibilityPublic": "公開",
+      "visibilityPublicHint": "全メンバーが互いのファイルとメッセージを閲覧できます。",
+      "visibilityCreatorOnly": "作成者のみ",
+      "visibilityCreatorOnlyHint": "メンバーは自分のアップロードのみ閲覧可能。作成者だけが全てを閲覧できます。",
+      "entryPasswordLabel": "入室パスワード(任意)",
+      "entryPasswordPlaceholder": "空欄でパスワードなし",
+      "adminPasswordLabel": "管理パスワード",
+      "adminPasswordPlaceholder": "4 文字以上",
+      "adminPasswordHint": "部屋の管理(アップロード停止、閉鎖、メッセージ削除)に使用します。大切に保管してください。",
+      "lifetimeLabel": "有効期間",
+      "lifetime1d": "1 日",
+      "lifetime7d": "7 日",
+      "lifetime30d": "30 日",
+      "lifetime365d": "365 日",
+      "lifetimeCustom": "カスタム",
+      "lifetimePermanent": "無期限",
+      "customDaysUnit": "日",
+      "submit": "作成",
+      "submitting": "作成中…"
+    },
+    "room": {
+      "loading": "読み込み中…",
+      "codeLabel": "部屋番号",
+      "nicknameLabel": "ニックネーム",
+      "nicknamePlaceholder": "ニックネームを入力",
+      "entryPasswordLabel": "入室パスワード",
+      "entryPasswordPlaceholder": "入室パスワードを入力",
+      "joinBtn": "参加",
+      "joining": "参加中…",
+      "claimCreator": "作成者として認証",
+      "adminPasswordPrompt": "管理パスワードを入力してください",
+      "adminVerified": "認証されました — 作成者権限を取得",
+      "closedTitle": "部屋は閉鎖されました",
+      "closedBanner": "この部屋は作成者によって閉鎖されました。",
+      "filesHeader": "ファイル",
+      "filesEmpty": "ファイルはまだありません。",
+      "messages": "メッセージ",
+      "empty": "まだ何もありません。",
+      "messageInputPlaceholder": "メモを残す…",
+      "sendBtn": "送信",
+      "uploadFiles": "ファイルをアップロード",
+      "uploadDisabled": "作成者がアップロードを停止中",
+      "uploadFailed": "アップロードに失敗しました",
+      "dropHint": "ここにファイルをドロップ",
+      "download": "ダウンロード",
+      "delete": "削除",
+      "deleteConfirm": "この項目を削除しますか?",
+      "tabFiles": "ファイル",
+      "tabMessages": "メッセージ"
+    },
+    "admin": {
+      "admin": "管理",
+      "pauseUploads": "アップロードを停止",
+      "resumeUploads": "アップロードを再開",
+      "closeRoom": "部屋を閉鎖",
+      "closeConfirm": "この部屋を閉鎖しますか?全メンバーが切断され、アップロードも停止します。"
+    },
+    "common": {
+      "cancel": "キャンセル"
+    },
+    "confirmations": {
+      "deleteFile": "このファイルを削除しますか?元に戻せません。"
+    },
+    "errors": {
+      "roomNotFound": "部屋が見つかりません。",
+      "joinFailed": "部屋への参加に失敗しました。",
+      "sendFailed": "メッセージの送信に失敗しました。",
+      "createFailed": "部屋の作成に失敗しました。",
+      "deleteFailed": "削除に失敗しました。",
+      "uploadDisabled": "アップロードは停止中です。",
+      "sseDisconnected": "切断 — 再接続中…",
+      "serverError": "サーバーエラーです。再試行してください。",
+      "adminPasswordTooShort": "管理パスワードは 4 文字以上必要です。",
+      "adminVerifyFailed": "管理パスワードが正しくありません。",
+      "entryPasswordRequired": "入室パスワードが必要です。",
+      "nicknameRequired": "ニックネームを入力してください。",
+      "messageTooLong": "メッセージが長すぎます(最大 2000 文字)。",
+      "customDaysRange": "カスタム日数は 1〜365 の範囲で指定してください。"
     }
   }
 }

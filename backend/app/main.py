@@ -27,7 +27,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .api import admin as admin_api
 from .api import admin_auth as admin_auth_api
+from .api import admin_collections as admin_collections_api
 from .api import chunk as chunk_api
+from .api import collections as collections_api
 from .api import presign as presign_api
 from .api import public as public_api
 from .api import share as share_api
@@ -258,6 +260,8 @@ def create_app() -> FastAPI:
     app.include_router(presign_api.router)
     app.include_router(admin_api.router)
     app.include_router(admin_auth_api.router)
+    app.include_router(collections_api.router)
+    app.include_router(admin_collections_api.router)
     app.include_router(v1_api.router)
 
     # Short-link redirect. Sits *before* the SPA fallback so /s/{code} is

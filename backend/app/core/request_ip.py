@@ -157,9 +157,40 @@ async def client_ip(request: Request, db: AsyncSession) -> str | None:
     return ip
 
 
+def mask_ip(ip: str) -> str:
+    """Return a privacy-preserving mask of ``ip`` for at-rest audit storage.
+
+    Rules (matches the v0.3.0 brief — Collection rooms log the IP of the
+    member at first join, but only the masked form is persisted so the row
+    cannot identify a specific household across rooms):
+
+    * IPv4 (``A.B.C.D``) → ``A.x.x.D`` — keep the leading /8 ASN-equivalent
+      and the final octet for rough deduping; mask the middle two.
+    * IPv6 (``a:b:c:d:e:f:g:h``) — keep the first two groups + last group,
+      mask the rest as ``x``: ``a:b:x:x:x:x:x:h``. Compressed forms (``::``
+      or fewer than four groups) are returned unchanged because the rule
+      doesn't translate cleanly and dropping the structure is worse than
+      leaving the original token in the log.
+    * Anything else (malformed, empty string, non-IP token): returned
+      unchanged so the caller can still tell something was recorded.
+    """
+    if not ip:
+        return ip
+    if ":" in ip:
+        parts = ip.split(":")
+        if len(parts) >= 4:
+            return f"{parts[0]}:{parts[1]}:x:x:x:x:x:{parts[-1]}"
+        return ip
+    parts = ip.split(".")
+    if len(parts) == 4:
+        return f"{parts[0]}.x.x.{parts[3]}"
+    return ip
+
+
 __all__ = [
     "client_ip",
     "coerce_bool",
+    "mask_ip",
     "_parse_xff",
     "_parse_single_ip",
     "_raw_client_ip",

@@ -6,6 +6,10 @@ what Alembic's autogenerate scans.
 from .access_log import AccessLog, AccessLogAction
 from .api_key import ApiKey
 from .api_key_usage import ApiKeyUsage
+from .collection import Collection
+from .collection_file import CollectionFile
+from .collection_member import CollectionMember
+from .collection_message import CollectionMessage
 from .file_code import FileCode
 from .multipart_session import MultipartSession
 from .oidc_binding import OidcBinding
@@ -19,6 +23,10 @@ __all__ = [
     "AccessLogAction",
     "ApiKey",
     "ApiKeyUsage",
+    "Collection",
+    "CollectionFile",
+    "CollectionMember",
+    "CollectionMessage",
     "FileCode",
     "MultipartSession",
     "OidcBinding",
