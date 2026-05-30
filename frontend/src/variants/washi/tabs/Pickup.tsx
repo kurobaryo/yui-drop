@@ -9,7 +9,8 @@
  * verification is still required — the user must explicitly tap "Pick up"
  * after solving the challenge.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { shareSelect, type ShareSelectResponse } from '@/lib/api/share';
 import { ApiError } from '@/lib/api';
@@ -272,7 +273,111 @@ export function Pickup({
           }}
         />
       )}
+
+      <CollectionEntry c={c} />
     </div>
+  );
+}
+
+/**
+ * Inline "or enter a collection box" affordance. Sits below the pickup-code
+ * input so users have a single home for "I received a code, take me there"
+ * regardless of whether the sender's code is a 6-digit pickup code or a
+ * C-prefixed collection room code.
+ */
+function CollectionEntry({ c }: { c: WashiColors }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [code, setCode] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  // C followed by exactly 5 digits. Case-insensitive on input.
+  const normalized = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
+  const valid = /^C\d{5}$/.test(normalized);
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!valid) {
+      setErr(t('washi.collectionEntryInvalid'));
+      return;
+    }
+    navigate(`/c/${normalized}`);
+  };
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      style={{
+        marginTop: 28,
+        paddingTop: 22,
+        borderTop: `1px dashed ${c.soft}`,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 13,
+          color: c.sub,
+          marginBottom: 14,
+          letterSpacing: '0.08em',
+        }}
+      >
+        {t('washi.collectionEntryTitle').toUpperCase()}
+      </div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+        <input
+          value={normalized}
+          onChange={(e) => {
+            setCode(e.target.value);
+            setErr(null);
+          }}
+          placeholder="C00000"
+          maxLength={6}
+          autoCapitalize="characters"
+          spellCheck={false}
+          style={{
+            flex: 1,
+            height: 50,
+            fontSize: 18,
+            letterSpacing: '0.2em',
+            textAlign: 'center',
+            fontFamily: '"JetBrains Mono", "Noto Sans Mono", monospace',
+            background: 'transparent',
+            border: `1px solid ${err ? '#c44a3e' : c.soft}`,
+            borderRadius: 8,
+            color: c.ink,
+            outline: 'none',
+            boxSizing: 'border-box',
+            transition: 'border-color .15s',
+          }}
+        />
+        <button
+          type="submit"
+          disabled={!valid}
+          style={{
+            padding: '0 22px',
+            height: 50,
+            background: valid ? c.accent : c.soft,
+            color: valid ? c.paper : c.sub,
+            border: 'none',
+            borderRadius: 8,
+            cursor: valid ? 'pointer' : 'not-allowed',
+            fontFamily: 'inherit',
+            fontSize: 14,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            transition: 'all .15s',
+          }}
+        >
+          {t('washi.collectionEntryBtn')}
+        </button>
+      </div>
+      {err && (
+        <div style={{ marginTop: 8, fontSize: 12, color: '#c44a3e' }}>{err}</div>
+      )}
+      <div style={{ marginTop: 8, fontSize: 12, color: c.sub }}>
+        {t('washi.collectionEntryHint')}
+      </div>
+    </form>
   );
 }
 

@@ -28,6 +28,8 @@ import {
 } from '@/lib/api/collection';
 import { ApiError } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
+import { useCollectionMemberStore } from '@/stores/collectionMember';
+import { pushRecent } from '@/lib/recent';
 import type { WashiColors } from '../palettes';
 
 type QuickLifetime = '7' | '30' | 'permanent';
@@ -39,17 +41,13 @@ export interface CollectionProps {
 export function Collection({ c }: CollectionProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-
-  const [code, setCode] = useState('');
-  const [codeError, setCodeError] = useState<string | null>(null);
+  const setMember = useCollectionMemberStore((s) => s.set);
 
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPw, setShowAdminPw] = useState(false);
   const [visibility, setVisibility] = useState<CollectionVisibility>('public');
   const [lifetime, setLifetime] = useState<QuickLifetime>('7');
   const [creating, setCreating] = useState(false);
-
-  const sanitizedCode = code.replace(/\D/g, '').slice(0, 6);
 
   const sectionStyle: CSSProperties = {
     border: `1px solid ${c.soft}`,
@@ -83,22 +81,6 @@ export function Collection({ c }: CollectionProps) {
 
   const inputWithToggle: CSSProperties = { ...inputStyle, paddingRight: 40 };
 
-  const codeInputStyle: CSSProperties = {
-    fontFamily:
-      '"Noto Sans Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
-    fontSize: 24,
-    letterSpacing: '0.36em',
-    textAlign: 'center',
-    width: '100%',
-    height: 56,
-    border: `1px solid ${c.soft}`,
-    borderRadius: 10,
-    background: 'transparent',
-    color: c.ink,
-    outline: 'none',
-    boxSizing: 'border-box',
-  };
-
   const primaryBtnStyle: CSSProperties = {
     width: '100%',
     height: 46,
@@ -110,15 +92,6 @@ export function Collection({ c }: CollectionProps) {
     letterSpacing: '0.06em',
     cursor: 'pointer',
     fontFamily: 'inherit',
-  };
-
-  const onEnter = (e: FormEvent) => {
-    e.preventDefault();
-    if (sanitizedCode.length !== 6) {
-      setCodeError(t('collection.landing.invalidCode'));
-      return;
-    }
-    navigate(`/c/${sanitizedCode}`);
   };
 
   const onCreate = async (e: FormEvent) => {
@@ -138,6 +111,25 @@ export function Collection({ c }: CollectionProps) {
         entry_password: null,
         admin_password: adminPassword,
         lifetime_days,
+      });
+      // Persist the auto-issued creator token so Room.tsx skips the join form.
+      if (res.member_token && res.member_id != null) {
+        setMember(res.code, {
+          memberToken: res.member_token,
+          nickname: 'Owner',
+          isCreator: true,
+          adminPassword,
+        });
+      }
+      // Surface this room in the "最近收集箱" panel so the user can hop
+      // back in from the home page later.
+      pushRecent({
+        code: res.code,
+        kind: 'collection',
+        name: res.name ?? null,
+        created_at: new Date().toISOString(),
+        expires_at: res.expires_at ?? null,
+        isCreator: true,
       });
       navigate(`/c/${res.code}?created=1`);
     } catch (err) {
@@ -293,36 +285,9 @@ export function Collection({ c }: CollectionProps) {
         </div>
       </form>
 
-      {/* Enter existing room */}
-      <form onSubmit={onEnter} style={sectionStyle}>
-        <label style={labelStyle}>{t('collection.quick.enterTitle')}</label>
-        <input
-          inputMode="numeric"
-          pattern="\d{6}"
-          maxLength={6}
-          value={sanitizedCode}
-          onChange={(e) => {
-            setCode(e.target.value);
-            setCodeError(null);
-          }}
-          placeholder="000000"
-          style={codeInputStyle}
-        />
-        {codeError && (
-          <div style={{ color: '#c44', fontSize: 13, marginTop: 8 }}>
-            {codeError}
-          </div>
-        )}
-        <button
-          type="submit"
-          style={{
-            ...primaryBtnStyle,
-            marginTop: 14,
-          }}
-        >
-          {t('collection.landing.enter')}
-        </button>
-      </form>
+      {/* The "or enter an existing room code" affordance has moved to the
+          Pickup tab — one input box for any incoming code (pickup or C-room)
+          keeps the home page simple. The collection tab is now create-only. */}
     </div>
   );
 }

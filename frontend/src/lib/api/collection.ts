@@ -35,6 +35,8 @@ export interface CreateCollectionRequest {
   admin_password: string;
   /** null = permanent. Server clamps to [1, 365] when present. */
   lifetime_days: number | null;
+  /** Optional creator nickname; backend defaults to "Owner" if absent. */
+  creator_nickname?: string | null;
   /** Optional Turnstile token, gated by the same setting as uploads. */
   turnstile_token?: string | null;
 }
@@ -43,10 +45,14 @@ export interface CreateCollectionResponse {
   code: string;
   name: string | null;
   visibility: CollectionVisibility;
+  upload_enabled?: boolean;
   has_entry_password: boolean;
   expires_at: string | null;
-  max_members: number;
-  created_at: string;
+  /** Auto-issued token for the creator. Persist this in the room store
+   * (under `yui-collection:member:{code}`) so Room.tsx can call APIs
+   * without a separate /join round-trip. */
+  member_token: string | null;
+  member_id: number | null;
 }
 
 export async function createCollection(

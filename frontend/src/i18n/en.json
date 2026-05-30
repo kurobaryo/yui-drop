@@ -496,6 +496,15 @@
     "tabSendFile": "Send file",
     "tabSendText": "Send text",
     "tabCollection": "Collection",
+    "collectionEntryTitle": "Or open a collection box",
+    "collectionEntryBtn": "Enter",
+    "collectionEntryHint": "Room codes start with C followed by 5 digits.",
+    "collectionEntryInvalid": "Please enter a valid room code (C + 5 digits).",
+    "recentCollections": "Recent collections",
+    "collectionCreator": "Owner",
+    "collectionMember": "Member",
+    "collectionUnnamed": "(unnamed)",
+    "clearAll": "Clear all",
     "enterCode": "Enter pickup code",
     "settings": "Settings",
     "palette": "Palette",
@@ -843,6 +852,12 @@
       "nicknameRequired": "Please enter a nickname.",
       "messageTooLong": "Message is too long (max 2000 characters).",
       "customDaysRange": "Custom days must be between 1 and 365."
+    },
+    "timeline": {
+      "empty": "Nothing here yet — drop a file or leave a message",
+      "attach": "Attach files",
+      "sendPlaceholder": "Say something...",
+      "dropHere": "Drop files to upload"
     }
   }
 }

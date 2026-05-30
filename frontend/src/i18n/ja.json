@@ -495,6 +495,15 @@
     "tabSendFile": "ファイルを送る",
     "tabSendText": "テキストを送る",
     "tabCollection": "コレクション",
+    "collectionEntryTitle": "またはコレクションを開く",
+    "collectionEntryBtn": "入る",
+    "collectionEntryHint": "ルームコードは C と数字 5 桁です。",
+    "collectionEntryInvalid": "ルームコード（C + 5 桁）を入力してください。",
+    "recentCollections": "最近のコレクション",
+    "collectionCreator": "作成",
+    "collectionMember": "参加",
+    "collectionUnnamed": "（無題）",
+    "clearAll": "全消去",
     "enterCode": "受取コードを入力",
     "settings": "設定",
     "palette": "テーマ",
@@ -842,6 +851,12 @@
       "nicknameRequired": "ニックネームを入力してください。",
       "messageTooLong": "メッセージが長すぎます(最大 2000 文字)。",
       "customDaysRange": "カスタム日数は 1〜365 の範囲で指定してください。"
+    },
+    "timeline": {
+      "empty": "まだ何もありません — ファイルをドロップするかメッセージを残してね",
+      "attach": "ファイルを添付",
+      "sendPlaceholder": "メッセージを入力…",
+      "dropHere": "ファイルをドロップしてアップロード"
     }
   }
 }

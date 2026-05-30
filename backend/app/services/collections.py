@@ -127,7 +127,21 @@ async def create_collection(
     async def exists(c: str) -> bool:
         return await _exists_code(db, c)
 
-    code = await generate_unique_pickup_code(exists, length=6)
+    # Collection room codes use a "C" prefix + 5 digits to keep them
+    # visually and semantically distinct from 6-digit pickup codes. The
+    # input field can tell the difference by leading character, so a
+    # user can type "234567" (pickup) or "C12345" (room) into the same
+    # box without ambiguity.
+    import secrets as _secrets
+
+    code = ""
+    for _ in range(64):
+        cand = "C" + "".join(str(_secrets.randbelow(10)) for _ in range(5))
+        if not await exists(cand):
+            code = cand
+            break
+    if not code:
+        raise RuntimeError("Exhausted attempts generating a collection code")
 
     now = _utcnow()
     expires_at: datetime | None
@@ -152,19 +166,22 @@ async def create_collection(
     db.add(collection)
     await db.flush()
 
-    member: CollectionMember | None = None
-    token: str | None = None
-    if creator_nickname:
-        token = _new_member_token()
-        member = CollectionMember(
-            collection_id=collection.id,
-            member_token=token,
-            nickname=creator_nickname[:40],
-            ip_masked=mask_ip(created_by_ip) if created_by_ip else None,
-            is_creator=True,
-        )
-        db.add(member)
-        await db.flush()
+    # Always auto-join the creator. Without a member row + token the
+    # frontend cannot enter the room it just created (every collection
+    # endpoint requires X-Member-Token). nickname defaults to "Owner"
+    # if the caller didn't supply one — users can rename later via the
+    # in-room nickname change.
+    nickname = (creator_nickname or "Owner").strip()[:40] or "Owner"
+    token = _new_member_token()
+    member = CollectionMember(
+        collection_id=collection.id,
+        member_token=token,
+        nickname=nickname,
+        ip_masked=mask_ip(created_by_ip) if created_by_ip else None,
+        is_creator=True,
+    )
+    db.add(member)
+    await db.flush()
 
     return collection, member, token
 
