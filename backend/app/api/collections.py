@@ -115,7 +115,7 @@ async def create(
     ip = real_client_ip(request)
     ua = _ua(request)
     try:
-        out = await svc.create_collection(
+        collection, member, member_token = await svc.create_collection(
             db,
             name=body.name,
             visibility=body.visibility,
@@ -124,13 +124,26 @@ async def create(
             lifetime_days=body.lifetime_days,
             permanent=body.permanent,
             creator_nickname=body.creator_nickname,
-            ip=ip,
-            ua=ua,
+            created_by_ip=ip,
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
     await db.commit()
-    return ok(out)
+    _ = ua  # reserved for future audit
+    return ok(
+        {
+            "code": collection.code,
+            "name": collection.name,
+            "visibility": collection.visibility,
+            "upload_enabled": collection.upload_enabled,
+            "expires_at": collection.expires_at.isoformat()
+            if collection.expires_at
+            else None,
+            "has_entry_password": collection.entry_password_hash is not None,
+            "member_token": member_token,
+            "member_id": member.id if member else None,
+        }
+    )
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -165,18 +178,29 @@ async def join(
     ip = real_client_ip(request)
     ua = _ua(request)
     try:
-        out = await svc.join_collection(
+        member, member_token = await svc.join_collection(
             db,
             code=code,
             nickname=body.nickname,
             entry_password=body.entry_password,
-            ip=ip,
-            ua=ua,
+            ip_raw=ip,
         )
+        # Fetch collection for response envelope
+        collection = await svc.get_collection_by_code(db, code)
     except ServiceError as e:
         raise _service_to_http(e) from e
     await db.commit()
-    return ok(out)
+    _ = ua
+    return ok(
+        {
+            "member_token": member_token,
+            "member_id": member.id,
+            "visibility": collection.visibility,
+            "upload_enabled": collection.upload_enabled,
+            "nickname": member.nickname,
+            "is_creator": member.is_creator,
+        }
+    )
 
 
 # ────────────────────────────────────────────────────────────────────────────
