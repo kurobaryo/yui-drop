@@ -51,8 +51,14 @@ def _use_local_at_rest_encryption() -> bool:
     Local backend → encrypt (DEK wrapped + stored on the FileCode row).
     Other backends → no-op (S3/R2 rely on bucket-side SSE-S3; future
     backends decide their own story).
+
+    Resolution: we ask the **active storage singleton** whether it exposes
+    ``server_write_encrypted``. This is correct even when ``settings.storage_backend``
+    (the env default) disagrees with the ``settings_kv`` overlay that the
+    admin UI writes at runtime — the singleton reflects the overlay because
+    :func:`reload_storage` is called from the app's lifespan.
     """
-    return (settings.storage_backend or "local").lower() == "local"
+    return hasattr(get_storage(), "server_write_encrypted")
 
 
 async def _code_exists(db: AsyncSession, code: str) -> bool:

@@ -51,12 +51,38 @@ export interface CodeInputApi {
   complete: boolean;
 }
 
-export function useCodeInput(length: number, onComplete?: (v: string) => void): CodeInputApi {
+export interface UseCodeInputOptions {
+  /**
+   * Regex that EACH cell must match for input to be accepted. Defaults to
+   * digits only. Pass /[A-Z0-9]/ to allow uppercase letters + digits (e.g.
+   * the unified pickup-or-collection entry where ``C12345`` is a valid code
+   * alongside ``234567``).
+   */
+  accept?: RegExp;
+  /** Auto-uppercase typed/pasted characters before matching ``accept``. */
+  uppercase?: boolean;
+}
+
+export function useCodeInput(
+  length: number,
+  onComplete?: (v: string) => void,
+  options: UseCodeInputOptions = {},
+): CodeInputApi {
+  const accept = options.accept ?? /[0-9]/;
+  const uppercase = options.uppercase ?? false;
+
+  const normalize = (raw: string): string => {
+    const s = uppercase ? (raw || '').toUpperCase() : raw || '';
+    let out = '';
+    for (const ch of s) if (accept.test(ch)) out += ch;
+    return out;
+  };
+
   const [digits, setDigits] = useState<string[]>(() => Array(length).fill(''));
   const refs = useRef<Array<HTMLInputElement | null>>([]);
 
   const setDigit = (i: number, v: string) => {
-    const cleaned = (v || '').replace(/[^0-9]/g, '').slice(0, 1);
+    const cleaned = normalize(v).slice(0, 1);
     setDigits((prev) => {
       const next = [...prev];
       next[i] = cleaned;
@@ -73,7 +99,7 @@ export function useCodeInput(length: number, onComplete?: (v: string) => void): 
 
   const handlePaste = (e: ClipboardEvent<HTMLDivElement>) => {
     const text = e.clipboardData?.getData('text') ?? '';
-    const clean = text.replace(/[^0-9]/g, '').slice(0, length);
+    const clean = normalize(text).slice(0, length);
     if (!clean) return;
     e.preventDefault();
     const next = Array(length).fill('');
@@ -89,7 +115,7 @@ export function useCodeInput(length: number, onComplete?: (v: string) => void): 
   };
 
   const setValue = (s: string) => {
-    const clean = (s || '').replace(/[^0-9]/g, '').slice(0, length);
+    const clean = normalize(s).slice(0, length);
     const next = Array(length).fill('');
     for (let i = 0; i < clean.length; i++) next[i] = clean[i]!;
     setDigits(next);

@@ -115,7 +115,14 @@ export async function joinCollection(
 export interface CollectionMessage {
   id: number;
   member_id: number;
-  member_nickname: string;
+  /** Display name of the member who sent this message.
+   *
+   * NOTE: the field is named ``nickname`` (not ``member_nickname``) to match
+   * the backend serializer in ``app/services/collections.py`` / the existing
+   * v0.3.0 protocol. File items use ``member_nickname`` — the inconsistency
+   * is historical; do not "fix" by renaming this without also changing the
+   * backend response key. */
+  nickname: string;
   body: string;
   created_at: string;
 }

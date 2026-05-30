@@ -135,7 +135,10 @@ export function RoomTimeline({
       id: m.id,
       created_at: m.created_at,
       member_id: m.member_id,
-      member_nickname: m.member_nickname,
+      // Backend serializer for messages uses ``nickname`` rather than the
+      // ``member_nickname`` that files use. Map both onto our internal
+      // ``member_nickname`` field so the renderer stays uniform.
+      member_nickname: m.nickname,
       content: m.body,
     }));
     const fileItems: TimelineItem[] = files.map((f) => ({

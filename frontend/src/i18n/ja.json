@@ -504,13 +504,13 @@
     "collectionMember": "参加",
     "collectionUnnamed": "（無題）",
     "clearAll": "全消去",
-    "enterCode": "受取コードを入力",
+    "enterCode": "受取コードまたはコレクション番号",
     "settings": "設定",
     "palette": "テーマ",
     "modeLabel": "外観",
     "langLabel": "言語",
     "pasteHint": "コードを貼り付けると自動入力されます",
-    "pickupBtn": "受け取る",
+    "pickupBtn": "開く",
     "pickingUp": "受取中…",
     "dropFiles": "ファイルをドロップ／クリックして選択",
     "dropMore": "追加する",
@@ -563,7 +563,8 @@
     "preview_pdf": "PDF プレビュー",
     "copy_link": "リンクをコピー",
     "loading": "読み込み中…",
-    "navLabel": "ナビゲーション"
+    "navLabel": "ナビゲーション",
+    "unifiedHint": "数字 6 桁で受取、C + 数字 5 桁でコレクションへ"
   },
   "common": {
     "copy": "コピー",
