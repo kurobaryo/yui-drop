@@ -1,0 +1,741 @@
+"""Collection (shared-room) endpoints — rooms, messages, admin verify/ops.
+
+This module defines the FastAPI router for the v0.3.0 Collection feature.
+File-upload and SSE endpoints are appended onto the same ``router`` by
+parallel modules so the OpenAPI tag stays coherent.
+
+All handlers follow the envelope pattern (``ok({...})``) and convert any
+``ServiceError`` raised by the service layer into an HTTPException with the
+``{code, message, detail}`` body. Admin actions also write an
+``access_logs`` row via ``record_access`` before committing.
+"""
+
+from __future__ import annotations
+
+import shutil
+from typing import Annotated, Any
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Request,
+    UploadFile,
+)
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..core.logging import get_logger
+from ..core.rate_limit import real_client_ip
+from ..db.session import get_db
+from ..models.access_log import AccessLogAction
+from ..models.collection_file import CollectionFile
+from ..schemas import ok
+from ..schemas.collection import (
+    AdminToggleUploadRequest,
+    CreateCollectionRequest,
+    JoinRequest,
+    SendMessageRequest,
+)
+from ..services import collection_sse
+from ..services import collections as svc
+from ..services.common import ServiceError, record_access
+
+router = APIRouter(prefix="/api/collections", tags=["collections"])
+log = get_logger(__name__)
+
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+
+def _ua(request: Request) -> str | None:
+    return request.headers.get("user-agent")
+
+
+def _service_to_http(exc: ServiceError) -> HTTPException:
+    return HTTPException(
+        status_code=exc.http_status,
+        detail={"code": exc.code, "message": exc.message, "detail": exc.detail},
+    )
+
+
+async def require_member(
+    request: Request,
+    db: AsyncSession,
+    code: str,
+    x_member_token: str | None,
+):
+    """Resolve ``(collection, member)`` from the ``X-Member-Token`` header.
+
+    Returns 401 when the header is missing or the token does not map to an
+    active member of the given ``code``. The service layer also rejects
+    members whose room has been closed or whose token has been revoked.
+    """
+    if not x_member_token:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 4011, "message": "member_token_required"},
+        )
+    try:
+        return await svc.get_member_by_token(db, code=code, member_token=x_member_token)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+
+async def require_admin_password_match(
+    db: AsyncSession,
+    collection: Any,
+    x_admin_password: str | None,
+) -> bool:
+    """Return True when ``X-Admin-Password`` matches the room's admin hash."""
+    if not x_admin_password:
+        return False
+    try:
+        return await svc.verify_admin_password(db, collection=collection, admin_password=x_admin_password)
+    except ServiceError:
+        return False
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# POST /api/collections — create a new room
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.post("")
+async def create(
+    request: Request,
+    body: CreateCollectionRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict[str, Any]:
+    ip = real_client_ip(request)
+    ua = _ua(request)
+    try:
+        out = await svc.create_collection(
+            db,
+            name=body.name,
+            visibility=body.visibility,
+            entry_password=body.entry_password,
+            admin_password=body.admin_password,
+            lifetime_days=body.lifetime_days,
+            permanent=body.permanent,
+            creator_nickname=body.creator_nickname,
+            ip=ip,
+            ua=ua,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET /api/collections/{code}/preview — public-safe metadata
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/{code}/preview")
+async def preview(
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict[str, Any]:
+    try:
+        out = await svc.preview_collection(db, code=code)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# POST /api/collections/{code}/join — issue a member token
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.post("/{code}/join")
+async def join(
+    request: Request,
+    code: str,
+    body: JoinRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict[str, Any]:
+    ip = real_client_ip(request)
+    ua = _ua(request)
+    try:
+        out = await svc.join_collection(
+            db,
+            code=code,
+            nickname=body.nickname,
+            entry_password=body.entry_password,
+            ip=ip,
+            ua=ua,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET /api/collections/{code}/messages — list chat history
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/{code}/messages")
+async def messages_list(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+    after_id: int | None = None,
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    try:
+        out = await svc.list_messages(db, collection=collection, member=member, after_id=after_id)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# POST /api/collections/{code}/messages — send a chat message
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.post("/{code}/messages")
+async def messages_send(
+    request: Request,
+    code: str,
+    body: SendMessageRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    ip = real_client_ip(request)
+    ua = _ua(request)
+    try:
+        out = await svc.send_message(
+            db,
+            collection=collection,
+            member=member,
+            text=body.text,
+            ip=ip,
+            ua=ua,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# DELETE /api/collections/{code}/messages/{message_id}
+# Allowed for: the message author OR the room admin (X-Admin-Password match).
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.delete("/{code}/messages/{message_id}")
+async def messages_delete(
+    request: Request,
+    code: str,
+    message_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+    x_admin_password: str | None = Header(default=None, alias="X-Admin-Password"),
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    is_admin = await require_admin_password_match(db, collection, x_admin_password)
+    ip = real_client_ip(request)
+    ua = _ua(request)
+    try:
+        out = await svc.delete_message(
+            db,
+            collection=collection,
+            member=member,
+            message_id=message_id,
+            is_admin=is_admin,
+            ip=ip,
+            ua=ua,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# POST /api/collections/{code}/admin/verify
+# Verifies the admin password AND flips ``is_creator=True`` on the calling
+# member so subsequent member-scoped UI can render the admin panel without a
+# second round-trip.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.post("/{code}/admin/verify")
+async def admin_verify(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+    x_admin_password: str | None = Header(default=None, alias="X-Admin-Password"),
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    ip = real_client_ip(request)
+    ua = _ua(request)
+
+    if not x_admin_password:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 4012, "message": "admin_password_required"},
+        )
+
+    try:
+        verified = await svc.verify_admin_password(db, collection=collection, admin_password=x_admin_password)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    if not verified:
+        await record_access(
+            db,
+            action=AccessLogAction.ADMIN_ACTION,
+            ip=ip,
+            ua=ua,
+            status_code=401,
+            extra={
+                "event": "collection.admin.verify.fail",
+                "code": code,
+                "member_id": getattr(member, "id", None),
+            },
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 4013, "message": "invalid_admin_password"},
+        )
+
+    try:
+        out = await svc.mark_member_creator(db, collection=collection, member=member)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    await record_access(
+        db,
+        action=AccessLogAction.ADMIN_ACTION,
+        ip=ip,
+        ua=ua,
+        status_code=200,
+        extra={
+            "event": "collection.admin.verify.success",
+            "code": code,
+            "member_id": getattr(member, "id", None),
+        },
+    )
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# POST /api/collections/{code}/admin/upload-toggle
+# Admin-password-gated (does NOT require a member token — the creator may
+# call from a fresh browser that has no member session).
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.post("/{code}/admin/upload-toggle")
+async def admin_upload_toggle(
+    request: Request,
+    code: str,
+    body: AdminToggleUploadRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_admin_password: str | None = Header(default=None, alias="X-Admin-Password"),
+) -> dict[str, Any]:
+    ip = real_client_ip(request)
+    ua = _ua(request)
+
+    try:
+        collection = await svc.get_collection_by_code(db, code=code)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    if not await require_admin_password_match(db, collection, x_admin_password):
+        await record_access(
+            db,
+            action=AccessLogAction.ADMIN_ACTION,
+            ip=ip,
+            ua=ua,
+            status_code=401,
+            extra={"event": "collection.admin.upload_toggle.deny", "code": code},
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 4013, "message": "invalid_admin_password"},
+        )
+
+    try:
+        out = await svc.admin_toggle_upload(
+            db,
+            collection=collection,
+            enabled=body.enabled,
+            ip=ip,
+            ua=ua,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    await record_access(
+        db,
+        action=AccessLogAction.ADMIN_ACTION,
+        ip=ip,
+        ua=ua,
+        status_code=200,
+        extra={
+            "event": "collection.admin.upload_toggle",
+            "code": code,
+            "enabled": body.enabled,
+        },
+    )
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# POST /api/collections/{code}/admin/close
+# Closes the room (no more joins / messages / uploads). Soft, reversible at
+# the service layer's discretion.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.post("/{code}/admin/close")
+async def admin_close(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_admin_password: str | None = Header(default=None, alias="X-Admin-Password"),
+) -> dict[str, Any]:
+    ip = real_client_ip(request)
+    ua = _ua(request)
+
+    try:
+        collection = await svc.get_collection_by_code(db, code=code)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    if not await require_admin_password_match(db, collection, x_admin_password):
+        await record_access(
+            db,
+            action=AccessLogAction.ADMIN_ACTION,
+            ip=ip,
+            ua=ua,
+            status_code=401,
+            extra={"event": "collection.admin.close.deny", "code": code},
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 4013, "message": "invalid_admin_password"},
+        )
+
+    try:
+        out = await svc.admin_close(db, collection=collection, ip=ip, ua=ua)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    await record_access(
+        db,
+        action=AccessLogAction.ADMIN_ACTION,
+        ip=ip,
+        ua=ua,
+        status_code=200,
+        extra={"event": "collection.admin.close", "code": code},
+    )
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# File + SSE endpoints (v0.3.0).
+#
+# Files use a 3-step upload protocol:
+#   1) POST /files/init                  — allocate row + open multipart
+#   2a) POST /files/{id}/sign-part/{n}   — s3: get a presigned URL per part
+#   2b) POST /files/{id}/parts/{n}       — local: PUT chunk bytes directly
+#   3) POST /files/{id}/complete         — finalize + broadcast
+# Plus list / download / delete and a GET /stream SSE endpoint.
+# ──── File upload + SSE endpoints (appended) ────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
+
+
+class _FileInitRequest(BaseModel):
+    name: str
+    size: int
+    content_type: str | None = None
+    chunk_size: int | None = None
+
+
+class _FilePart(BaseModel):
+    part_number: int
+    etag: str | None = None
+
+
+class _FileCompleteRequest(BaseModel):
+    upload_id: str
+    parts: list[_FilePart] | None = None
+
+
+async def _get_file_or_404(db: AsyncSession, *, collection: Any, file_id: int) -> CollectionFile:
+    row = (
+        await db.execute(
+            select(CollectionFile).where(
+                CollectionFile.id == file_id,
+                CollectionFile.collection_id == collection.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None or row.deleted_at is not None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": 4041, "message": "file_not_found"},
+        )
+    return row
+
+
+@router.post("/{code}/files/init")
+async def files_init(
+    request: Request,
+    code: str,
+    body: _FileInitRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    try:
+        out = await svc.init_collection_file(
+            db,
+            collection=collection,
+            member=member,
+            name=body.name,
+            size=body.size,
+            content_type=body.content_type,
+            chunk_size=body.chunk_size,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await db.commit()
+    return ok(out)
+
+
+@router.post("/{code}/files/{file_id}/sign-part/{part_number}")
+async def files_sign_part(
+    request: Request,
+    code: str,
+    file_id: int,
+    part_number: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+    upload_id: str | None = None,
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    if not upload_id:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": 4001, "message": "upload_id_required"},
+        )
+    file_row = await _get_file_or_404(db, collection=collection, file_id=file_id)
+    try:
+        out = await svc.sign_collection_file_part(
+            db,
+            collection=collection,
+            file_row=file_row,
+            upload_id=upload_id,
+            part_number=part_number,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+@router.post("/{code}/files/{file_id}/parts/{part_number}")
+async def files_upload_part_local(
+    request: Request,
+    code: str,
+    file_id: int,
+    part_number: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    upload_id: Annotated[str, Form(...)],
+    chunk: Annotated[UploadFile, File(...)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    await _get_file_or_404(db, collection=collection, file_id=file_id)
+
+    try:
+        from ..storage.factory import get_storage
+
+        storage = get_storage()
+        tmp_root = getattr(storage, "tmp_root", None)
+        if tmp_root is None:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": 4002,
+                    "message": "local_chunk_upload_not_supported_for_backend",
+                },
+            )
+        tmp_dir = tmp_root / upload_id
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        part_path = tmp_dir / f"part_{part_number}"
+        with open(part_path, "wb") as out_fp:
+            shutil.copyfileobj(chunk.file, out_fp)
+    except HTTPException:
+        raise
+    except Exception as e:  # pragma: no cover — surface as 500
+        log.exception("local chunk upload failed: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail={"code": 5001, "message": "chunk_write_failed"},
+        ) from e
+    return ok({"part_number": part_number, "received": True})
+
+
+@router.post("/{code}/files/{file_id}/complete")
+async def files_complete(
+    request: Request,
+    code: str,
+    file_id: int,
+    body: _FileCompleteRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    file_row = await _get_file_or_404(db, collection=collection, file_id=file_id)
+    parts_payload = [{"part_number": p.part_number, "etag": p.etag} for p in body.parts] if body.parts else []
+    try:
+        row = await svc.complete_collection_file(
+            db,
+            collection=collection,
+            file_row=file_row,
+            upload_id=body.upload_id,
+            parts=parts_payload,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await db.commit()
+    return ok(
+        {
+            "id": row.id,
+            "name": row.name,
+            "size": row.size,
+            "content_type": row.content_type,
+            "member_id": row.member_id,
+        }
+    )
+
+
+@router.get("/{code}/files")
+async def files_list(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    try:
+        out = await svc.list_files(db, collection=collection, member=member)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
+
+
+@router.get("/{code}/files/{file_id}/download")
+async def files_download(
+    request: Request,
+    code: str,
+    file_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    file_row = await _get_file_or_404(db, collection=collection, file_id=file_id)
+    try:
+        url, expires_in = await svc.get_file_download_url(
+            db, collection=collection, file_row=file_row, member=member
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok({"download_url": url, "expires_in": expires_in})
+
+
+@router.delete("/{code}/files/{file_id}")
+async def files_delete(
+    request: Request,
+    code: str,
+    file_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+    x_admin_password: str | None = Header(default=None, alias="X-Admin-Password"),
+) -> dict[str, Any]:
+    collection, member = await require_member(request, db, code, x_member_token)
+    is_admin = await require_admin_password_match(db, collection, x_admin_password)
+    file_row = await _get_file_or_404(db, collection=collection, file_id=file_id)
+    try:
+        await svc.delete_collection_file(
+            db,
+            collection=collection,
+            file_row=file_row,
+            by_admin=is_admin,
+            member=member,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await db.commit()
+    return ok({"deleted": True, "id": file_id})
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET /api/collections/{code}/stream — SSE
+# EventSource cannot send custom headers, so auth uses ?token=<member_token>.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/{code}/stream")
+async def stream(
+    request: Request,
+    code: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    token: str | None = None,
+) -> StreamingResponse:
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 4011, "message": "member_token_required"},
+        )
+    try:
+        collection, member = await svc.get_member_by_token(db, code=code, member_token=token)
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+
+    handle = await collection_sse.subscribe(
+        collection.id,
+        member_id=member.id,
+        is_creator=getattr(member, "is_creator", False),
+    )
+
+    async def gen():
+        try:
+            async for chunk in collection_sse.event_stream(handle):
+                yield chunk
+        finally:
+            await collection_sse.unsubscribe(collection.id, handle)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

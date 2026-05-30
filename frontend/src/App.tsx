@@ -23,6 +23,9 @@ import AdminSettings from './pages/admin/Settings';
 import AdminCollections from './pages/admin/Collections';
 import OidcCallback from './pages/admin/auth/OidcCallback';
 import OidcBound from './pages/admin/auth/OidcBound';
+import CollectionLanding from './pages/Collection/Landing';
+import CollectionCreate from './pages/Collection/Create';
+import CollectionRoom from './pages/Collection/Room';
 import { ToastProvider } from './components/ui/Toast';
 
 export default function App() {
@@ -35,6 +38,10 @@ export default function App() {
         <Route path="/v/:code" element={<Home />} />
         <Route path="/m/:code" element={<Home />} />
         <Route path="/docs" element={<ApiDocs />} />
+        {/* Collection (共享空间) — multi-user drop boxes. */}
+        <Route path="/collection" element={<CollectionLanding />} />
+        <Route path="/collection/new" element={<CollectionCreate />} />
+        <Route path="/c/:code" element={<CollectionRoom />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         {/* OIDC SPA-side landings — must sit *outside* the AdminLayout so they
             don't require an existing admin token to render. */}
