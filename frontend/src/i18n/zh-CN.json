@@ -3,6 +3,9 @@
     "name": "Yui-Drop",
     "tagline": "文件快递柜"
   },
+  "nav": {
+    "collection": "共享空间"
+  },
   "hero": {
     "badge": "匿名 · 无需账号",
     "title": "文件快递柜",
@@ -130,6 +133,7 @@
     "nav": {
       "dashboard": "总览",
       "files": "文件",
+      "collections": "共享空间",
       "apiKeys": "API 密钥",
       "logs": "日志",
       "settings": "设置",
@@ -280,6 +284,62 @@
           "ip": "IP",
           "ua": "UA"
         }
+      }
+    },
+    "collections": {
+      "title": "共享空间",
+      "search": "按房间号搜索…",
+      "empty": "暂无共享空间。",
+      "page": "第 {{page}} / {{total}} 页",
+      "filter": {
+        "active": "活跃",
+        "closed": "已关闭",
+        "expired": "已过期",
+        "all": "全部"
+      },
+      "statuses": {
+        "active": "活跃",
+        "closed": "已关闭",
+        "expired": "已过期"
+      },
+      "visibilities": {
+        "public": "公开",
+        "creator_only": "仅创建者"
+      },
+      "columns": {
+        "code": "房间号",
+        "name": "名称",
+        "created": "创建时间",
+        "expires": "过期时间",
+        "members": "成员数",
+        "files": "文件数",
+        "messages": "留言数",
+        "visibility": "可见性",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "action": {
+        "view": "查看",
+        "close": "关闭",
+        "delete": "删除"
+      },
+      "closeConfirm": {
+        "title": "关闭共享空间?",
+        "bodyPrefix": "确认解散共享空间",
+        "bodySuffix": "?所有在线成员将被断开,房间将被标记为已关闭。数据保留 7 天后彻底删除。",
+        "cancel": "取消",
+        "confirm": "关闭"
+      },
+      "deleteConfirm": {
+        "title": "删除共享空间?",
+        "bodyPrefix": "彻底删除共享空间",
+        "bodySuffix": "?将移除房间、所有成员、所有留言以及全部上传的文件,且无法恢复。",
+        "cancel": "取消",
+        "confirm": "删除"
+      },
+      "toast": {
+        "closed": "共享空间已关闭",
+        "deleted": "共享空间已删除"
       }
     },
     "logs": {
@@ -492,7 +552,8 @@
     "stampSubtitle": "文件 快递柜",
     "preview_pdf": "PDF 预览",
     "copy_link": "复制链接",
-    "loading": "加载中…"
+    "loading": "加载中…",
+    "navLabel": "导航"
   },
   "common": {
     "copy": "复制",

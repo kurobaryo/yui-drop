@@ -3,6 +3,9 @@
     "name": "Yui-Drop",
     "tagline": "ファイル宅配ロッカー"
   },
+  "nav": {
+    "collection": "コレクション"
+  },
   "hero": {
     "badge": "匿名 · アカウント不要",
     "title": "ファイル宅配ロッカー",
@@ -130,6 +133,7 @@
     "nav": {
       "dashboard": "ダッシュボード",
       "files": "ファイル",
+      "collections": "コレクション",
       "apiKeys": "APIキー",
       "logs": "ログ",
       "settings": "設定",
@@ -280,6 +284,62 @@
           "ip": "IP",
           "ua": "UA"
         }
+      }
+    },
+    "collections": {
+      "title": "コレクション",
+      "search": "ルームコードで検索…",
+      "empty": "コレクションはありません。",
+      "page": "{{page}} / {{total}} ページ",
+      "filter": {
+        "active": "有効",
+        "closed": "閉鎖済",
+        "expired": "期限切れ",
+        "all": "すべて"
+      },
+      "statuses": {
+        "active": "有効",
+        "closed": "閉鎖済",
+        "expired": "期限切れ"
+      },
+      "visibilities": {
+        "public": "公開",
+        "creator_only": "作成者のみ"
+      },
+      "columns": {
+        "code": "コード",
+        "name": "名前",
+        "created": "作成日時",
+        "expires": "期限",
+        "members": "メンバー数",
+        "files": "ファイル数",
+        "messages": "メッセージ数",
+        "visibility": "公開範囲",
+        "status": "状態",
+        "actions": "操作"
+      },
+      "action": {
+        "view": "表示",
+        "close": "閉鎖",
+        "delete": "削除"
+      },
+      "closeConfirm": {
+        "title": "コレクションを閉鎖しますか?",
+        "bodyPrefix": "コレクション",
+        "bodySuffix": " を閉鎖します。接続中のメンバーは切断され、ルームは閉鎖状態となります。データは7日間保持された後、完全に削除されます。",
+        "cancel": "キャンセル",
+        "confirm": "閉鎖"
+      },
+      "deleteConfirm": {
+        "title": "コレクションを削除しますか?",
+        "bodyPrefix": "コレクション",
+        "bodySuffix": " を完全に削除します。ルーム、全メンバー、全メッセージ、アップロードされたすべてのファイルが削除され、元に戻せません。",
+        "cancel": "キャンセル",
+        "confirm": "削除"
+      },
+      "toast": {
+        "closed": "コレクションを閉鎖しました",
+        "deleted": "コレクションを削除しました"
       }
     },
     "logs": {
@@ -492,7 +552,8 @@
     "stampSubtitle": "ファイル宅配ボックス",
     "preview_pdf": "PDF プレビュー",
     "copy_link": "リンクをコピー",
-    "loading": "読み込み中…"
+    "loading": "読み込み中…",
+    "navLabel": "ナビゲーション"
   },
   "common": {
     "copy": "コピー",
