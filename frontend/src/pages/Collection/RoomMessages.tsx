@@ -31,6 +31,7 @@ import {
   sendMessage,
 } from '@/lib/api/collection';
 import { ApiError } from '@/lib/api';
+import { safeFormatDateTime } from '@/lib/safeDate';
 import { toast } from '@/components/ui/Toast';
 import type { WashiColors } from '@/variants/washi/palettes';
 
@@ -274,7 +275,7 @@ export function RoomMessages({
                       {m.nickname}
                     </span>
                     <span>·</span>
-                    <span>{new Date(m.created_at).toLocaleString()}</span>
+                    <span>{safeFormatDateTime(m.created_at)}</span>
                   </div>
                   <div
                     style={{

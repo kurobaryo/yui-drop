@@ -627,22 +627,28 @@ function collectionChunkedTransport(
         content_type: file.type || null,
         chunk_size: COLLECTION_CHUNK_SIZE,
       });
+      lastFileId = r.file_id;
       return {
         upload_id: r.upload_id,
         total_chunks: r.total_chunks,
         uploaded_chunks: r.uploaded_chunks ?? [],
       };
     },
-    part: (uploadId, idx, blob, onProgress, signal) =>
-      collectionFilePart(
+    part: (uploadId, idx, blob, onProgress, signal) => {
+      if (lastFileId == null) {
+        throw new Error('collection upload: file_id missing — init() must run before part()');
+      }
+      return collectionFilePart(
         code,
         uploadId,
+        lastFileId,
         memberToken,
         idx,
         blob,
         (loaded) => onProgress(loaded),
         signal,
-      ),
+      );
+    },
     complete: async (uploadId) => {
       const r = await collectionFileComplete(code, uploadId, memberToken, {});
       lastFileId = r.file_id;
