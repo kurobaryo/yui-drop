@@ -792,7 +792,11 @@
       "lifetimePermanent": "永久",
       "customDaysUnit": "天",
       "submit": "创建",
-      "submitting": "正在创建…"
+      "submitting": "正在创建…",
+      "sectionRoom": "房间",
+      "expiresPreview": "房间将在 {{date}} 到期。",
+      "expiresPreviewPermanent": "此房间不会自动到期。",
+      "expiresPreviewInvalid": "请输入 1 到 365 之间的天数。"
     },
     "room": {
       "loading": "加载中…",
