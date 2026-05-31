@@ -158,6 +158,16 @@ function SharesSection({
   onCopyLink,
 }: SharesProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  // Route per share kind:
+  //   text  -> /v/{code}   (view text)
+  //   multi -> /m/{code}   (multi-file pickup)
+  //   file  -> /s/{code}   (single-file pickup, default fallback)
+  const pickupPath = (item: RecentEntry): string => {
+    if (item.kind === 'text') return `/v/${item.code}`;
+    if (item.kind === 'multi') return `/m/${item.code}`;
+    return `/s/${item.code}`;
+  };
   return (
     <section>
       <SectionHeader
@@ -187,23 +197,44 @@ function SharesSection({
             <div
               key={item.code + item.created_at}
               data-yui="recent-row"
+              onClick={() => navigate(pickupPath(item))}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 14,
                 padding: '12px 16px',
                 borderTop: i > 0 ? `1px solid ${c.soft}` : 'none',
+                cursor: 'pointer',
                 transition: 'background .15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = `${c.accent}08`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
               }}
             >
               <CodeChip code={item.code} c={c} />
-              <div style={{ flex: 1, fontSize: 14 }}>{displayName}</div>
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: 14,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={displayName}
+              >
+                {displayName}
+              </div>
               <div
                 style={{
                   fontFamily: '"JetBrains Mono", monospace',
                   fontSize: 12,
                   color: c.sub,
                   whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 {sizeBytes > 0 ? fmtSize(sizeBytes) : ''}
@@ -215,6 +246,7 @@ function SharesSection({
                   minWidth: 60,
                   textAlign: 'right',
                   whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 {expiryShort(item.expires_at)} {t('washi.remaining')}
@@ -222,7 +254,10 @@ function SharesSection({
               <SmallBtn
                 c={c}
                 active={copiedCode === item.code}
-                onClick={() => onCopy(item.code)}
+                onClick={(e) => {
+                  e?.stopPropagation();
+                  onCopy(item.code);
+                }}
                 label={
                   copiedCode === item.code
                     ? '✓ ' + t('washi.copied')
@@ -232,7 +267,10 @@ function SharesSection({
               <SmallBtn
                 c={c}
                 active={copiedLink === item.code}
-                onClick={() => onCopyLink(item.code)}
+                onClick={(e) => {
+                  e?.stopPropagation();
+                  onCopyLink(item.code);
+                }}
                 label={
                   copiedLink === item.code
                     ? '✓ ' + t('washi.copied')
@@ -307,7 +345,17 @@ function CollectionsSection({
             }}
           >
             <CodeChip code={item.code} c={c} />
-            <div style={{ flex: 1, fontSize: 14 }}>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 14,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+              title={item.name || t('washi.collectionUnnamed')}
+            >
               {item.name || t('washi.collectionUnnamed')}
             </div>
             <div
