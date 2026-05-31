@@ -20,6 +20,11 @@ export interface PickupModalProps {
   c: WashiColors;
   item: ShareSelectResponse;
   onClose: () => void;
+  /** Override the "copy share link" path. Defaults to `/s/{item.code}` for the
+   * pickup flow. Pass `/c/{roomCode}` when opening the modal from inside a
+   * collection room so the copied link points back at the room, not at a
+   * non-existent pickup code. Pass `null` to hide the copy-link button entirely. */
+  shareLinkPath?: string | null;
 }
 
 type Classified = 'image' | 'pdf' | 'video' | 'audio' | 'text' | 'other';
@@ -81,7 +86,7 @@ function expiresLabel(
   return `${Math.floor(sec / 60)}m`;
 }
 
-export function PickupModal({ c, item, onClose }: PickupModalProps) {
+export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -156,7 +161,10 @@ export function PickupModal({ c, item, onClose }: PickupModalProps) {
         typeof window !== 'undefined' && window.location
           ? window.location.origin
           : '';
-      await navigator.clipboard?.writeText(`${origin}/s/${item.code}`);
+      // Collection-room callers pass `/c/{roomCode}` so the copied link
+      // points back at the room rather than at a non-existent pickup code.
+      const path = shareLinkPath ?? `/s/${item.code}`;
+      await navigator.clipboard?.writeText(`${origin}${path}`);
       setLinkCopied(true);
       window.setTimeout(() => setLinkCopied(false), 1500);
     } catch {
