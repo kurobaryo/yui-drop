@@ -650,8 +650,12 @@ function collectionChunkedTransport(
       );
     },
     complete: async (uploadId) => {
-      const r = await collectionFileComplete(code, uploadId, memberToken, {});
-      lastFileId = r.file_id;
+      if (lastFileId == null) {
+        throw new Error('collection upload: file_id missing — init() must run before complete()');
+      }
+      const r = await collectionFileComplete(code, uploadId, lastFileId, memberToken, {});
+      // Backend canonical is `id`; tolerate legacy `file_id`.
+      lastFileId = r.id ?? r.file_id ?? lastFileId;
       // `code` is the room code, kept on the UploadResult envelope for
       // logging parity; the meaningful id is the file id below.
       return { code, name: r.name, size: r.size };
@@ -679,6 +683,7 @@ function collectionPresignedTransport(
         // For S3 the server treats `chunk_size` as the desired part size.
         chunk_size: PRESIGN_PART_SIZE,
       });
+      lastFileId = r.file_id;
       return {
         upload_id: r.upload_id,
         part_size: r.part_size,
@@ -686,19 +691,26 @@ function collectionPresignedTransport(
       };
     },
     signPart: async (uploadId, partNumber) => {
+      if (lastFileId == null) {
+        throw new Error('collection upload: file_id missing — init() must run before signPart()');
+      }
       const r = await collectionFileSignPart(
         code,
         uploadId,
+        lastFileId,
         memberToken,
         partNumber,
       );
       return { url: r.url, headers: r.headers };
     },
     complete: async (uploadId, parts) => {
-      const r = await collectionFileComplete(code, uploadId, memberToken, {
+      if (lastFileId == null) {
+        throw new Error('collection upload: file_id missing — init() must run before complete()');
+      }
+      const r = await collectionFileComplete(code, uploadId, lastFileId, memberToken, {
         parts,
       });
-      lastFileId = r.file_id;
+      lastFileId = r.id ?? r.file_id ?? lastFileId;
       return { code, name: r.name, size: r.size };
     },
     cancel: async () => {

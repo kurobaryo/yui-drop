@@ -373,13 +373,21 @@ export interface CollectionSignPartResponse {
 export async function collectionFileSignPart(
   code: string,
   uploadId: string,
+  fileId: number,
   memberToken: string,
   partNumber: number,
 ): Promise<CollectionSignPartResponse> {
+  // Backend route: POST /collections/{code}/files/{file_id}/sign-part/{part_number}
+  // upload_id travels as a query-string parameter (the route reads it that way
+  // because the multipart upload_id is the long opaque S3 handle, not a path
+  // segment). Passing uploadId in the path slot returns 405 Method Not Allowed.
   const { data } = await api.post<CollectionSignPartResponse>(
-    `/collections/${code}/files/${uploadId}/sign-part`,
-    { part_number: partNumber },
-    { headers: memberAuth(memberToken) },
+    `/collections/${code}/files/${fileId}/sign-part/${partNumber}`,
+    {},
+    {
+      headers: memberAuth(memberToken),
+      params: { upload_id: uploadId },
+    },
   );
   return data;
 }
@@ -421,22 +429,32 @@ export interface CollectionFileCompleteRequest {
 }
 
 export interface CollectionFileCompleteResponse {
-  file_id: number;
+  // Backend returns ``id`` (the CollectionFile primary key); ``file_id``
+  // is the legacy alias we used to publish — keep both readable so older
+  // frontend code keeps compiling while we migrate.
+  id: number;
+  file_id?: number;
   name: string;
   size: number;
   content_type: string | null;
-  created_at: string;
+  member_id?: number;
+  created_at?: string;
 }
 
 export async function collectionFileComplete(
   code: string,
   uploadId: string,
+  fileId: number,
   memberToken: string,
   body: CollectionFileCompleteRequest,
 ): Promise<CollectionFileCompleteResponse> {
+  // Backend wants the numeric file_id in the path slot and the opaque
+  // multipart upload_id inside the JSON body. Mixing the two yields a
+  // 404 (file_id parse) or a 422 (missing upload_id field).
+  const payload = { ...body, upload_id: uploadId };
   const { data } = await api.post<CollectionFileCompleteResponse>(
-    `/collections/${code}/files/${uploadId}/complete`,
-    body,
+    `/collections/${code}/files/${fileId}/complete`,
+    payload,
     { headers: memberAuth(memberToken) },
   );
   return data;
