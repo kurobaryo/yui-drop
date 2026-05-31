@@ -206,7 +206,12 @@ export function WashiApp() {
           [data-yui="two-col"] { grid-template-columns: 1fr !important; gap: 18px !important; }
           [data-yui="recent-meta"] { flex-shrink: 0; }
           [data-yui="recent-copy"] { flex-shrink: 0; white-space: nowrap; }
-          [data-yui="footer"] { flex-direction: column; align-items: flex-start !important; gap: 10px; }
+          /* Footer stays in a single row (with flex-wrap) on mobile so
+             the left credit and right link group share the same height
+             instead of stacking into a tall vertical column where the
+             two halves visually look uneven. Footer.tsx already declares
+             flex-wrap: wrap so this collapses to two centered lines on
+             truly narrow viewports. */
           [data-yui="modal-shell"] { padding: 12px !important; }
           [data-yui="modal-card"] { max-height: 92vh !important; }
           [data-yui="settings-label"] { display: none; }
