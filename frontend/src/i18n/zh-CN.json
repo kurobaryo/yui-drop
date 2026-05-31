@@ -844,6 +844,7 @@
       "createFailed": "创建房间失败。",
       "deleteFailed": "删除失败。",
       "uploadDisabled": "上传已暂停。",
+      "downloadFailed": "下载失败",
       "sseDisconnected": "连接中断 — 正在重连…",
       "serverError": "服务器错误,请重试。",
       "adminPasswordTooShort": "管理密码至少需要 4 位。",

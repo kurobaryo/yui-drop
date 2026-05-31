@@ -844,6 +844,7 @@
       "createFailed": "部屋の作成に失敗しました。",
       "deleteFailed": "削除に失敗しました。",
       "uploadDisabled": "アップロードは停止中です。",
+      "downloadFailed": "ダウンロードに失敗しました",
       "sseDisconnected": "切断 — 再接続中…",
       "serverError": "サーバーエラーです。再試行してください。",
       "adminPasswordTooShort": "管理パスワードは 4 文字以上必要です。",

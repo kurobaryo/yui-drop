@@ -259,16 +259,33 @@ export async function triggerFileDownload(
   fileId: number,
   memberToken: string,
 ): Promise<void> {
+  const url = await resolveFileDownloadUrl(code, fileId, memberToken);
+  // Open in a new tab so the current room/timeline stays mounted. The blob
+  // endpoint sends `Content-Disposition: attachment` so the browser saves
+  // the file and closes the tab automatically on most platforms.
+  window.open(url, '_blank', 'noopener');
+}
+
+/** Resolve-only sibling of :func:`triggerFileDownload`. Returns the inner
+ * download URL without navigating, so callers can hand it to `<img src>`,
+ * `<iframe src>`, `<video src>`, an in-page preview modal, or any other
+ * consumer that wants the bytes directly.
+ *
+ * Same backend contract as triggerFileDownload — calls the resolver, reads
+ * the JSON envelope, returns the absolute URL. Throws on resolver error
+ * (404 file_not_yet_uploaded for orphan rows, etc.). */
+export async function resolveFileDownloadUrl(
+  code: string,
+  fileId: number,
+  memberToken: string,
+): Promise<string> {
   const { data } = await api.get<{ download_url: string; expires_in: number }>(
     `/collections/${code}/files/${fileId}/download`,
     { headers: memberAuth(memberToken) },
   );
   const url = data?.download_url;
   if (!url) throw new Error('download URL missing in resolver response');
-  // Open in a new tab so the current room/timeline stays mounted. The blob
-  // endpoint sends `Content-Disposition: attachment` so the browser saves
-  // the file and closes the tab automatically on most platforms.
-  window.open(url, '_blank', 'noopener');
+  return url;
 }
 
 // ─── Admin operations ──────────────────────────────────────────────────────

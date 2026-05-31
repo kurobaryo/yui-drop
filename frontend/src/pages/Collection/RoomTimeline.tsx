@@ -29,8 +29,7 @@ import {
   type CollectionMessage,
   deleteFile,
   deleteMessage,
-  fileDownloadUrl,
-  triggerFileDownload,
+  resolveFileDownloadUrl,
   listFiles,
   listMessages,
   sendMessage,
@@ -44,6 +43,8 @@ import { safeFormatTime } from '@/lib/safeDate';
 import { toast } from '@/components/ui/Toast';
 import { useCollectionMemberStore } from '@/stores/collectionMember';
 import type { WashiColors } from '@/variants/washi/palettes';
+import { PickupModal } from '@/variants/washi/tabs/PickupModal';
+import type { ShareSelectResponse } from '@/lib/api/share';
 import { fmtSize } from '@/variants/washi/utils';
 
 const FIVE_MIN_MS = 5 * 60 * 1000;
@@ -132,6 +133,55 @@ export function RoomTimeline({
   // so the user sees their own name on the card the moment they pick a file.
   const myNickname = useCollectionMemberStore(
     (s) => s.members[code]?.nickname ?? '',
+  );
+
+  // ── Preview modal state ──────────────────────────────────────────────
+  // Reuse the same PickupModal used by the /s/{code} pickup flow so the
+  // in-room "click a file to preview" experience matches the pickup UX
+  // 1:1 (image / pdf / video / audio / text / fallback) without re-rolling
+  // a separate viewer. The adapter sits inline below — see openPreview.
+  const [previewItem, setPreviewItem] = useState<ShareSelectResponse | null>(null);
+  const [previewBusy, setPreviewBusy] = useState<number | null>(null);
+
+  const openPreview = useCallback(
+    async (fileItem: TimelineItem) => {
+      if (fileItem.kind !== 'file' || typeof fileItem.id !== 'number') return;
+      const fileId = fileItem.id;
+      setPreviewBusy(fileId);
+      try {
+        // Resolve the actual storage URL (presigned R2 GET, or same-origin
+        // /blob?token=<jwt> for the local backend). The resolver is the
+        // single source of truth — it also surfaces orphan-row 404s as
+        // file_not_yet_uploaded so we don't render NoSuchKey XML in an
+        // image tag.
+        const url = await resolveFileDownloadUrl(code, fileId, memberToken);
+        // Adapt CollectionFile -> ShareSelectResponse. Only fields the
+        // modal actually reads are populated; expired_at/expired_count
+        // are pickup-flow concepts that don't apply inside a room, so
+        // we feed sentinel values that render as "∞" in the footer.
+        const adapted: ShareSelectResponse = {
+          code: fileItem.id.toString(),  // header shows #<n>; room code goes in copy-link
+          kind: 'file',
+          name: fileItem.name ?? null,
+          size: fileItem.size ?? null,
+          text: null,
+          url,
+          content_type: fileItem.content_type ?? null,
+          force_download: false,
+          expired_at: null,
+          expired_count: -1,
+          used_count: 0,
+        };
+        setPreviewItem(adapted);
+      } catch (err) {
+        const msg =
+          err instanceof ApiError ? err.message : t('collection.errors.downloadFailed');
+        toast.error(msg);
+      } finally {
+        setPreviewBusy(null);
+      }
+    },
+    [code, memberToken, t],
   );
 
   // ── Initial fetch (parallel) ─────────────────────────────────────────
@@ -440,8 +490,6 @@ export function RoomTimeline({
               key={`${it.kind}-${it.id}`}
               c={c}
               item={it}
-              code={code}
-              memberToken={memberToken}
               canDelete={
                 it.kind === 'message'
                   ? canDeleteMessage(it)
@@ -458,6 +506,8 @@ export function RoomTimeline({
                 // pending-upload: no delete affordance (the upload is in
                 // flight; cancellation is not yet plumbed through).
               }}
+              onOpenFile={(item) => { void openPreview(item); }}
+              busyFileId={previewBusy}
             />
           ))
         )}
@@ -575,6 +625,17 @@ export function RoomTimeline({
           {t('collection.timeline.dropHere')}
         </div>
       )}
+      {previewItem && (
+        <PickupModal
+          c={c}
+          item={previewItem}
+          onClose={() => setPreviewItem(null)}
+          // Inside a room, "copy share link" should copy the room URL,
+          // not a /s/{code} pickup URL (item.code is the file id, not a
+          // pickup code — see openPreview adapter).
+          shareLinkPath={`/c/${code}`}
+        />
+      )}
     </div>
   );
 }
@@ -584,13 +645,13 @@ export function RoomTimeline({
 interface RowProps {
   c: WashiColors;
   item: TimelineItem;
-  code: string;
-  memberToken: string;
   canDelete: boolean;
   onDelete: () => void;
+  onOpenFile: (item: TimelineItem) => void;
+  busyFileId: number | null;
 }
 
-function Row({ c, item, code, memberToken, canDelete, onDelete }: RowProps) {
+function Row({ c, item, canDelete, onDelete, onOpenFile, busyFileId }: RowProps) {
   const [hover, setHover] = useState(false);
 
   const ts = useMemo(() => safeFormatTime(item.created_at), [item.created_at]);
@@ -632,7 +693,12 @@ function Row({ c, item, code, memberToken, canDelete, onDelete }: RowProps) {
       ) : item.kind === 'pending-upload' ? (
         <PendingFileCard c={c} item={item} />
       ) : (
-        <FileCard c={c} item={item} code={code} memberToken={memberToken} />
+        <FileCard
+          c={c}
+          item={item}
+          onOpen={onOpenFile}
+          busy={typeof item.id === 'number' && busyFileId === item.id}
+        />
       )}
       {canDelete && hover && (
         <button
@@ -670,35 +736,28 @@ function Row({ c, item, code, memberToken, canDelete, onDelete }: RowProps) {
 function FileCard({
   c,
   item,
-  code,
-  memberToken,
+  onOpen,
+  busy,
 }: {
   c: WashiColors;
   item: TimelineItem;
-  code: string;
-  memberToken: string;
+  onOpen: (item: TimelineItem) => void;
+  busy: boolean;
 }) {
   // FileCard is only mounted for kind === 'file' (see Row), where id is
   // always numeric. Narrow once at the boundary so the rest of the body
   // doesn't have to repeat the assertion.
   if (typeof item.id !== 'number') return null;
-  const fileId = item.id;
-  const url = fileDownloadUrl(code, fileId, memberToken);
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(e) => {
-        // Bypass the direct-anchor navigation: the resolver returns JSON
-        // (rendered as raw text otherwise). Resolve then open the real
-        // download URL — see triggerFileDownload doc string.
-        e.preventDefault();
-        triggerFileDownload(code, fileId, memberToken).catch(() => {
-          // Fall back to opening the resolver URL anyway so an error is
-          // visible to the user as a JSON envelope rather than silent.
-          window.open(url, '_blank', 'noopener');
-        });
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(item)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(item);
+        }
       }}
       style={{
         display: 'flex',
@@ -711,9 +770,13 @@ function FileCard({
         textDecoration: 'none',
         color: c.ink,
         maxWidth: 420,
-        transition: 'background .15s, border-color .15s',
+        cursor: busy ? 'wait' : 'pointer',
+        opacity: busy ? 0.65 : 1,
+        transition: 'background .15s, border-color .15s, opacity .15s',
+        outline: 'none',
       }}
       onMouseEnter={(e) => {
+        if (busy) return;
         e.currentTarget.style.background = `${c.accent}10`;
         e.currentTarget.style.borderColor = c.accent;
       }}
@@ -751,7 +814,7 @@ function FileCard({
         <div style={{ fontSize: 11, color: c.sub }}>{fmtSize(item.size ?? 0)}</div>
       </div>
       <Download size={16} style={{ color: c.sub, flexShrink: 0 }} />
-    </a>
+    </div>
   );
 }
 
