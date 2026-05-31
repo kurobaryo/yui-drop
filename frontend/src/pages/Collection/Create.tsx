@@ -11,6 +11,12 @@
  * On submit → POST /api/collections, then navigate to `/c/{code}`. The first
  * join is performed inside Room.tsx (so the creator gets a normal
  * member_token; admin status is later acquired via /admin/verify).
+ *
+ * Layout (v0.3.9): two-column grid matching SendFile/SendText. Left card holds
+ * room identity (name + visibility + passwords); right card holds lifetime
+ * choice. The CTA spans both columns underneath. This keeps the page visually
+ * "of a piece" with the rest of the washi tabs — uppercase section labels,
+ * the same border/padding/radius treatment, the same `Forge … →` button voice.
  */
 import {
   useState,
@@ -49,37 +55,62 @@ function Inner({ c }: { c: WashiColors }) {
   const [customDays, setCustomDays] = useState('14');
   const [submitting, setSubmitting] = useState(false);
 
-  const sectionStyle: CSSProperties = {
+  // Mirrors the parts/Expiry treatment in SendFile / SendText so all
+  // three forms read as the same family. Soft cream block, uppercase
+  // 12px section label, 10–18px padding.
+  const cardStyle: CSSProperties = {
     border: `1px solid ${c.soft}`,
-    borderRadius: 12,
-    padding: '18px 20px',
-    marginTop: 16,
+    borderRadius: 10,
+    padding: 18,
+    background: `${c.ink}04`,
   };
-  const labelStyle: CSSProperties = {
-    fontSize: 13,
+
+  // Same as parts/Expiry's section header (e.g. "EXPIRY").
+  const sectionLabelStyle: CSSProperties = {
+    fontSize: 12,
     color: c.sub,
-    letterSpacing: '0.06em',
-    marginBottom: 8,
-    display: 'block',
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    marginBottom: 12,
   };
+
+  const fieldLabelStyle: CSSProperties = {
+    display: 'block',
+    fontSize: 11,
+    color: c.sub,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    marginTop: 16,
+    marginBottom: 6,
+  };
+
+  // First field label inside a card — no top margin so it sits directly
+  // under the section title.
+  const fieldLabelFirstStyle: CSSProperties = {
+    ...fieldLabelStyle,
+    marginTop: 0,
+  };
+
   const inputStyle: CSSProperties = {
     width: '100%',
-    height: 42,
+    height: 38,
     border: `1px solid ${c.soft}`,
-    borderRadius: 8,
+    borderRadius: 6,
     background: 'transparent',
     color: c.ink,
-    padding: '0 12px',
-    fontSize: 14,
+    padding: '0 10px',
+    fontSize: 13,
     boxSizing: 'border-box',
     outline: 'none',
+    fontFamily: 'inherit',
   };
-  const inputWithToggle: CSSProperties = { ...inputStyle, paddingRight: 40 };
-  const radioRowStyle: CSSProperties = {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 14,
-    rowGap: 10,
+  const inputWithToggle: CSSProperties = { ...inputStyle, paddingRight: 36 };
+
+  const helperStyle: CSSProperties = {
+    fontSize: 11,
+    color: c.sub,
+    marginTop: 6,
+    lineHeight: 1.5,
   };
 
   const onSubmit = async (e: FormEvent) => {
@@ -161,224 +192,322 @@ function Inner({ c }: { c: WashiColors }) {
         color: active ? '#fff' : c.ink,
         fontSize: 13,
         cursor: 'pointer',
+        fontFamily: 'inherit',
       }}
     >
       {children}
     </button>
   );
 
+  // Lifetime preset tile — matches the date-grid look in parts/Expiry.
+  const PresetTile = ({
+    active,
+    onClick,
+    children,
+  }: {
+    active: boolean;
+    onClick: () => void;
+    children: ReactNode;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: '10px 8px',
+        border: `1px solid ${active ? c.accent : c.soft}`,
+        background: active ? `${c.accent}15` : 'transparent',
+        color: active ? c.accent : c.ink,
+        borderRadius: 6,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        fontSize: 12,
+        fontWeight: 500,
+      }}
+    >
+      {children}
+    </button>
+  );
+
+  const canSubmit = adminPassword.length >= 4 && !submitting;
+
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto' }}>
+    <div>
       <h1
         style={{
           fontFamily: '"Noto Serif JP", "Noto Serif SC", serif',
-          fontSize: 36,
+          fontSize: 32,
           margin: 0,
-          marginBottom: 6,
+          marginBottom: 4,
         }}
       >
         {t('collection.create.title')}
       </h1>
-      <p style={{ color: c.sub, fontSize: 14, marginTop: 0, marginBottom: 10 }}>
+      <p style={{ color: c.sub, fontSize: 13, marginTop: 0, marginBottom: 24 }}>
         {t('collection.create.subtitle')}
       </p>
 
       <form onSubmit={onSubmit}>
-        <div style={sectionStyle}>
-          <label style={labelStyle}>{t('collection.create.nameLabel')}</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={80}
-            placeholder={t('collection.create.namePlaceholder') ?? ''}
-            style={inputStyle}
-          />
-        </div>
+        <div
+          data-yui="two-col"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1.2fr 1fr',
+            gap: 28,
+            alignItems: 'stretch',
+          }}
+        >
+          {/* Left card — ROOM */}
+          <div style={cardStyle}>
+            <div style={sectionLabelStyle}>
+              {t('collection.create.sectionRoom')}
+            </div>
 
-        <div style={sectionStyle}>
-          <label style={labelStyle}>
-            {t('collection.create.visibilityLabel')}
-          </label>
-          <div style={radioRowStyle}>
-            <Pill
-              active={visibility === 'public'}
-              onClick={() => setVisibility('public')}
-            >
-              {t('collection.create.visibilityPublic')}
-            </Pill>
-            <Pill
-              active={visibility === 'creator_only'}
-              onClick={() => setVisibility('creator_only')}
-            >
-              {t('collection.create.visibilityCreatorOnly')}
-            </Pill>
-          </div>
-          <div style={{ fontSize: 12, color: c.sub, marginTop: 10 }}>
-            {visibility === 'public'
-              ? t('collection.create.visibilityPublicHint')
-              : t('collection.create.visibilityCreatorOnlyHint')}
-          </div>
-        </div>
-
-        <div style={sectionStyle}>
-          <label style={labelStyle}>
-            {t('collection.create.entryPasswordLabel')}
-          </label>
-          <div style={{ position: 'relative' }}>
+            <label style={fieldLabelFirstStyle}>
+              {t('collection.create.nameLabel')}
+            </label>
             <input
-              type={showEntryPw ? 'text' : 'password'}
-              value={entryPassword}
-              onChange={(e) => setEntryPassword(e.target.value)}
-              autoComplete="new-password"
-              placeholder={t('collection.create.entryPasswordPlaceholder') ?? ''}
-              style={inputWithToggle}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={80}
+              placeholder={t('collection.create.namePlaceholder') ?? ''}
+              style={inputStyle}
             />
-            <button
-              type="button"
-              aria-label={showEntryPw ? 'hide' : 'show'}
-              onClick={() => setShowEntryPw((v) => !v)}
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                height: 42,
-                width: 40,
-                border: 'none',
-                background: 'transparent',
-                color: c.sub,
-                cursor: 'pointer',
-              }}
-            >
-              {showEntryPw ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-        </div>
 
-        <div style={sectionStyle}>
-          <label style={labelStyle}>
-            {t('collection.create.adminPasswordLabel')}
-          </label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={showAdminPw ? 'text' : 'password'}
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
-              autoComplete="new-password"
-              required
-              minLength={4}
-              placeholder={t('collection.create.adminPasswordPlaceholder') ?? ''}
-              style={inputWithToggle}
-            />
-            <button
-              type="button"
-              aria-label={showAdminPw ? 'hide' : 'show'}
-              onClick={() => setShowAdminPw((v) => !v)}
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                height: 42,
-                width: 40,
-                border: 'none',
-                background: 'transparent',
-                color: c.sub,
-                cursor: 'pointer',
-              }}
-            >
-              {showAdminPw ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-          <div style={{ fontSize: 12, color: c.sub, marginTop: 6 }}>
-            {t('collection.create.adminPasswordHint')}
-          </div>
-        </div>
+            <label style={fieldLabelStyle}>
+              {t('collection.create.visibilityLabel')}
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <Pill
+                active={visibility === 'public'}
+                onClick={() => setVisibility('public')}
+              >
+                {t('collection.create.visibilityPublic')}
+              </Pill>
+              <Pill
+                active={visibility === 'creator_only'}
+                onClick={() => setVisibility('creator_only')}
+              >
+                {t('collection.create.visibilityCreatorOnly')}
+              </Pill>
+            </div>
+            <div style={helperStyle}>
+              {visibility === 'public'
+                ? t('collection.create.visibilityPublicHint')
+                : t('collection.create.visibilityCreatorOnlyHint')}
+            </div>
 
-        <div style={sectionStyle}>
-          <label style={labelStyle}>
-            {t('collection.create.lifetimeLabel')}
-          </label>
-          <div style={radioRowStyle}>
-            <Pill
-              active={lifetimePreset === '1'}
-              onClick={() => setLifetimePreset('1')}
-            >
-              {t('collection.create.lifetime1d')}
-            </Pill>
-            <Pill
-              active={lifetimePreset === '7'}
-              onClick={() => setLifetimePreset('7')}
-            >
-              {t('collection.create.lifetime7d')}
-            </Pill>
-            <Pill
-              active={lifetimePreset === '30'}
-              onClick={() => setLifetimePreset('30')}
-            >
-              {t('collection.create.lifetime30d')}
-            </Pill>
-            <Pill
-              active={lifetimePreset === '365'}
-              onClick={() => setLifetimePreset('365')}
-            >
-              {t('collection.create.lifetime365d')}
-            </Pill>
-            <Pill
-              active={lifetimePreset === 'custom'}
-              onClick={() => setLifetimePreset('custom')}
-            >
-              {t('collection.create.lifetimeCustom')}
-            </Pill>
-            <Pill
-              active={lifetimePreset === 'permanent'}
-              onClick={() => setLifetimePreset('permanent')}
-            >
-              {t('collection.create.lifetimePermanent')}
-            </Pill>
+            <label style={fieldLabelStyle}>
+              {t('collection.create.entryPasswordLabel')}
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showEntryPw ? 'text' : 'password'}
+                value={entryPassword}
+                onChange={(e) => setEntryPassword(e.target.value)}
+                autoComplete="new-password"
+                placeholder={t('collection.create.entryPasswordPlaceholder') ?? ''}
+                style={inputWithToggle}
+              />
+              <button
+                type="button"
+                aria-label={showEntryPw ? 'hide' : 'show'}
+                onClick={() => setShowEntryPw((v) => !v)}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  height: 38,
+                  width: 36,
+                  border: 'none',
+                  background: 'transparent',
+                  color: c.sub,
+                  cursor: 'pointer',
+                }}
+              >
+                {showEntryPw ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+
+            <label style={fieldLabelStyle}>
+              {t('collection.create.adminPasswordLabel')}
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showAdminPw ? 'text' : 'password'}
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+                minLength={4}
+                placeholder={t('collection.create.adminPasswordPlaceholder') ?? ''}
+                style={inputWithToggle}
+              />
+              <button
+                type="button"
+                aria-label={showAdminPw ? 'hide' : 'show'}
+                onClick={() => setShowAdminPw((v) => !v)}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  height: 38,
+                  width: 36,
+                  border: 'none',
+                  background: 'transparent',
+                  color: c.sub,
+                  cursor: 'pointer',
+                }}
+              >
+                {showAdminPw ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            <div style={helperStyle}>
+              {t('collection.create.adminPasswordHint')}
+            </div>
           </div>
-          {lifetimePreset === 'custom' && (
+
+          {/* Right card — LIFETIME (mirrors parts/Expiry visually) */}
+          <div style={cardStyle}>
+            <div style={sectionLabelStyle}>
+              {t('collection.create.lifetimeLabel')}
+            </div>
+
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                marginTop: 12,
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: 6,
               }}
             >
-              <input
-                type="number"
-                min={1}
-                max={365}
-                value={customDays}
-                onChange={(e) => setCustomDays(e.target.value)}
-                style={{ ...inputStyle, width: 120 }}
-              />
-              <span style={{ color: c.sub, fontSize: 13 }}>
-                {t('collection.create.customDaysUnit')}
-              </span>
+              <PresetTile
+                active={lifetimePreset === '1'}
+                onClick={() => setLifetimePreset('1')}
+              >
+                {t('collection.create.lifetime1d')}
+              </PresetTile>
+              <PresetTile
+                active={lifetimePreset === '7'}
+                onClick={() => setLifetimePreset('7')}
+              >
+                {t('collection.create.lifetime7d')}
+              </PresetTile>
+              <PresetTile
+                active={lifetimePreset === '30'}
+                onClick={() => setLifetimePreset('30')}
+              >
+                {t('collection.create.lifetime30d')}
+              </PresetTile>
+              <PresetTile
+                active={lifetimePreset === '365'}
+                onClick={() => setLifetimePreset('365')}
+              >
+                {t('collection.create.lifetime365d')}
+              </PresetTile>
+              <PresetTile
+                active={lifetimePreset === 'permanent'}
+                onClick={() => setLifetimePreset('permanent')}
+              >
+                {t('collection.create.lifetimePermanent')}
+              </PresetTile>
+              <PresetTile
+                active={lifetimePreset === 'custom'}
+                onClick={() => setLifetimePreset('custom')}
+              >
+                {t('collection.create.lifetimeCustom')}
+              </PresetTile>
             </div>
-          )}
+
+            {lifetimePreset === 'custom' && (
+              <div
+                style={{
+                  marginTop: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <span style={{ fontSize: 11, color: c.sub }}>
+                  {t('washi.customDays')}:
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={customDays}
+                  onChange={(e) => setCustomDays(e.target.value)}
+                  placeholder="—"
+                  style={{
+                    flex: 1,
+                    padding: '7px 10px',
+                    border: `1px solid ${c.soft}`,
+                    background: 'transparent',
+                    color: c.ink,
+                    borderRadius: 6,
+                    fontFamily: 'inherit',
+                    fontSize: 13,
+                    outline: 'none',
+                  }}
+                />
+                <span style={{ fontSize: 11, color: c.sub }}>
+                  {t('collection.create.customDaysUnit')}
+                </span>
+              </div>
+            )}
+
+            {/* Expiry preview — gives the right column a footer to match
+                the helper text on the left column, and surfaces a real
+                date so the user knows what they just picked. */}
+            <div style={{ ...helperStyle, marginTop: 14 }}>
+              {(() => {
+                if (lifetimePreset === 'permanent') {
+                  return t('collection.create.expiresPreviewPermanent');
+                }
+                let days: number;
+                if (lifetimePreset === 'custom') {
+                  const n = parseInt(customDays, 10);
+                  if (!Number.isFinite(n) || n < 1) {
+                    return t('collection.create.expiresPreviewInvalid');
+                  }
+                  days = Math.min(n, 365);
+                } else {
+                  days = parseInt(lifetimePreset, 10);
+                }
+                const dt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+                const formatted = dt.toLocaleDateString(undefined, {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                });
+                return t('collection.create.expiresPreview', {
+                  date: formatted,
+                });
+              })()}
+            </div>
+          </div>
         </div>
 
+        {/* Full-width CTA — matches the SendFile "Forge code →" voice. */}
         <button
           type="submit"
-          disabled={submitting}
+          disabled={!canSubmit}
           style={{
-            marginTop: 22,
+            marginTop: 20,
             width: '100%',
-            height: 50,
+            padding: '14px 18px',
+            background: canSubmit ? c.accent : c.soft,
+            color: canSubmit ? c.paper : c.sub,
             border: 'none',
-            borderRadius: 10,
-            background: c.accent,
-            color: '#fff',
+            borderRadius: 8,
+            cursor: canSubmit ? 'pointer' : (submitting ? 'wait' : 'not-allowed'),
+            fontFamily: 'inherit',
+            fontWeight: 600,
             fontSize: 15,
-            letterSpacing: '0.06em',
-            cursor: submitting ? 'wait' : 'pointer',
-            opacity: submitting ? 0.6 : 1,
+            opacity: submitting ? 0.7 : 1,
           }}
         >
           {submitting
             ? t('collection.create.submitting')
-            : t('collection.create.submit')}
+            : `${t('collection.create.submit')}  →`}
         </button>
       </form>
     </div>

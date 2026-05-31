@@ -793,7 +793,11 @@
       "lifetimePermanent": "Permanent",
       "customDaysUnit": "days",
       "submit": "Create",
-      "submitting": "Creating…"
+      "submitting": "Creating…",
+      "sectionRoom": "Room",
+      "expiresPreview": "Room will expire on {{date}}.",
+      "expiresPreviewPermanent": "This room will not expire.",
+      "expiresPreviewInvalid": "Enter a number of days between 1 and 365."
     },
     "room": {
       "loading": "Loading…",
