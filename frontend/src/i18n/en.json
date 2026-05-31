@@ -845,6 +845,7 @@
       "createFailed": "Could not create the room.",
       "deleteFailed": "Could not delete.",
       "uploadDisabled": "Uploads are paused.",
+      "downloadFailed": "Download failed",
       "sseDisconnected": "Disconnected — trying to reconnect…",
       "serverError": "Server error. Please try again.",
       "adminPasswordTooShort": "Admin password must be at least 4 characters.",
