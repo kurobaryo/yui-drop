@@ -30,19 +30,39 @@ export function Footer({ c }: FooterProps) {
         alignItems: 'center',
         fontSize: 12,
         color: c.sub,
+        gap: 12,
+        flexWrap: 'wrap',
       }}
     >
-      {/* Mobile: when the WashiApp stylesheet (or any host page) flips the
-          footer into a vertical stack on narrow viewports, keep the links
-          group right-aligned so it visually matches the desktop layout.
-          Scoped to [data-yui="footer-links"] so it only affects this row. */}
-      <style>{`
-        @media (max-width: 768px) {
-          [data-yui="footer-links"] { align-self: flex-end !important; }
-        }
-      `}</style>
-      <span>{t('washi.footerCopyright')}</span>
-      <span data-yui="footer-links" style={{ display: 'flex', gap: 16 }}>
+      {/* Both sides are inline-flex with the same align-items so the
+          "Yui-Drop · MIT" baseline matches the link group baseline even
+          when the row wraps on narrow viewports.
+
+          The previous mobile rule flipped this into a vertical column,
+          which produced uneven visual heights between the single-text
+          left side and the multi-link right side. Keeping the row layout
+          + flex-wrap means the two halves stay at the same height; on a
+          truly narrow viewport the right group wraps to a new line but
+          still inherits the same line-height. */}
+      <span
+        data-yui="footer-left"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          lineHeight: 1.4,
+        }}
+      >
+        {t('washi.footerCopyright')}
+      </span>
+      <span
+        data-yui="footer-links"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 16,
+          lineHeight: 1.4,
+        }}
+      >
         <a
           href="https://github.com/kurobaryo/yui-drop#readme"
           target="_blank"

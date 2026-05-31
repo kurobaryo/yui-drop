@@ -326,7 +326,7 @@ export function RoomFiles({
                   {f.name}
                 </div>
                 <div style={{ fontSize: 12, color: c.sub, marginTop: 2 }}>
-                  {fmtSize(f.size)} · {f.member_nickname} ·{' '}
+                  {fmtSize(f.size)} · {f.nickname} ·{' '}
                   {safeFormatDateTime(f.created_at)}
                 </div>
               </div>

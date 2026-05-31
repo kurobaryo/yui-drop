@@ -21,11 +21,14 @@ numeric codes mapped to HTTP statuses at the router layer:
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -598,7 +601,12 @@ async def complete_collection_file(
     await db.refresh(file_row)
 
     nickname = await _uploader_nickname(db, file_row.member_id)
-    payload = {"file": _file_dto(file_row, nickname)}
+    # Broadcast the file DTO *bare* (not wrapped in {"file": ...}) so the SSE
+    # consumer can dispatch it identically to a message event. Wrapping it
+    # was the cause of v0.3.6.x's "uploaded file shows 0 B, click goes to
+    # /files/undefined/download" bug — frontend read parsed.id which was
+    # undefined because the real DTO was nested under parsed.file.
+    payload = _file_dto(file_row, nickname)
     creator_only = (collection.visibility or "public").lower() == "creator_only"
     await collection_sse.broadcast(
         collection.id,
@@ -713,6 +721,21 @@ async def get_file_download_url(
 
     if _is_s3_like(backend_name):
         storage = get_storage()
+        # Probe the object before issuing a presigned URL so we can return
+        # a clean 404 to the client instead of letting R2/S3 render a
+        # NoSuchKey XML page in the browser. This handles the orphan-row
+        # case (init succeeded, multipart never completed: DB row exists
+        # but the object doesn't) by surfacing the failure server-side.
+        try:
+            await storage.head(file_row.storage_key)
+        except Exception as e:
+            log.warning(
+                "collection file download missed in storage: file_id=%s key=%s err=%s",
+                file_row.id,
+                file_row.storage_key,
+                e,
+            )
+            raise CollectionFileError("file_not_yet_uploaded", 404) from e
         url = await storage.get_object_url(file_row.storage_key, ttl=ttl, response_filename=file_row.name)
         return url, ttl
 

@@ -42,6 +42,7 @@ import {
 import { ApiError } from '@/lib/api';
 import { safeFormatTime } from '@/lib/safeDate';
 import { toast } from '@/components/ui/Toast';
+import { useCollectionMemberStore } from '@/stores/collectionMember';
 import type { WashiColors } from '@/variants/washi/palettes';
 import { fmtSize } from '@/variants/washi/utils';
 
@@ -49,17 +50,23 @@ const FIVE_MIN_MS = 5 * 60 * 1000;
 const MAX_MESSAGE_LEN = 2000;
 
 interface TimelineItem {
-  kind: 'message' | 'file';
-  id: number;
+  kind: 'message' | 'file' | 'pending-upload';
+  id: number | string;        // pending-upload uses string ("pending-<n>"); file/message use number
   created_at: string;
   member_id: number;
   member_nickname: string;
   // message-only
   content?: string;
-  // file-only
+  // file-only / pending-upload
   name?: string;
   size?: number;
   content_type?: string | null;
+  // pending-upload only
+  pending?: {
+    progress: number;          // 0..1
+    state: 'pending' | 'uploading' | 'complete' | 'failed';
+    error?: string;
+  };
 }
 
 export interface RoomTimelineProps {
@@ -100,9 +107,32 @@ export function RoomTimeline({
   const [sending, setSending] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Pending uploads — appear in the timeline as optimistic placeholder
+  // cards the moment the user picks files, with a live progress bar.
+  // Removed from this map once the upload finishes (the SSE event delivers
+  // the real CollectionFile row that replaces the placeholder).
+  interface PendingUpload {
+    key: string;            // unique placeholder id
+    name: string;
+    size: number;
+    content_type: string | null;
+    member_nickname: string;
+    member_id: number;
+    created_at: string;
+    progress: number;       // 0..1
+    state: 'pending' | 'uploading' | 'complete' | 'failed';
+    error?: string;
+  }
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
+
+  // Current member's nickname — used to label optimistic placeholder cards
+  // so the user sees their own name on the card the moment they pick a file.
+  const myNickname = useCollectionMemberStore(
+    (s) => s.members[code]?.nickname ?? '',
+  );
 
   // ── Initial fetch (parallel) ─────────────────────────────────────────
   useEffect(() => {
@@ -137,9 +167,6 @@ export function RoomTimeline({
       id: m.id,
       created_at: m.created_at,
       member_id: m.member_id,
-      // Backend serializer for messages uses ``nickname`` rather than the
-      // ``member_nickname`` that files use. Map both onto our internal
-      // ``member_nickname`` field so the renderer stays uniform.
       member_nickname: m.nickname,
       content: m.body,
     }));
@@ -148,15 +175,43 @@ export function RoomTimeline({
       id: f.id,
       created_at: f.created_at,
       member_id: f.member_id,
-      member_nickname: f.member_nickname,
+      member_nickname: f.nickname,
       name: f.name,
       size: f.size,
       content_type: f.content_type,
     }));
-    return [...msgItems, ...fileItems].sort((a, b) =>
+    // Filter out pending placeholders whose final file has already arrived
+    // via SSE so we don't briefly show "pending + finished" duplicates.
+    const finishedNames = new Set(
+      files
+        .filter((f) => memberId != null && f.member_id === memberId)
+        .map((f) => `${f.name}|${f.size}`),
+    );
+    const pendingItems: TimelineItem[] = pendingUploads
+      .filter(
+        (p) =>
+          p.state !== 'complete' ||
+          !finishedNames.has(`${p.name}|${p.size}`),
+      )
+      .map((p) => ({
+        kind: 'pending-upload',
+        id: p.key,
+        created_at: p.created_at,
+        member_id: p.member_id,
+        member_nickname: p.member_nickname,
+        name: p.name,
+        size: p.size,
+        content_type: p.content_type,
+        pending: {
+          progress: p.progress,
+          state: p.state,
+          error: p.error,
+        },
+      }));
+    return [...msgItems, ...fileItems, ...pendingItems].sort((a, b) =>
       a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0,
     );
-  }, [messages, files]);
+  }, [messages, files, pendingUploads, memberId]);
 
   // ── Track sticky-to-bottom + auto-scroll on new items ────────────────
   const onScroll = useCallback(() => {
@@ -215,24 +270,80 @@ export function RoomTimeline({
       }
       if (filesToUpload.length === 0) return;
       setUploading(true);
+
+      // Optimistic insert — create one placeholder per file BEFORE the
+      // network call so the user sees their files appear in the timeline
+      // instantly with an upload-in-progress bar.
+      const baseTs = Date.now();
+      const placeholders: PendingUpload[] = filesToUpload.map((f, idx) => ({
+        // The timestamp suffix per file keeps the placeholder strictly after
+        // any pre-existing items + preserves a stable order across the batch.
+        // We bias by idx ms so placeholders within one batch sort deterministically.
+        key: `pending-${baseTs}-${idx}`,
+        name: f.name,
+        size: f.size,
+        content_type: f.type || null,
+        member_nickname: myNickname,
+        member_id: memberId ?? 0,
+        created_at: new Date(baseTs + idx).toISOString(),
+        progress: 0,
+        state: 'pending',
+      }));
+      setPendingUploads((prev) => [...prev, ...placeholders]);
+      stickToBottomRef.current = true;
+
+      const placeholderKey = (idx: number) => placeholders[idx]!.key;
+
       try {
         const handle = uploadFilesToCollection({
           collectionCode: code,
           memberToken,
           files: filesToUpload,
           storageBackend,
+          onFileState: (idx, state) => {
+            const k = placeholderKey(idx);
+            setPendingUploads((prev) =>
+              prev.map((p) => (p.key === k ? { ...p, state } : p)),
+            );
+          },
+          onFileProgress: (idx, fraction) => {
+            const k = placeholderKey(idx);
+            setPendingUploads((prev) =>
+              prev.map((p) =>
+                p.key === k
+                  ? { ...p, progress: Math.min(1, Math.max(0, fraction)) }
+                  : p,
+              ),
+            );
+          },
         });
         await handle.promise;
-        // SSE will deliver the file events — no manual setFiles needed.
-        stickToBottomRef.current = true;
+        // SSE delivers the file events that fold the placeholder into the
+        // real file row (see the `items` memo's finishedNames filter).
+        // Clean up placeholders for this batch after a brief settle window
+        // — usually SSE wins the race, but tear them down on a timer too
+        // so a dropped SSE event doesn't leave a ghost "complete" card.
+        window.setTimeout(() => {
+          setPendingUploads((prev) =>
+            prev.filter((p) => !placeholders.some((q) => q.key === p.key)),
+          );
+        }, 3000);
       } catch (err) {
         const msg = err instanceof ApiError ? err.message : t('collection.errors.uploadFailed');
+        // Mark all in-progress placeholders for this batch as failed.
+        setPendingUploads((prev) =>
+          prev.map((p) =>
+            placeholders.some((q) => q.key === p.key)
+              ? { ...p, state: 'failed', error: msg }
+              : p,
+          ),
+        );
         toast.error(msg);
       } finally {
         setUploading(false);
       }
     },
-    [uploadEnabled, code, memberToken, storageBackend, t],
+    [uploadEnabled, code, memberToken, storageBackend, t, myNickname, memberId],
   );
 
   const onDrop = useCallback(
@@ -332,11 +443,21 @@ export function RoomTimeline({
               code={code}
               memberToken={memberToken}
               canDelete={
-                it.kind === 'message' ? canDeleteMessage(it) : canDeleteFile(it)
+                it.kind === 'message'
+                  ? canDeleteMessage(it)
+                  : it.kind === 'file'
+                    ? canDeleteFile(it)
+                    : false
               }
-              onDelete={() =>
-                it.kind === 'message' ? onDeleteMessage(it.id) : onDeleteFile(it.id)
-              }
+              onDelete={() => {
+                if (it.kind === 'message' && typeof it.id === 'number') {
+                  void onDeleteMessage(it.id);
+                } else if (it.kind === 'file' && typeof it.id === 'number') {
+                  void onDeleteFile(it.id);
+                }
+                // pending-upload: no delete affordance (the upload is in
+                // flight; cancellation is not yet plumbed through).
+              }}
             />
           ))
         )}
@@ -508,6 +629,8 @@ function Row({ c, item, code, memberToken, canDelete, onDelete }: RowProps) {
         >
           {item.content}
         </div>
+      ) : item.kind === 'pending-upload' ? (
+        <PendingFileCard c={c} item={item} />
       ) : (
         <FileCard c={c} item={item} code={code} memberToken={memberToken} />
       )}
@@ -555,7 +678,12 @@ function FileCard({
   code: string;
   memberToken: string;
 }) {
-  const url = fileDownloadUrl(code, item.id, memberToken);
+  // FileCard is only mounted for kind === 'file' (see Row), where id is
+  // always numeric. Narrow once at the boundary so the rest of the body
+  // doesn't have to repeat the assertion.
+  if (typeof item.id !== 'number') return null;
+  const fileId = item.id;
+  const url = fileDownloadUrl(code, fileId, memberToken);
   return (
     <a
       href={url}
@@ -566,7 +694,7 @@ function FileCard({
         // (rendered as raw text otherwise). Resolve then open the real
         // download URL — see triggerFileDownload doc string.
         e.preventDefault();
-        triggerFileDownload(code, item.id, memberToken).catch(() => {
+        triggerFileDownload(code, fileId, memberToken).catch(() => {
           // Fall back to opening the resolver URL anyway so an error is
           // visible to the user as a JSON envelope rather than silent.
           window.open(url, '_blank', 'noopener');
@@ -624,6 +752,93 @@ function FileCard({
       </div>
       <Download size={16} style={{ color: c.sub, flexShrink: 0 }} />
     </a>
+  );
+}
+
+// ─── Pending upload card (placeholder + progress bar) ───────────────────
+
+function PendingFileCard({ c, item }: { c: WashiColors; item: TimelineItem }) {
+  const pct = Math.round(((item.pending?.progress ?? 0) * 100));
+  const state = item.pending?.state ?? 'pending';
+  const failed = state === 'failed';
+  const done = state === 'complete';
+  const stateLabel = failed
+    ? item.pending?.error || 'failed'
+    : done
+      ? '✓'
+      : state === 'uploading'
+        ? `${pct}%`
+        : '…';
+  return (
+    <div
+      data-yui="pending-file-card"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        padding: '10px 12px',
+        border: `1px dashed ${failed ? '#c44a3e' : c.soft}`,
+        borderRadius: 8,
+        background: `${c.accent}05`,
+        maxWidth: 420,
+        opacity: failed ? 0.85 : 1,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            background: `${c.accent}18`,
+            color: c.accent,
+            borderRadius: 6,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <FileIcon size={16} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 14,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              color: c.ink,
+            }}
+            title={item.name}
+          >
+            {item.name}
+          </div>
+          <div style={{ fontSize: 11, color: c.sub }}>
+            {fmtSize(item.size ?? 0)} · {stateLabel}
+          </div>
+        </div>
+      </div>
+      {/* Progress bar — visible whenever an upload is in flight; turns red
+          on failure and stays at 100% on success until the SSE event swaps
+          the placeholder for the real file row. */}
+      <div
+        style={{
+          height: 4,
+          background: c.soft,
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${failed ? 100 : Math.max(2, pct)}%`,
+            height: '100%',
+            background: failed ? '#c44a3e' : c.accent,
+            transition: 'width .15s ease-out',
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
