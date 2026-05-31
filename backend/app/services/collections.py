@@ -716,7 +716,11 @@ async def get_file_download_url(
         url = await storage.get_object_url(file_row.storage_key, ttl=ttl, response_filename=file_row.name)
         return url, ttl
 
-    # Local backend → JWT-wrapped same-origin URL.
+    # Local backend → JWT-wrapped same-origin URL. The URL points at a
+    # dedicated blob endpoint that ONLY accepts ``?token=<jwt>`` for auth
+    # — using the member-token endpoint here would 401 because plain <a>
+    # downloads don't carry the X-Member-Token header or the mt_<code>
+    # cookie reliably (notably Safari mobile).
     token_payload: dict[str, Any] = {
         "k": file_row.storage_key,
         "d": file_row.wrapped_dek.hex() if file_row.wrapped_dek else None,
@@ -725,7 +729,7 @@ async def get_file_download_url(
         "cid": collection.id,
     }
     token = encode_jwt(token_payload, expires_in=timedelta(seconds=ttl))
-    url = f"/api/collections/{collection.code}/files/{file_row.id}/download?token={token}"
+    url = f"/api/collections/{collection.code}/files/{file_row.id}/blob?token={token}"
     return url, ttl
 
 
