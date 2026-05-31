@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.logging import get_logger
 from ..core.rate_limit import real_client_ip
+from ..core.security import decode_jwt
 from ..db.session import SessionLocal, get_db
 from ..models.access_log import AccessLogAction
 from ..models.collection_file import CollectionFile
@@ -44,7 +45,10 @@ from ..schemas.collection import (
 )
 from ..services import collection_sse
 from ..services import collections as svc
+from ..services import share as svc_share
 from ..services.common import ServiceError, record_access
+
+import jwt
 
 router = APIRouter(prefix="/api/collections", tags=["collections"])
 log = get_logger(__name__)
@@ -255,7 +259,7 @@ async def messages_send(
                 "member_id": msg.member_id,
                 "nickname": member.nickname,
                 "body": msg.body,
-                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+                "created_at": (svc.as_utc(msg.created_at).isoformat() if msg.created_at else None),
             }
         }
     )
@@ -681,8 +685,14 @@ async def files_download(
     file_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
     x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
+    token: str | None = None,
 ) -> dict[str, Any]:
-    collection, member = await require_member(request, db, code, x_member_token)
+    # Accept member token from either ``X-Member-Token`` header (preferred)
+    # or ``?token=<member_token>`` query (legacy frontend behaviour and a
+    # convenience for tools that can't set headers). Both shapes resolve to
+    # the same auth.
+    effective_token = x_member_token or token
+    collection, member = await require_member(request, db, code, effective_token)
     file_row = await _get_file_or_404(db, collection=collection, file_id=file_id)
     try:
         url, expires_in = await svc.get_file_download_url(
@@ -691,6 +701,73 @@ async def files_download(
     except ServiceError as e:
         raise _service_to_http(e) from e
     return ok({"download_url": url, "expires_in": expires_in})
+
+
+@router.get("/{code}/files/{file_id}/blob")
+async def files_blob_stream(
+    request: Request,
+    code: str,
+    file_id: int,
+    token: str | None = None,
+) -> StreamingResponse:
+    """Stream a collection file's bytes for local backend downloads.
+
+    Authentication is by short-lived JWT in the ``?token=`` query string
+    issued by :func:`get_file_download_url`. We do NOT require an
+    ``X-Member-Token`` header or ``mt_<code>`` cookie here — those don't
+    travel reliably on plain ``<a href>`` navigation (Safari mobile drops
+    SameSite=Lax cookies on cross-tab opens; users with the dashboard
+    open in one PWA tab and downloads opening in Safari proper miss them
+    entirely). The JWT is single-purpose: it carries the storage_key,
+    wrapped DEK, filename and ids needed to fetch + decrypt the object,
+    and it expires in 15 minutes. Anyone who got the URL (the original
+    member who clicked download) has authority for this download only.
+    """
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 4011, "message": "blob_token_required"},
+        )
+    try:
+        payload = decode_jwt(token)
+    except jwt.PyJWTError as e:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 4012, "message": "blob_token_invalid"},
+        ) from e
+
+    storage_key = payload.get("k")
+    if not storage_key:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": 4012, "message": "blob_token_malformed"},
+        )
+    wrapped_dek_hex = payload.get("d")
+    wrapped_dek = bytes.fromhex(wrapped_dek_hex) if wrapped_dek_hex else None
+    display_name = payload.get("fn") or f"file-{file_id}"
+
+    body, head = await svc_share.open_download_stream(storage_key, wrapped_dek=wrapped_dek)
+
+    # RFC 5987 filename header — same pattern as the share download path
+    # so CJK / emoji file names survive the latin-1 header transport.
+    from urllib.parse import quote as _q
+    ascii_name = display_name.encode("ascii", "replace").decode("ascii").replace("?", "_")
+    if not ascii_name.strip("_") or ascii_name != display_name:
+        ascii_name = f"file-{file_id}"
+    ascii_name = ascii_name.replace('"', "").replace("\\", "").replace("\r", "").replace("\n", "")
+
+    headers: dict[str, str] = {
+        "content-disposition": (
+            f'attachment; filename="{ascii_name}"; '
+            f"filename*=UTF-8''{_q(display_name)}"
+        ),
+        "cache-control": "private, max-age=60",
+    }
+    if head.get("size") is not None:
+        headers["content-length"] = str(head["size"])
+
+    media_type = head.get("content_type") or "application/octet-stream"
+    return StreamingResponse(body, media_type=media_type, headers=headers)
 
 
 @router.delete("/{code}/files/{file_id}")

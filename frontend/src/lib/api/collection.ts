@@ -224,7 +224,13 @@ export async function deleteFile(
 }
 
 /** Build a download URL — the server expects the member token as `?token=`
- * so anchor tags / `window.open` can hit it without setting headers. */
+ * so anchor tags / `window.open` can hit it without setting headers.
+ *
+ * NOTE: this returns the *resolver* URL — hitting it returns a JSON envelope
+ * with the real ``download_url``. For end-user "click to download" use
+ * :func:`triggerFileDownload` which resolves and navigates. Anchor tags
+ * pointing at this URL directly will render the JSON envelope in the page —
+ * a real-world bug in earlier builds. */
 export function fileDownloadUrl(
   code: string,
   fileId: number,
@@ -236,6 +242,37 @@ export function fileDownloadUrl(
   );
   u.searchParams.set('token', memberToken);
   return u.toString();
+}
+
+/** Resolve a collection file's actual download URL and trigger the browser
+ * download. Handles both S3 backends (presigned absolute URL) and the local
+ * backend (same-origin ``/blob?token=<jwt>`` path).
+ *
+ * Why this exists: an earlier build wired `<a href={fileDownloadUrl(...)}>`
+ * straight at the resolver endpoint. That endpoint returns the JSON envelope
+ * ``{download_url, expires_in}`` — clicking the link rendered the JSON in
+ * the page instead of downloading. The fix is to fetch the envelope, then
+ * follow the inner URL.
+ *
+ * Also handles auth correctly: the resolver wants the member token (header
+ * or query); the resolved blob URL embeds its own short-lived JWT and needs
+ * no further auth.
+ */
+export async function triggerFileDownload(
+  code: string,
+  fileId: number,
+  memberToken: string,
+): Promise<void> {
+  const { data } = await api.get<{ download_url: string; expires_in: number }>(
+    `/collections/${code}/files/${fileId}/download`,
+    { headers: memberAuth(memberToken) },
+  );
+  const url = data?.download_url;
+  if (!url) throw new Error('download URL missing in resolver response');
+  // Open in a new tab so the current room/timeline stays mounted. The blob
+  // endpoint sends `Content-Disposition: attachment` so the browser saves
+  // the file and closes the tab automatically on most platforms.
+  window.open(url, '_blank', 'noopener');
 }
 
 // ─── Admin operations ──────────────────────────────────────────────────────
@@ -295,6 +332,7 @@ export async function adminCloseRoom(
  * with chunked vs presigned-specific fields filled accordingly. */
 export interface CollectionFileInitResponse {
   upload_id: string;
+  file_id: number;
   backend: 's3' | 'local';
   total_chunks: number;
   /** Chunk size in bytes (local backend) or S3 part size (s3 backend). */
@@ -349,6 +387,7 @@ export async function collectionFileSignPart(
 export async function collectionFilePart(
   code: string,
   uploadId: string,
+  fileId: number,
   memberToken: string,
   chunkIndex: number,
   blob: Blob,
@@ -356,9 +395,10 @@ export async function collectionFilePart(
   signal?: AbortSignal,
 ): Promise<void> {
   const fd = new FormData();
+  fd.append('upload_id', uploadId);
   fd.append('chunk', blob);
   await api.post(
-    `/collections/${code}/files/${uploadId}/parts/${chunkIndex}`,
+    `/collections/${code}/files/${fileId}/parts/${chunkIndex}`,
     fd,
     {
       headers: memberAuth(memberToken),

@@ -23,7 +23,7 @@ import { Download, Trash2, Upload } from 'lucide-react';
 import {
   type CollectionFile,
   deleteFile,
-  fileDownloadUrl,
+  triggerFileDownload,
   listFiles,
 } from '@/lib/api/collection';
 import {
@@ -33,6 +33,7 @@ import {
   type UploadFilesToCollectionHandle,
 } from '@/lib/uploader';
 import { ApiError } from '@/lib/api';
+import { safeFormatDateTime } from '@/lib/safeDate';
 import { toast } from '@/components/ui/Toast';
 import type { WashiColors } from '@/variants/washi/palettes';
 import { fmtSize } from '@/variants/washi/utils';
@@ -326,13 +327,21 @@ export function RoomFiles({
                 </div>
                 <div style={{ fontSize: 12, color: c.sub, marginTop: 2 }}>
                   {fmtSize(f.size)} · {f.member_nickname} ·{' '}
-                  {new Date(f.created_at).toLocaleString()}
+                  {safeFormatDateTime(f.created_at)}
                 </div>
               </div>
-              <a
-                href={fileDownloadUrl(code, f.id, memberToken)}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerFileDownload(code, f.id, memberToken).catch((e) => {
+                    const msg = e instanceof Error ? e.message : 'download failed';
+                    toast.error(msg);
+                  });
+                }}
                 title={t('collection.room.download') ?? ''}
                 style={{
+                  border: 'none',
+                  background: 'transparent',
                   color: c.accent,
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -340,10 +349,11 @@ export function RoomFiles({
                   width: 32,
                   height: 32,
                   borderRadius: 6,
+                  cursor: 'pointer',
                 }}
               >
                 <Download size={16} />
-              </a>
+              </button>
               {canDelete(f) && (
                 <button
                   type="button"
