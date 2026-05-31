@@ -30,6 +30,7 @@ import {
   deleteFile,
   deleteMessage,
   fileDownloadUrl,
+  triggerFileDownload,
   listFiles,
   listMessages,
   sendMessage,
@@ -39,6 +40,7 @@ import {
   type StorageBackend,
 } from '@/lib/uploader';
 import { ApiError } from '@/lib/api';
+import { safeFormatTime } from '@/lib/safeDate';
 import { toast } from '@/components/ui/Toast';
 import type { WashiColors } from '@/variants/washi/palettes';
 import { fmtSize } from '@/variants/washi/utils';
@@ -470,14 +472,7 @@ interface RowProps {
 function Row({ c, item, code, memberToken, canDelete, onDelete }: RowProps) {
   const [hover, setHover] = useState(false);
 
-  const ts = useMemo(() => {
-    try {
-      const d = new Date(item.created_at);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return '';
-    }
-  }, [item.created_at]);
+  const ts = useMemo(() => safeFormatTime(item.created_at), [item.created_at]);
 
   return (
     <div
@@ -566,6 +561,17 @@ function FileCard({
       href={url}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={(e) => {
+        // Bypass the direct-anchor navigation: the resolver returns JSON
+        // (rendered as raw text otherwise). Resolve then open the real
+        // download URL — see triggerFileDownload doc string.
+        e.preventDefault();
+        triggerFileDownload(code, item.id, memberToken).catch(() => {
+          // Fall back to opening the resolver URL anyway so an error is
+          // visible to the user as a JSON envelope rather than silent.
+          window.open(url, '_blank', 'noopener');
+        });
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',
