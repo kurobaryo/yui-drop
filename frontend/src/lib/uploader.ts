@@ -756,7 +756,14 @@ export function uploadFilesToCollection(
       opts.onFileState?.(i, 'uploading');
 
       try {
-        const useS3 = opts.storageBackend === 's3' && file.size >= SIMPLE_LIMIT;
+        // S3-backed collections must ALWAYS use the presigned multipart path,
+        // regardless of file size. The chunked path (POST /files/{id}/parts/{n})
+        // is a local-backend-only endpoint that 400s with
+        // `local_chunk_upload_not_supported_for_backend` on S3/R2 because it
+        // requires a server-side `tmp_root`. Collections have no
+        // simple-upload endpoint analogue to /api/share/file, so small files
+        // on S3 must also go through presigned (one-part multipart is fine).
+        const useS3 = opts.storageBackend === 's3';
         const fileProgress = (frac: number) => {
           opts.onFileProgress?.(i, frac);
           if (totalBytes > 0) {
