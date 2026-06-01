@@ -755,11 +755,7 @@
   },
   "collection": {
     "quick": {
-      "title": "Create a collection",
-      "adminPasswordPlaceholder": "Admin password (≥ 4 chars)",
-      "createBtn": "Create",
-      "moreOptions": "More options",
-      "enterTitle": "Or enter a room code"
+      "createBtn": "Create"
     },
     "landing": {
       "title": "Shared Collection",

@@ -754,11 +754,7 @@
   },
   "collection": {
     "quick": {
-      "title": "コレクションを作成",
-      "adminPasswordPlaceholder": "管理パスワード（4 文字以上）",
-      "createBtn": "作成",
-      "moreOptions": "詳細設定",
-      "enterTitle": "またはルームコードを入力"
+      "createBtn": "作成"
     },
     "landing": {
       "title": "共有スペース",

@@ -1,14 +1,21 @@
 /**
  * Collection — tab content for the "收集箱 / Collection" entry on the home page.
  *
- * Intentionally minimal so the home tab feels as light as Pickup/SendFile/
- * SendText. Two affordances stacked:
+ * v0.3.10: the home tab now shows the FULL create form inline (no more
+ * "more options" link → /collection/new round-trip). All fields that used to
+ * live only on the dedicated /collection/new page are surfaced directly here:
  *
- *   1. Enter an existing room code → navigate to /c/{code}
- *   2. Quick-create — a 3-field one-screen form (admin password +
- *      visibility + lifetime). Power users can still hit /collection/new
- *      for the full form with optional name + entry password + custom
- *      lifetime via the "more options" link.
+ *   - name (optional)
+ *   - visibility (public | creator_only) + hint
+ *   - entry password (optional + show/hide)
+ *   - admin password (required ≥4 + show/hide)
+ *   - lifetime (1d / 7d / 30d / 365d / custom days / permanent) + expiry preview
+ *
+ * Layout mirrors SendFile / SendText / Create.tsx: a `data-yui="two-col"` grid
+ * (left ROOM card + right LIFETIME card, folds to one column ≤720px) with a
+ * full-width CTA underneath. The dedicated /collection/new page (Create.tsx) is
+ * kept because the /collection landing page still links to it; this tab is now
+ * functionally equivalent so most users never need to leave the home page.
  *
  * The admin password is required because every room MUST be lockable; without
  * one a hostile peer with the code could close / wipe the room.
@@ -21,7 +28,7 @@ import {
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Plus } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import {
   createCollection,
   type CollectionVisibility,
@@ -32,7 +39,7 @@ import { useCollectionMemberStore } from '@/stores/collectionMember';
 import { pushRecent } from '@/lib/recent';
 import type { WashiColors } from '../palettes';
 
-type QuickLifetime = '7' | '30' | 'permanent';
+type LifetimePreset = '1' | '7' | '30' | '365' | 'custom' | 'permanent';
 
 export interface CollectionProps {
   c: WashiColors;
@@ -43,55 +50,71 @@ export function Collection({ c }: CollectionProps) {
   const navigate = useNavigate();
   const setMember = useCollectionMemberStore((s) => s.set);
 
+  const [name, setName] = useState('');
+  const [visibility, setVisibility] = useState<CollectionVisibility>('public');
+  const [entryPassword, setEntryPassword] = useState('');
+  const [showEntryPw, setShowEntryPw] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPw, setShowAdminPw] = useState(false);
-  const [visibility, setVisibility] = useState<CollectionVisibility>('public');
-  const [lifetime, setLifetime] = useState<QuickLifetime>('7');
+  const [lifetimePreset, setLifetimePreset] = useState<LifetimePreset>('7');
+  const [customDays, setCustomDays] = useState('14');
   const [creating, setCreating] = useState(false);
 
-  const sectionStyle: CSSProperties = {
+  // Mirrors the parts/Expiry treatment in SendFile / SendText / Create so all
+  // forms read as the same family. Soft cream block, uppercase 12px section
+  // label, 18px padding.
+  const cardStyle: CSSProperties = {
     border: `1px solid ${c.soft}`,
-    borderRadius: 12,
-    padding: '20px 22px',
-    background: c.paper,
+    borderRadius: 10,
+    padding: 18,
+    background: `${c.ink}04`,
   };
 
-  const labelStyle: CSSProperties = {
-    display: 'block',
+  const sectionLabelStyle: CSSProperties = {
     fontSize: 12,
     color: c.sub,
     letterSpacing: '0.08em',
-    marginBottom: 10,
     textTransform: 'uppercase',
+    marginBottom: 12,
+  };
+
+  const fieldLabelStyle: CSSProperties = {
+    display: 'block',
+    fontSize: 11,
+    color: c.sub,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    marginTop: 16,
+    marginBottom: 6,
+  };
+
+  // First field label inside a card — no top margin so it sits directly under
+  // the section title.
+  const fieldLabelFirstStyle: CSSProperties = {
+    ...fieldLabelStyle,
+    marginTop: 0,
   };
 
   const inputStyle: CSSProperties = {
     width: '100%',
-    height: 42,
+    height: 38,
     border: `1px solid ${c.soft}`,
-    borderRadius: 8,
+    borderRadius: 6,
     background: 'transparent',
     color: c.ink,
-    padding: '0 12px',
-    fontSize: 14,
+    padding: '0 10px',
+    fontSize: 13,
     boxSizing: 'border-box',
     outline: 'none',
     fontFamily: 'inherit',
   };
+  const inputWithToggle: CSSProperties = { ...inputStyle, paddingRight: 36 };
 
-  const inputWithToggle: CSSProperties = { ...inputStyle, paddingRight: 40 };
-
-  const primaryBtnStyle: CSSProperties = {
-    width: '100%',
-    height: 46,
-    border: 'none',
-    borderRadius: 10,
-    background: c.accent,
-    color: '#fff',
-    fontSize: 14.5,
-    letterSpacing: '0.06em',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
+  const helperStyle: CSSProperties = {
+    fontSize: 11,
+    color: c.sub,
+    marginTop: 6,
+    lineHeight: 1.5,
   };
 
   const onCreate = async (e: FormEvent) => {
@@ -101,14 +124,25 @@ export function Collection({ c }: CollectionProps) {
       toast.error(t('collection.errors.adminPasswordTooShort'));
       return;
     }
-    const lifetime_days = lifetime === 'permanent' ? null : parseInt(lifetime, 10);
+    let lifetime_days: number | null;
+    if (lifetimePreset === 'permanent') lifetime_days = null;
+    else if (lifetimePreset === 'custom') {
+      const n = parseInt(customDays, 10);
+      if (!Number.isFinite(n) || n < 1 || n > 365) {
+        toast.error(t('collection.errors.customDaysRange'));
+        return;
+      }
+      lifetime_days = n;
+    } else {
+      lifetime_days = parseInt(lifetimePreset, 10);
+    }
 
     setCreating(true);
     try {
       const res = await createCollection({
-        name: null,
+        name: name.trim() || null,
         visibility,
-        entry_password: null,
+        entry_password: entryPassword || null,
         admin_password: adminPassword,
         lifetime_days,
       });
@@ -121,8 +155,8 @@ export function Collection({ c }: CollectionProps) {
           adminPassword,
         });
       }
-      // Surface this room in the "最近收集箱" panel so the user can hop
-      // back in from the home page later.
+      // Surface this room in the "最近收集箱" panel so the user can hop back
+      // in from the home page later.
       pushRecent({
         code: res.code,
         kind: 'collection',
@@ -155,7 +189,7 @@ export function Collection({ c }: CollectionProps) {
       type="button"
       onClick={onClick}
       style={{
-        padding: '7px 14px',
+        padding: '8px 14px',
         borderRadius: 999,
         border: `1px solid ${active ? c.accent : c.soft}`,
         background: active ? c.accent : 'transparent',
@@ -169,126 +203,301 @@ export function Collection({ c }: CollectionProps) {
     </button>
   );
 
+  // Lifetime preset tile — matches the date-grid look in parts/Expiry.
+  const PresetTile = ({
+    active,
+    onClick,
+    children,
+  }: {
+    active: boolean;
+    onClick: () => void;
+    children: ReactNode;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: '10px 8px',
+        border: `1px solid ${active ? c.accent : c.soft}`,
+        background: active ? `${c.accent}15` : 'transparent',
+        color: active ? c.accent : c.ink,
+        borderRadius: 6,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        fontSize: 12,
+        fontWeight: 500,
+      }}
+    >
+      {children}
+    </button>
+  );
+
+  const canSubmit = adminPassword.length >= 4 && !creating;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Quick-create card */}
-      <form onSubmit={onCreate} style={sectionStyle}>
-        <label style={labelStyle}>{t('collection.quick.title')}</label>
+    <form onSubmit={onCreate}>
+      <div
+        data-yui="two-col"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1.2fr 1fr',
+          gap: 28,
+          alignItems: 'stretch',
+        }}
+      >
+        {/* Left card — ROOM */}
+        <div style={cardStyle}>
+          <div style={sectionLabelStyle}>
+            {t('collection.create.sectionRoom')}
+          </div>
 
-        <div style={{ position: 'relative', marginBottom: 14 }}>
+          <label style={fieldLabelFirstStyle}>
+            {t('collection.create.nameLabel')}
+          </label>
           <input
-            type={showAdminPw ? 'text' : 'password'}
-            value={adminPassword}
-            onChange={(e) => setAdminPassword(e.target.value)}
-            autoComplete="new-password"
-            required
-            minLength={4}
-            placeholder={t('collection.quick.adminPasswordPlaceholder') ?? ''}
-            style={inputWithToggle}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={80}
+            placeholder={t('collection.create.namePlaceholder') ?? ''}
+            style={inputStyle}
           />
-          <button
-            type="button"
-            aria-label={showAdminPw ? 'hide' : 'show'}
-            onClick={() => setShowAdminPw((v) => !v)}
+
+          <label style={fieldLabelStyle}>
+            {t('collection.create.visibilityLabel')}
+          </label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <Pill
+              active={visibility === 'public'}
+              onClick={() => setVisibility('public')}
+            >
+              {t('collection.create.visibilityPublic')}
+            </Pill>
+            <Pill
+              active={visibility === 'creator_only'}
+              onClick={() => setVisibility('creator_only')}
+            >
+              {t('collection.create.visibilityCreatorOnly')}
+            </Pill>
+          </div>
+          <div style={helperStyle}>
+            {visibility === 'public'
+              ? t('collection.create.visibilityPublicHint')
+              : t('collection.create.visibilityCreatorOnlyHint')}
+          </div>
+
+          <label style={fieldLabelStyle}>
+            {t('collection.create.entryPasswordLabel')}
+          </label>
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showEntryPw ? 'text' : 'password'}
+              value={entryPassword}
+              onChange={(e) => setEntryPassword(e.target.value)}
+              autoComplete="new-password"
+              placeholder={t('collection.create.entryPasswordPlaceholder') ?? ''}
+              style={inputWithToggle}
+            />
+            <button
+              type="button"
+              aria-label={showEntryPw ? 'hide' : 'show'}
+              onClick={() => setShowEntryPw((v) => !v)}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                height: 38,
+                width: 36,
+                border: 'none',
+                background: 'transparent',
+                color: c.sub,
+                cursor: 'pointer',
+              }}
+            >
+              {showEntryPw ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+
+          <label style={fieldLabelStyle}>
+            {t('collection.create.adminPasswordLabel')}
+          </label>
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showAdminPw ? 'text' : 'password'}
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              autoComplete="new-password"
+              required
+              minLength={4}
+              placeholder={t('collection.create.adminPasswordPlaceholder') ?? ''}
+              style={inputWithToggle}
+            />
+            <button
+              type="button"
+              aria-label={showAdminPw ? 'hide' : 'show'}
+              onClick={() => setShowAdminPw((v) => !v)}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                height: 38,
+                width: 36,
+                border: 'none',
+                background: 'transparent',
+                color: c.sub,
+                cursor: 'pointer',
+              }}
+            >
+              {showAdminPw ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          <div style={helperStyle}>
+            {t('collection.create.adminPasswordHint')}
+          </div>
+        </div>
+
+        {/* Right card — LIFETIME (mirrors parts/Expiry visually) */}
+        <div style={cardStyle}>
+          <div style={sectionLabelStyle}>
+            {t('collection.create.lifetimeLabel')}
+          </div>
+
+          <div
             style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              height: 42,
-              width: 40,
-              border: 'none',
-              background: 'transparent',
-              color: c.sub,
-              cursor: 'pointer',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: 6,
             }}
           >
-            {showAdminPw ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
+            <PresetTile
+              active={lifetimePreset === '1'}
+              onClick={() => setLifetimePreset('1')}
+            >
+              {t('collection.create.lifetime1d')}
+            </PresetTile>
+            <PresetTile
+              active={lifetimePreset === '7'}
+              onClick={() => setLifetimePreset('7')}
+            >
+              {t('collection.create.lifetime7d')}
+            </PresetTile>
+            <PresetTile
+              active={lifetimePreset === '30'}
+              onClick={() => setLifetimePreset('30')}
+            >
+              {t('collection.create.lifetime30d')}
+            </PresetTile>
+            <PresetTile
+              active={lifetimePreset === '365'}
+              onClick={() => setLifetimePreset('365')}
+            >
+              {t('collection.create.lifetime365d')}
+            </PresetTile>
+            <PresetTile
+              active={lifetimePreset === 'permanent'}
+              onClick={() => setLifetimePreset('permanent')}
+            >
+              {t('collection.create.lifetimePermanent')}
+            </PresetTile>
+            <PresetTile
+              active={lifetimePreset === 'custom'}
+              onClick={() => setLifetimePreset('custom')}
+            >
+              {t('collection.create.lifetimeCustom')}
+            </PresetTile>
+          </div>
+
+          {lifetimePreset === 'custom' && (
+            <div
+              style={{
+                marginTop: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 11, color: c.sub }}>
+                {t('washi.customDays')}:
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={customDays}
+                onChange={(e) => setCustomDays(e.target.value)}
+                placeholder="—"
+                style={{
+                  flex: 1,
+                  padding: '7px 10px',
+                  border: `1px solid ${c.soft}`,
+                  background: 'transparent',
+                  color: c.ink,
+                  borderRadius: 6,
+                  fontFamily: 'inherit',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: 11, color: c.sub }}>
+                {t('collection.create.customDaysUnit')}
+              </span>
+            </div>
+          )}
+
+          {/* Expiry preview — gives the right column a footer to match the
+              helper text on the left column, and surfaces a real date so the
+              user knows what they just picked. */}
+          <div style={{ ...helperStyle, marginTop: 14 }}>
+            {(() => {
+              if (lifetimePreset === 'permanent') {
+                return t('collection.create.expiresPreviewPermanent');
+              }
+              let days: number;
+              if (lifetimePreset === 'custom') {
+                const n = parseInt(customDays, 10);
+                if (!Number.isFinite(n) || n < 1) {
+                  return t('collection.create.expiresPreviewInvalid');
+                }
+                days = Math.min(n, 365);
+              } else {
+                days = parseInt(lifetimePreset, 10);
+              }
+              const dt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+              const formatted = dt.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              });
+              return t('collection.create.expiresPreview', {
+                date: formatted,
+              });
+            })()}
+          </div>
         </div>
+      </div>
 
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 8,
-            rowGap: 10,
-            marginBottom: 16,
-          }}
-        >
-          <Pill
-            active={visibility === 'public'}
-            onClick={() => setVisibility('public')}
-          >
-            {t('collection.create.visibilityPublic')}
-          </Pill>
-          <Pill
-            active={visibility === 'creator_only'}
-            onClick={() => setVisibility('creator_only')}
-          >
-            {t('collection.create.visibilityCreatorOnly')}
-          </Pill>
-          <span
-            style={{
-              borderLeft: `1px solid ${c.soft}`,
-              margin: '0 4px',
-              height: 24,
-              alignSelf: 'center',
-            }}
-          />
-          <Pill active={lifetime === '7'} onClick={() => setLifetime('7')}>
-            {t('collection.create.lifetime7d')}
-          </Pill>
-          <Pill active={lifetime === '30'} onClick={() => setLifetime('30')}>
-            {t('collection.create.lifetime30d')}
-          </Pill>
-          <Pill
-            active={lifetime === 'permanent'}
-            onClick={() => setLifetime('permanent')}
-          >
-            {t('collection.create.lifetimePermanent')}
-          </Pill>
-        </div>
-
-        <button
-          type="submit"
-          disabled={creating}
-          style={{
-            ...primaryBtnStyle,
-            cursor: creating ? 'wait' : 'pointer',
-            opacity: creating ? 0.6 : 1,
-          }}
-        >
-          {creating
-            ? t('collection.create.submitting')
-            : t('collection.quick.createBtn')}
-        </button>
-
-        <div
-          style={{
-            marginTop: 12,
-            textAlign: 'center',
-            fontSize: 12,
-            color: c.sub,
-          }}
-        >
-          <a
-            href="/collection/new"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('/collection/new');
-            }}
-            style={{ color: c.sub, textDecoration: 'underline' }}
-          >
-            <Plus size={11} style={{ verticalAlign: 'middle' }} />{' '}
-            {t('collection.quick.moreOptions')}
-          </a>
-        </div>
-      </form>
-
-      {/* The "or enter an existing room code" affordance has moved to the
-          Pickup tab — one input box for any incoming code (pickup or C-room)
-          keeps the home page simple. The collection tab is now create-only. */}
-    </div>
+      {/* Full-width CTA — matches the SendFile "Forge code →" voice. */}
+      <button
+        type="submit"
+        disabled={!canSubmit}
+        style={{
+          marginTop: 20,
+          width: '100%',
+          height: 46,
+          border: 'none',
+          borderRadius: 10,
+          background: canSubmit ? c.accent : c.soft,
+          color: canSubmit ? '#fff' : c.sub,
+          fontSize: 14.5,
+          letterSpacing: '0.06em',
+          cursor: canSubmit ? 'pointer' : 'not-allowed',
+          fontFamily: 'inherit',
+        }}
+      >
+        {creating
+          ? t('collection.create.submitting')
+          : t('collection.quick.createBtn')}
+      </button>
+    </form>
   );
 }
 
