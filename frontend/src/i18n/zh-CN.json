@@ -754,11 +754,7 @@
   },
   "collection": {
     "quick": {
-      "title": "创建收集箱",
-      "adminPasswordPlaceholder": "管理密码（至少 4 位）",
-      "createBtn": "创建",
-      "moreOptions": "更多选项",
-      "enterTitle": "或输入房间号进入"
+      "createBtn": "创建"
     },
     "landing": {
       "title": "收集箱",
