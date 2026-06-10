@@ -26,43 +26,59 @@ from slowapi.util import get_remote_address
 from .config import settings
 
 
+def _trusted_proxy_set() -> set[str]:
+    return {ip.strip() for ip in (settings.trusted_proxy_ips or "").split(",") if ip.strip()}
+
+
+def _direct_peer_ip(request: Request) -> str:
+    return get_remote_address(request)
+
+
+def _header_get(request: Request, name: str) -> str | None:
+    """Case-insensitive header lookup that also works with plain dict tests."""
+    value = request.headers.get(name)
+    if value is not None:
+        return value
+    needle = name.lower()
+    try:
+        for key, val in request.headers.items():
+            if str(key).lower() == needle:
+                return val
+    except AttributeError:
+        return None
+    return None
+
+
 def real_client_ip(request: Request) -> str:
-    """Resolve the originating client IP from a (possibly proxied) request.
+    """Resolve the rate-limit key, trusting forwarded headers only from proxies.
 
-    Resolution order:
-
-    1. ``CF-Connecting-IP`` — Cloudflare populates this with the visitor IP
-       on every request that traverses the orange cloud. Single value, so
-       no walking is required, and intermediate proxies do not modify it.
-    2. ``X-Forwarded-For`` — left-to-right, returns the first entry that
-       parses as a valid IPv4/IPv6 address. The leftmost value is the
-       address closest to the original client; later entries are
-       successive proxy hops, so picking the rightmost would
-       systematically pick a downstream proxy IP rather than the visitor.
-    3. ``X-Real-IP`` — single-value fallback set by some reverse proxies.
-    4. The peer address of the immediate TCP connection.
-
-    See :mod:`app.core.request_ip` for the audit-toggle-aware variant used
-    when writing AccessLog rows.
+    Direct clients can spoof ``X-Forwarded-For`` / ``CF-Connecting-IP``. We only
+    consume those headers when the immediate TCP peer is explicitly listed in
+    ``TRUSTED_PROXY_IPS``. Otherwise the peer address is the rate-limit key.
     """
-    # Local import to avoid a cycle (request_ip imports SettingsKV which
-    # transitively pulls in db wiring; rate_limit is loaded earlier).
     from .request_ip import _parse_single_ip, _parse_xff
 
-    cf = request.headers.get("cf-connecting-ip")
+    peer = _direct_peer_ip(request)
+    trusted = _trusted_proxy_set()
+    if peer not in trusted:
+        return peer
+
+    cf = _header_get(request, "cf-connecting-ip")
     if cf:
         parsed = _parse_single_ip(cf)
         if parsed:
             return parsed
-    xff = request.headers.get("x-forwarded-for")
+    xff = _header_get(request, "x-forwarded-for")
     if xff:
         parsed = _parse_xff(xff)
         if parsed:
             return parsed
-    xri = request.headers.get("x-real-ip")
+    xri = _header_get(request, "x-real-ip")
     if xri:
-        return xri.strip()
-    return get_remote_address(request)
+        parsed = _parse_single_ip(xri)
+        if parsed:
+            return parsed
+    return peer
 
 
 # ── slowapi limiter ─────────────────────────────────────────────────────────

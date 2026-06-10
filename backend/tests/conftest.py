@@ -70,6 +70,24 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Reset slowapi's in-memory counters between tests.
+
+    The admin-login limiter (``@limiter.limit(login_limit())``) keys on client
+    IP; under ASGITransport every test is 127.0.0.1, so without a reset the
+    shared in-process window trips 429 after the first N logins across the
+    whole test session.
+    """
+    from app.core.rate_limit import limiter
+
+    try:
+        limiter.reset()
+    except Exception:
+        pass
+    yield
+
+
 # ── Per-test FastAPI client with isolated SQLite DB ────────────────────────
 
 

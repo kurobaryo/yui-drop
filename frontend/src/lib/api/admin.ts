@@ -10,9 +10,13 @@ export interface AdminLoginResponse {
   token_type: 'Bearer';
   expires_at: string;
 }
-export async function adminLogin(password: string): Promise<AdminLoginResponse> {
+export async function adminLogin(
+  password: string,
+  turnstileToken?: string | null,
+): Promise<AdminLoginResponse> {
   const { data } = await api.post<AdminLoginResponse>('/admin/login', {
     password,
+    turnstile_token: turnstileToken || undefined,
   });
   return data;
 }

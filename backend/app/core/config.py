@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:8000"
     app_name: str = "Yui-Drop"
     allowed_origins: str = "http://localhost:8000"
+    # Comma-separated immediate proxy IPs allowed to supply CF-Connecting-IP /
+    # X-Forwarded-For / X-Real-IP. Empty means never trust forwarded headers.
+    trusted_proxy_ips: str = ""
 
     # ── Secrets (empty by default; populated from env / install.sh) ────────
     admin_token: str = ""

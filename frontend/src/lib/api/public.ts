@@ -20,6 +20,7 @@ export interface PublicConfig {
    * frontend just trusts whatever it gets and defaults to `false`. */
   turnstileProtectUpload: boolean;
   turnstileProtectPickup: boolean;
+  turnstileProtectAdminLogin: boolean;
   /** Optional list of allowed expiry styles surfaced by the server. */
   expire_styles?: string[];
   /** Optional multi-file caps; if absent, fall back to max_upload_bytes. */
@@ -37,6 +38,7 @@ export const DEFAULT_CONFIG: PublicConfig = {
   storage_backend: 'local',
   turnstileProtectUpload: false,
   turnstileProtectPickup: false,
+  turnstileProtectAdminLogin: false,
 };
 
 export async function getConfig(): Promise<PublicConfig> {
