@@ -8,11 +8,12 @@
  * Also handles ``?oidc_error=`` redirects from the IdP callback so the user
  * sees a friendly message instead of being silently bounced back to /login.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { adminLogin, getAuthMethods } from '@/lib/api/admin';
+import { getConfig } from '@/lib/api/public';
 import { ApiError } from '@/lib/api';
 import { useAdminStore } from '@/stores/admin';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +22,10 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import OidcLoginButton from './auth/OidcLoginButton';
 import PasskeyLoginButton from './auth/PasskeyLoginButton';
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from '@/components/TurnstileWidget';
 
 export default function AdminLogin() {
   const { t } = useTranslation();
@@ -35,10 +40,16 @@ export default function AdminLogin() {
     // button on this one without a hard refresh.
     refetchOnWindowFocus: true,
   });
+  const configQuery = useQuery({
+    queryKey: ['public-config'],
+    queryFn: getConfig,
+    staleTime: 60_000,
+  });
 
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileWidgetHandle | null>(null);
 
   // Surface ``?oidc_error=...`` from the IdP callback and strip it so the
   // message doesn't reappear on every re-render.
@@ -57,10 +68,21 @@ export default function AdminLogin() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await adminLogin(password);
+      let turnstileToken: string | null = null;
+      if (turnstileGated) {
+        try {
+          turnstileToken = await turnstileRef.current?.executeAndWaitForToken() ?? null;
+        } catch {
+          setError(t('admin.login.error'));
+          setSubmitting(false);
+          return;
+        }
+      }
+      const res = await adminLogin(password, turnstileToken);
       setToken(res.token, res.expires_at);
       navigate('/admin', { replace: true });
     } catch (err) {
+      turnstileRef.current?.reset();
       if (err instanceof ApiError) {
         setError(err.message || t('admin.login.error'));
       } else {
@@ -72,6 +94,10 @@ export default function AdminLogin() {
   }
 
   const methods = methodsQuery.data;
+  const config = configQuery.data;
+  const turnstileGated = Boolean(
+    config?.turnstileProtectAdminLogin && config?.turnstileSiteKey,
+  );
   // Be permissive on the first paint: show the password form while the
   // probe is in flight so the page never looks empty.
   const showPassword = methods ? methods.password_enabled : true;
@@ -95,6 +121,16 @@ export default function AdminLogin() {
 
         {showPassword && (
           <form onSubmit={submit} className="flex flex-col gap-3">
+            {turnstileGated && config?.turnstileSiteKey && (
+              <div className="absolute h-0 w-0 overflow-hidden">
+                <TurnstileWidget
+                  ref={turnstileRef}
+                  mode="invisible-on-submit"
+                  siteKey={config.turnstileSiteKey}
+                  onVerify={() => undefined}
+                />
+              </div>
+            )}
             <Input
               type="password"
               value={password}

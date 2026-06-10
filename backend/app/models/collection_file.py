@@ -49,10 +49,23 @@ class CollectionFile(Base):
     storage_key: Mapped[str] = mapped_column(String(1024), nullable=False)
     storage_backend: Mapped[str] = mapped_column(String(20), nullable=False)
     content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Upload-session state. A CollectionFile row is created at /files/init time
+    # but is not user-visible until ``completed_at`` is set after the storage
+    # write succeeds. ``upload_id`` binds follow-up part/sign/complete calls to
+    # the server-issued multipart session so one member cannot complete another
+    # file row with a different upload session.
+    upload_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    expected_parts_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    part_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Only non-NULL on the local backend with at-rest encryption enabled.
     wrapped_dek: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

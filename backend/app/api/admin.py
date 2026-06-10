@@ -15,13 +15,13 @@ from datetime import datetime
 from typing import Annotated, Any
 from urllib.parse import quote as urlquote
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request, Response
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.logging import get_logger
-from ..core.rate_limit import real_client_ip
+from ..core.rate_limit import limiter, login_limit, real_client_ip
 from ..core.security import issue_admin_token
 from ..db.session import get_db
 from ..models.access_log import AccessLogAction
@@ -61,6 +61,7 @@ from ..services.admin_api_keys import (
 from ..services.admin_storage import read_storage_config, save_storage_config
 from ..services.admin_turnstile import (
     read_turnstile_config,
+    resolve_turnstile_config,
     save_turnstile_config,
 )
 from ..services.admin_uploads import (
@@ -70,6 +71,7 @@ from ..services.admin_uploads import (
 from ..services.admin_webauthn import is_password_login_enabled
 from ..services.common import ServiceError, record_access
 from ..services.share import open_download_stream
+from ..services.turnstile import verify_turnstile
 from .deps import require_admin
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -98,6 +100,7 @@ _login_fail_counts: dict[str, int] = {}
 
 class AdminLoginRequest(BaseModel):
     password: str = Field(..., min_length=1, max_length=512)
+    turnstile_token: str | None = Field(default=None, max_length=4096)
 
 
 class AdminFilePatchRequest(BaseModel):
@@ -118,18 +121,14 @@ class AdminSettingsPatchRequest(BaseModel):
 # ────────────────────────────────────────────────────────────────────────────
 
 
-@router.post("/login")
-# NOTE: slowapi's @limiter.limit decorator requires the endpoint to accept a
-# starlette Response parameter (it injects rate-limit headers). Our admin
-# login already enforces per-IP exponential backoff via _login_fail_counts
-# below, which is the real brute-force defence — slowapi's window-based cap
-# would be redundant. Keep this commented for future re-enablement.
-# @limiter.limit(login_limit())
+@router.post("/login", response_model=None)
+@limiter.limit(login_limit())
 async def admin_login(
     request: Request,
+    response: Response,
     body: AdminLoginRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict[str, Any]:
+) -> dict[str, Any] | JSONResponse:
     """Exchange the admin password for a short-lived Bearer JWT.
 
     Failures sleep ``min(2**fail_count, 30)`` seconds before returning 401.
@@ -137,12 +136,37 @@ async def admin_login(
     """
     ip = real_client_ip(request)
     ua = _ua(request)
+    _ = response
 
     # Short-circuit when the admin has disabled password login. Passkey / OIDC
     # flows are unaffected. Returning 403 (not 404) so the client can render a
     # specific "password login disabled" message and surface the alternatives.
     if not await is_password_login_enabled(db):
         raise HTTPException(status_code=403, detail="password_login_disabled")
+
+    ts_cfg = await resolve_turnstile_config(db)
+    if (
+        ts_cfg.get("enabled")
+        and ts_cfg.get("protect_admin_login")
+        and ts_cfg.get("secret_key")
+    ):
+        ok_ts = await verify_turnstile(
+            body.turnstile_token or "", remote_ip=ip, db=db
+        )
+        if not ok_ts:
+            await record_access(
+                db,
+                action=AccessLogAction.ADMIN_ACTION,
+                ip=ip,
+                ua=ua,
+                status_code=400,
+                extra={"event": "admin.login.turnstile_fail"},
+            )
+            await db.commit()
+            return JSONResponse(
+                status_code=400,
+                content={"code": 4003, "message": "turnstile_failed", "detail": None},
+            )
 
     try:
         verified = await verify_admin_password(db, body.password)

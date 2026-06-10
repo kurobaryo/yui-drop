@@ -21,24 +21,23 @@ numeric codes mapped to HTTP statuses at the router layer:
 
 from __future__ import annotations
 
-import logging
 import math
 import re
 import secrets
+import shutil
 from datetime import UTC, datetime, timedelta
-from typing import Any
-
-log = logging.getLogger(__name__)
+from pathlib import Path
+from typing import IO, Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..core.crypto import generate_dek, wrap_dek
+from ..core.logging import get_logger
 from ..core.request_ip import mask_ip
 from ..core.security import (
     encode_jwt,
-    generate_unique_pickup_code,
     hash_password,
     verify_password,
 )
@@ -58,6 +57,9 @@ SELF_DELETE_WINDOW = timedelta(minutes=5)
 
 def _utcnow() -> datetime:
     return datetime.now(tz=UTC)
+
+
+log = get_logger(__name__)
 
 
 def _ensure_aware(d: datetime) -> datetime:
@@ -415,14 +417,25 @@ async def delete_message(
 # ── Errors ─────────────────────────────────────────────────────────────────
 
 
-class CollectionFileError(Exception):
-    """Service-level error with a stable code (mirrors the existing
-    NotFoundError / ForbiddenError convention used elsewhere in services/)."""
+class CollectionFileError(ServiceError):
+    """Service-level error with a stable code for Collection file operations."""
 
-    def __init__(self, code: str, http_status: int = 400) -> None:
-        super().__init__(code)
-        self.code = code
-        self.http_status = http_status
+    def __init__(self, message: str, http_status: int = 400, *, detail: Any = None) -> None:
+        numeric = {
+            "file_not_found": 4041,
+            "file_not_yet_uploaded": 4042,
+            "upload_disabled": 4032,
+            "forbidden_not_uploader": 4033,
+            "forbidden_creator_only": 4034,
+            "delete_window_expired": 4035,
+            "empty_file": 4001,
+            "invalid_upload_id": 4002,
+            "invalid_part_number": 4003,
+            "upload_id_mismatch": 4004,
+            "missing_parts": 4005,
+            "size_mismatch": 4006,
+        }.get(message, 4000)
+        super().__init__(message, code=numeric, http_status=http_status, detail=detail)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -484,7 +497,61 @@ def _file_dto(file_row: CollectionFile, nickname: str) -> dict[str, Any]:
     }
 
 
-# ── Files (subagent contribution) ──────────────────────────────────────────
+# ── Files (upload state machine) ───────────────────────────────────────────
+
+
+def _assert_completed(file_row: CollectionFile) -> None:
+    if file_row.completed_at is None:
+        raise CollectionFileError("file_not_found", 404)
+
+
+def _assert_upload_session(
+    file_row: CollectionFile,
+    *,
+    member: CollectionMember,
+    upload_id: str,
+) -> None:
+    """Validate member/file/upload binding for follow-up upload calls."""
+    if member.id != file_row.member_id:
+        raise CollectionFileError("forbidden_not_uploader", 403)
+    if not upload_id or file_row.upload_id != upload_id:
+        raise CollectionFileError("upload_id_mismatch", 400)
+    if file_row.completed_at is not None:
+        raise CollectionFileError("file_already_completed", 409)
+
+
+def _assert_part_number(file_row: CollectionFile, part_number: int, *, s3: bool) -> None:
+    total = int(file_row.expected_parts_total or 0)
+    if total <= 0:
+        raise CollectionFileError("invalid_part_number", 400)
+    if s3:
+        valid = 1 <= part_number <= total
+    else:
+        valid = 0 <= part_number < total
+    if not valid:
+        raise CollectionFileError(
+            "invalid_part_number",
+            400,
+            detail={"part_number": part_number, "parts_total": total},
+        )
+
+
+def _local_tmp_dir(storage: Any, upload_id: str) -> Path:
+    tmp_root = getattr(storage, "tmp_root", None)
+    if tmp_root is None:
+        raise CollectionFileError("local_chunk_upload_not_supported_for_backend", 400)
+    root = Path(tmp_root).resolve()
+    d = (root / upload_id).resolve()
+    if not str(d).startswith(str(root)):
+        raise CollectionFileError("invalid_upload_id", 400)
+    return d
+
+
+def _local_part_path(tmp_dir: Path, part_number: int) -> Path:
+    part_path = (tmp_dir / f"part_{part_number}").resolve()
+    if not str(part_path).startswith(str(tmp_dir.resolve())):
+        raise CollectionFileError("invalid_part_number", 400)
+    return part_path
 
 
 async def init_collection_file(
@@ -497,51 +564,58 @@ async def init_collection_file(
     content_type: str | None,
     chunk_size: int | None,
 ) -> dict[str, Any]:
-    """Allocate a CollectionFile row + open a backend multipart session.
+    """Allocate a pending CollectionFile row and open a backend upload session."""
+    if _is_closed(collection):
+        raise ServiceError("closed_or_expired", code=4041, http_status=410)
+    if not collection.upload_enabled:
+        raise CollectionFileError("upload_disabled", 403)
+    if size <= 0:
+        raise CollectionFileError("empty_file", 400)
+    if size > settings.max_upload_bytes:
+        raise ServiceError(
+            "file_too_large",
+            code=4133,
+            http_status=413,
+            detail={"max_bytes": settings.max_upload_bytes},
+        )
 
-    Flow:
-      1. Insert row with placeholder storage_key='' so we get a stable id.
-      2. Derive storage_key from id + slug.
-      3. Call storage.init_multipart(key) → upload_id.
-      4. UPDATE storage_key + storage_backend on the row.
-      5. Return ``{upload_id, backend, total_chunks, presigned_part_size}``.
-    """
     backend_name = _backend_name()
     is_s3 = _is_s3_like(backend_name)
     part_size = _S3_PART_SIZE if is_s3 else (chunk_size or _LOCAL_CHUNK_DEFAULT)
-    total_chunks = max(1, math.ceil(size / part_size)) if size > 0 else 1
+    if part_size <= 0:
+        raise CollectionFileError("invalid_part_number", 400)
+    total_chunks = max(1, math.ceil(size / part_size))
 
-    # 1. row first → get id
     row = CollectionFile(
         collection_id=collection.id,
         member_id=member.id,
-        name=name,
+        name=name[:255],
         size=size,
-        storage_key="",  # patched below
+        storage_key="",  # patched below after id allocation
         storage_backend=backend_name,
         content_type=content_type,
+        upload_id=None,
+        expected_parts_total=total_chunks,
+        part_size=part_size,
+        completed_at=None,
         wrapped_dek=None,
     )
     db.add(row)
-    await db.flush()  # populates row.id
+    await db.flush()
 
-    # 2 + 3. build key, open multipart
     key = _storage_key(collection, row.id, name)
     storage = get_storage()
     upload_id = await storage.init_multipart(key, content_type)
-
-    # 4. patch storage_key
     row.storage_key = key
+    row.upload_id = upload_id
     await db.flush()
-    await db.commit()
 
     return {
         "upload_id": upload_id,
         "backend": backend_name,
         "total_chunks": total_chunks,
+        "part_size": part_size,
         "presigned_part_size": part_size if is_s3 else None,
-        # Convenience for the API layer; not part of FileInitResponse but
-        # routers need the file id to record subsequent calls.
         "file_id": row.id,
     }
 
@@ -551,19 +625,97 @@ async def sign_collection_file_part(
     *,
     collection: Collection,
     file_row: CollectionFile,
+    member: CollectionMember,
     upload_id: str,
     part_number: int,
 ) -> dict[str, Any]:
-    """Presigned-URL wrapper. S3-like backends only — local rejects."""
+    """Return a presigned URL for one part of a pending S3-like collection file."""
+    _ = db, collection
     backend_name = (file_row.storage_backend or _backend_name()).lower()
     if not _is_s3_like(backend_name):
-        # Local backend: the frontend POSTs raw chunk bytes directly to
-        # /api/collections/{code}/files/{upload_id}/parts/{n} — there's no
-        # presigned URL to mint.
         raise CollectionFileError("sign_part_not_supported_for_local", 400)
+    _assert_upload_session(file_row, member=member, upload_id=upload_id)
+    _assert_part_number(file_row, part_number, s3=True)
 
     storage = get_storage()
-    return await storage.sign_part(file_row.storage_key, upload_id, part_number)
+    out = await storage.sign_part(file_row.storage_key, upload_id, part_number)
+    out["part_number"] = part_number
+    return out
+
+
+async def save_collection_file_part(
+    db: AsyncSession,
+    *,
+    collection: Collection,
+    file_row: CollectionFile,
+    member: CollectionMember,
+    upload_id: str,
+    part_number: int,
+    fileobj: IO[bytes],
+) -> dict[str, Any]:
+    """Persist one local-backend chunk after validating upload ownership."""
+    _ = db, collection
+    backend_name = (file_row.storage_backend or _backend_name()).lower()
+    if _is_s3_like(backend_name):
+        raise CollectionFileError("local_chunk_upload_not_supported_for_backend", 400)
+    _assert_upload_session(file_row, member=member, upload_id=upload_id)
+    _assert_part_number(file_row, part_number, s3=False)
+
+    storage = get_storage()
+    tmp_dir = _local_tmp_dir(storage, upload_id)
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    part_path = _local_part_path(tmp_dir, part_number)
+
+    expected_size = min(
+        int(file_row.part_size or _LOCAL_CHUNK_DEFAULT),
+        max(0, int(file_row.size) - part_number * int(file_row.part_size or _LOCAL_CHUNK_DEFAULT)),
+    )
+    max_size = max(1, expected_size)
+    written = 0
+    with open(part_path, "wb") as out_fp:
+        while True:
+            chunk = fileobj.read(1024 * 1024)
+            if not chunk:
+                break
+            written += len(chunk)
+            if written > max_size:
+                try:
+                    part_path.unlink()
+                except FileNotFoundError:
+                    pass
+                raise CollectionFileError(
+                    "size_mismatch",
+                    400,
+                    detail={"part_number": part_number, "max_bytes": max_size, "actual": written},
+                )
+            out_fp.write(chunk)
+
+    return {"part_number": part_number, "received": True, "bytes": written}
+
+
+def _merge_local_parts(tmp_dir: Path, file_row: CollectionFile) -> tuple[Path, int]:
+    total_parts = int(file_row.expected_parts_total or 0)
+    if total_parts <= 0:
+        raise CollectionFileError("missing_parts", 400)
+    merged_path = tmp_dir / "_merged.bin"
+    total = 0
+    with open(merged_path, "wb") as out:
+        for i in range(total_parts):
+            part_path = _local_part_path(tmp_dir, i)
+            if not part_path.exists():
+                raise CollectionFileError(
+                    "missing_parts",
+                    400,
+                    detail={"missing_part": i, "expected": total_parts},
+                )
+            with open(part_path, "rb") as src:
+                while True:
+                    buf = src.read(1024 * 1024)
+                    if not buf:
+                        break
+                    out.write(buf)
+                    total += len(buf)
+    return merged_path, total
 
 
 async def complete_collection_file(
@@ -571,41 +723,65 @@ async def complete_collection_file(
     *,
     collection: Collection,
     file_row: CollectionFile,
+    member: CollectionMember,
     upload_id: str,
     parts: list[dict[str, Any]],
 ) -> CollectionFile:
-    """Finalize the upload, persist any local-only DEK, broadcast SSE."""
+    """Finalize a pending Collection file and make it visible to room members."""
+    _assert_upload_session(file_row, member=member, upload_id=upload_id)
     backend_name = (file_row.storage_backend or _backend_name()).lower()
     storage = get_storage()
 
     if _is_s3_like(backend_name):
-        # Server-side encryption is handled by the bucket (R2 SSE-S3).
+        expected = int(file_row.expected_parts_total or 0)
+        if len(parts) != expected:
+            raise CollectionFileError(
+                "missing_parts",
+                400,
+                detail={"expected": expected, "got": len(parts)},
+            )
         await storage.complete_multipart(file_row.storage_key, upload_id, parts)
-        # wrapped_dek stays NULL on the row.
+        head = await storage.head(file_row.storage_key)
+        real_size = int(head.get("size") or 0)
+        if real_size != int(file_row.size):
+            try:
+                await storage.delete(file_row.storage_key)
+            finally:
+                raise CollectionFileError(
+                    "size_mismatch",
+                    400,
+                    detail={"declared": file_row.size, "actual": real_size},
+                )
     else:
-        # Local backend: the chunk service has already merged the parts to a
-        # plaintext temp blob keyed by upload_id. We generate a DEK, write
-        # the encrypted blob via server_write_encrypted, and persist the
-        # wrapped DEK on the row.
+        tmp_dir = _local_tmp_dir(storage, upload_id)
+        if not tmp_dir.exists():
+            raise CollectionFileError("missing_parts", 400)
+        merged_path, real_size = _merge_local_parts(tmp_dir, file_row)
+        if real_size != int(file_row.size):
+            await db.flush()
+            raise CollectionFileError(
+                "size_mismatch",
+                400,
+                detail={"declared": file_row.size, "actual": real_size},
+            )
         dek = generate_dek()
         wrapped = wrap_dek(dek)
-        # server_write_encrypted is LocalStorage-only — the brief guarantees
-        # the current backend exposes it when storage_backend == 'local'.
-        await storage.server_write_encrypted(  # type: ignore[attr-defined]
-            file_row.storage_key, upload_id, dek
-        )
+        with open(merged_path, "rb") as f:
+            await storage.server_write_encrypted(  # type: ignore[attr-defined]
+                file_row.storage_key, f, dek
+            )
         file_row.wrapped_dek = wrapped
+        await db.flush()
+        try:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        except Exception:
+            log.warning("collection local tmp cleanup failed: %s", tmp_dir)
 
+    file_row.completed_at = _utcnow()
     await db.flush()
-    await db.commit()
     await db.refresh(file_row)
 
     nickname = await _uploader_nickname(db, file_row.member_id)
-    # Broadcast the file DTO *bare* (not wrapped in {"file": ...}) so the SSE
-    # consumer can dispatch it identically to a message event. Wrapping it
-    # was the cause of v0.3.6.x's "uploaded file shows 0 B, click goes to
-    # /files/undefined/download" bug — frontend read parsed.id which was
-    # undefined because the real DTO was nested under parsed.file.
     payload = _file_dto(file_row, nickname)
     creator_only = (collection.visibility or "public").lower() == "creator_only"
     await collection_sse.broadcast(
@@ -624,18 +800,14 @@ async def list_files(
     collection: Collection,
     member: CollectionMember,
 ) -> list[dict[str, Any]]:
-    """Return FileDTO dicts visible to ``member``.
-
-    Visibility:
-      - public: everyone in the room sees every undeleted file.
-      - creator_only: non-creator members see only their own uploads.
-    """
+    """Return completed FileDTO dicts visible to ``member``."""
     stmt = (
         select(CollectionFile, CollectionMember.nickname)
         .join(CollectionMember, CollectionMember.id == CollectionFile.member_id)
         .where(
             CollectionFile.collection_id == collection.id,
             CollectionFile.deleted_at.is_(None),
+            CollectionFile.completed_at.is_not(None),
         )
         .order_by(CollectionFile.created_at.asc(), CollectionFile.id.asc())
     )
@@ -678,11 +850,16 @@ async def delete_collection_file(
     await db.flush()
     await db.commit()
 
-    # Best-effort storage delete — swallow errors so an orphaned object
-    # doesn't block the soft-delete state from sticking.
     try:
         storage = get_storage()
-        await storage.delete(file_row.storage_key)
+        if file_row.completed_at is not None:
+            await storage.delete(file_row.storage_key)
+        elif file_row.upload_id:
+            # Pending upload: best-effort tmp/multipart cleanup.
+            if _is_s3_like((file_row.storage_backend or _backend_name()).lower()):
+                await storage.abort_multipart(file_row.storage_key, file_row.upload_id)
+            else:
+                shutil.rmtree(_local_tmp_dir(storage, file_row.upload_id), ignore_errors=True)
     except Exception:
         pass
 
@@ -703,29 +880,18 @@ async def get_file_download_url(
     file_row: CollectionFile,
     member: CollectionMember,
 ) -> tuple[str, int]:
-    """Return ``(download_url, ttl_seconds)``.
-
-    - creator_only rooms: non-creators may only download their own uploads;
-      raise 4030 otherwise.
-    - S3-like backends: presigned GET via storage.get_object_url, ttl=900.
-    - Local backend: same-origin token URL ``/api/collections/{code}/files/
-      {file_id}/download?token=<jwt>`` carrying the storage_key + wrapped
-      DEK + filename, expiring in 15 minutes.
-    """
+    """Return ``(download_url, ttl_seconds)`` for a completed file."""
+    _ = db
+    _assert_completed(file_row)
     is_creator_only = (collection.visibility or "public").lower() == "creator_only"
     if is_creator_only and not member.is_creator and file_row.member_id != member.id:
         raise CollectionFileError("forbidden_creator_only", 403)
 
-    ttl = 900  # 15 minutes for both paths
+    ttl = 900
     backend_name = (file_row.storage_backend or _backend_name()).lower()
 
     if _is_s3_like(backend_name):
         storage = get_storage()
-        # Probe the object before issuing a presigned URL so we can return
-        # a clean 404 to the client instead of letting R2/S3 render a
-        # NoSuchKey XML page in the browser. This handles the orphan-row
-        # case (init succeeded, multipart never completed: DB row exists
-        # but the object doesn't) by surfacing the failure server-side.
         try:
             await storage.head(file_row.storage_key)
         except Exception as e:
@@ -736,14 +902,11 @@ async def get_file_download_url(
                 e,
             )
             raise CollectionFileError("file_not_yet_uploaded", 404) from e
-        url = await storage.get_object_url(file_row.storage_key, ttl=ttl, response_filename=file_row.name)
+        url = await storage.get_object_url(
+            file_row.storage_key, ttl=ttl, response_filename=file_row.name
+        )
         return url, ttl
 
-    # Local backend → JWT-wrapped same-origin URL. The URL points at a
-    # dedicated blob endpoint that ONLY accepts ``?token=<jwt>`` for auth
-    # — using the member-token endpoint here would 401 because plain <a>
-    # downloads don't carry the X-Member-Token header or the mt_<code>
-    # cookie reliably (notably Safari mobile).
     token_payload: dict[str, Any] = {
         "k": file_row.storage_key,
         "d": file_row.wrapped_dek.hex() if file_row.wrapped_dek else None,

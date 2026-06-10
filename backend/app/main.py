@@ -85,6 +85,23 @@ def _require_secrets_key_or_die() -> None:
 _require_secrets_key_or_die()
 
 
+# ── Startup guard: JWT_SECRET ───────────────────────────────────────────────
+
+
+def _require_jwt_secret_or_die() -> None:
+    """Refuse to start with an empty or trivially weak JWT signing secret."""
+    secret = settings.jwt_secret or ""
+    weak = {"test", "secret", "changeme", "password", "dev", "localhost", "jwt_secret"}
+    if len(secret) < 32 or secret.strip().lower() in weak:
+        raise RuntimeError(
+            "JWT_SECRET must be a strong random string of at least 32 characters. "
+            "Generate one with `python -c \"import secrets; print(secrets.token_urlsafe(32))\"`."
+        )
+
+
+_require_jwt_secret_or_die()
+
+
 # ── Security headers middleware ─────────────────────────────────────────────
 
 

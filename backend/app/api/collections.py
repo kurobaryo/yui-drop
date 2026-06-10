@@ -12,9 +12,9 @@ All handlers follow the envelope pattern (``ok({...})``) and convert any
 
 from __future__ import annotations
 
-import shutil
 from typing import Annotated, Any
 
+import jwt
 from fastapi import (
     APIRouter,
     Depends,
@@ -47,8 +47,6 @@ from ..services import collection_sse
 from ..services import collections as svc
 from ..services import share as svc_share
 from ..services.common import ServiceError, record_access
-
-import jwt
 
 router = APIRouter(prefix="/api/collections", tags=["collections"])
 log = get_logger(__name__)
@@ -578,6 +576,7 @@ async def files_sign_part(
             db,
             collection=collection,
             file_row=file_row,
+            member=member,
             upload_id=upload_id,
             part_number=part_number,
         )
@@ -598,35 +597,20 @@ async def files_upload_part_local(
     x_member_token: str | None = Header(default=None, alias="X-Member-Token"),
 ) -> dict[str, Any]:
     collection, member = await require_member(request, db, code, x_member_token)
-    await _get_file_or_404(db, collection=collection, file_id=file_id)
-
+    file_row = await _get_file_or_404(db, collection=collection, file_id=file_id)
     try:
-        from ..storage.factory import get_storage
-
-        storage = get_storage()
-        tmp_root = getattr(storage, "tmp_root", None)
-        if tmp_root is None:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "code": 4002,
-                    "message": "local_chunk_upload_not_supported_for_backend",
-                },
-            )
-        tmp_dir = tmp_root / upload_id
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-        part_path = tmp_dir / f"part_{part_number}"
-        with open(part_path, "wb") as out_fp:
-            shutil.copyfileobj(chunk.file, out_fp)
-    except HTTPException:
-        raise
-    except Exception as e:  # pragma: no cover — surface as 500
-        log.exception("local chunk upload failed: %s", e)
-        raise HTTPException(
-            status_code=500,
-            detail={"code": 5001, "message": "chunk_write_failed"},
-        ) from e
-    return ok({"part_number": part_number, "received": True})
+        out = await svc.save_collection_file_part(
+            db,
+            collection=collection,
+            file_row=file_row,
+            member=member,
+            upload_id=upload_id,
+            part_number=part_number,
+            fileobj=chunk.file,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    return ok(out)
 
 
 @router.post("/{code}/files/{file_id}/complete")
@@ -646,6 +630,7 @@ async def files_complete(
             db,
             collection=collection,
             file_row=file_row,
+            member=member,
             upload_id=body.upload_id,
             parts=parts_payload,
         )

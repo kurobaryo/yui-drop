@@ -16,7 +16,9 @@ services:
     restart: unless-stopped
     env_file: .env
     ports:
-      - "8000:8000"
+      # Bind to localhost by default. Put Caddy/Nginx/Cloudflare Tunnel in
+      # front for public HTTPS instead of exposing uvicorn directly.
+      - "127.0.0.1:8000:8000"
     volumes:
       - yui-drop-data:/app/data
     healthcheck:

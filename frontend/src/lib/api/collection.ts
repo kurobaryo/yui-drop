@@ -37,8 +37,9 @@ export interface CreateCollectionRequest {
   lifetime_days: number | null;
   /** Optional creator nickname; backend defaults to "Owner" if absent. */
   creator_nickname?: string | null;
-  /** Optional Turnstile token, gated by the same setting as uploads. */
-  turnstile_token?: string | null;
+  // NOTE: do NOT add fields here that the backend schema does not accept —
+  // CreateCollectionRequest is extra="forbid" server-side, so any unknown
+  // key (e.g. a turnstile_token) turns into a 422 for every caller.
 }
 
 export interface CreateCollectionResponse {

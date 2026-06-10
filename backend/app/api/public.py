@@ -91,6 +91,9 @@ async def public_config(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
             "turnstileProtectPickup": (
                 bool(ts_cfg.get("protect_pickup")) if ts_fully_configured else False
             ),
+            "turnstileProtectAdminLogin": (
+                bool(ts_cfg.get("protect_admin_login")) if ts_fully_configured else False
+            ),
         }
     )
 

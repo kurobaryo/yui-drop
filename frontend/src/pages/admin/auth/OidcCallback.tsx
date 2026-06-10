@@ -27,10 +27,12 @@ export default function OidcCallback() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const expiresAt = params.get('expires_at');
+    // Strip sensitive query params from the URL bar FIRST — before any other
+    // synchronous work — so the token never survives in browser history even
+    // if the store write or navigation throws.
+    window.history.replaceState({}, '', '/admin/oidc/callback');
     if (token && expiresAt) {
       setToken(token, expiresAt);
-      // Strip sensitive query params from the URL bar.
-      window.history.replaceState({}, '', '/admin/oidc/callback');
       navigate('/admin', { replace: true });
     } else {
       navigate('/admin/login?oidc_error=missing_token', { replace: true });

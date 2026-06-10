@@ -373,6 +373,7 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
               <iframe
                 src={item.url}
                 title={name || t('washi.preview_pdf')}
+                referrerPolicy="no-referrer"
                 onLoad={() => setPdfLoaded(true)}
                 style={{
                   display: pdfLoaded ? 'block' : 'none',
