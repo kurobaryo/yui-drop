@@ -76,9 +76,18 @@ function createClient(): AxiosInstance {
       // axios will set the multipart boundary itself when Content-Type is unset
       delete (config.headers as Record<string, unknown>)['Content-Type'];
     }
-    // Inject admin token if available.
+    // Inject admin token if available — but NEVER clobber an Authorization
+    // header the caller already set explicitly (e.g. the multi-file upload
+    // flow passes a scoped upload_token). Overriding it here made share
+    // multi/file/init return 403 for any browser that had an admin session
+    // persisted in localStorage.
     const token = useAdminStore.getState().token;
-    if (token && config.headers) {
+    const hasExplicitAuth =
+      !!config.headers &&
+      Object.keys(config.headers as Record<string, unknown>).some(
+        (k) => k.toLowerCase() === 'authorization',
+      );
+    if (token && config.headers && !hasExplicitAuth) {
       (config.headers as Record<string, string>).Authorization =
         `Bearer ${token}`;
     }
