@@ -11,6 +11,7 @@
  *   - otherwise                     → "no preview, please download" card
  */
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { ShareSelectResponse } from '@/lib/api/share';
 import type { WashiColors } from '../palettes';
@@ -183,7 +184,7 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
       ? item.total_size ?? 0
       : item.size ?? (item.kind === 'text' ? new Blob([item.text ?? '']).size : 0);
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -607,7 +608,8 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
