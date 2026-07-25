@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 // Tailwind v3.4 config. We keep the palette extremely small here because
 // almost all "themed" colors are emitted through CSS variables (see
-// src/styles/tokens.css). Tailwind handles spacing, layout, and the few
+// src/styles/templates.css). Tailwind handles spacing, layout, and the few
 // fixed status colors. accent-* utilities reference the live --accent-h/s/l.
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -37,15 +37,21 @@ export default {
         '3xl': ['32px', { lineHeight: '1.2' }],
         '4xl': ['44px', { lineHeight: '1.1' }],
       },
+      // ★ Radii are driven by the ACTIVE TEMPLATE (see styles/templates.css).
+      // Mapping Tailwind's scale onto the template tokens means every existing
+      // `rounded-md` / `rounded-lg` in the codebase follows the theme switch
+      // for free — Linear gets tight 8-12px corners, Apple gets pills and big
+      // soft corners — without touching a single component.
+      // The fallbacks keep these sane if a token is ever missing.
       borderRadius: {
-        sm: '6px',
-        DEFAULT: '8px',
-        md: '10px',
-        lg: '12px',
-        xl: '16px',
+        sm: 'var(--rt, 6px)',
+        DEFAULT: 'var(--rb, 8px)',
+        md: 'var(--rb, 10px)',
+        lg: 'var(--rs, 12px)',
+        xl: 'var(--rc, 16px)',
       },
       colors: {
-        // Surfaces — driven by CSS vars set per theme in tokens.css.
+        // Surfaces — driven by CSS vars set per template in templates.css.
         bg: 'var(--bg)',
         'bg-1': 'var(--bg-1)',
         'bg-2': 'var(--bg-2)',

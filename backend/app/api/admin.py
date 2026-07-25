@@ -34,6 +34,7 @@ from ..schemas.admin_api_keys import (
     AdminApiKeyUsageResponse,
 )
 from ..schemas.common import Envelope
+from ..schemas.admin_theme import ThemeConfigRequest
 from ..services.admin import (
     compute_dashboard,
     delete_file,
@@ -59,6 +60,10 @@ from ..services.admin_api_keys import (
     update_api_key,
 )
 from ..services.admin_storage import read_storage_config, save_storage_config
+from ..services.admin_theme import (
+    resolve_theme_config,
+    save_theme_config,
+)
 from ..services.admin_turnstile import (
     read_turnstile_config,
     save_turnstile_config,
@@ -675,6 +680,67 @@ async def admin_put_turnstile(
             "protect_upload": body.protect_upload,
             "protect_pickup": body.protect_pickup,
             "protect_admin_login": body.protect_admin_login,
+        },
+    )
+    await db.commit()
+    return ok(out)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# GET  /api/admin/theme  — read the active site theme
+# PUT  /api/admin/theme  — save any subset of the theme knobs
+#
+# Theme changes take effect for every visitor with no rebuild and no redeploy:
+# the SPA reads the resolved theme from the public /api/config on boot.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/theme")
+async def admin_get_theme(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    out = await resolve_theme_config(db)
+    return ok(out)
+
+
+@router.put("/theme")
+async def admin_put_theme(
+    request: Request,
+    body: ThemeConfigRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict[str, Any]:
+    try:
+        out = await save_theme_config(
+            db,
+            template=body.template,
+            mode=body.mode,
+            accent=body.accent,
+            accent_custom=body.accent_custom,
+            brand_name=body.brand_name,
+            hero_title=body.hero_title,
+            hero_subtitle=body.hero_subtitle,
+            default_lang=body.default_lang,
+            logo_url=body.logo_url,
+            lock_mode=body.lock_mode,
+        )
+    except ServiceError as e:
+        raise _service_to_http(e) from e
+    await record_access(
+        db,
+        action=AccessLogAction.ADMIN_ACTION,
+        ip=real_client_ip(request),
+        ua=_ua(request),
+        extra={
+            "event": "admin.theme.save",
+            # Log the resolved values so the audit trail shows what actually
+            # took effect (the request may have been partial / coerced).
+            "template": out["template"],
+            "mode": out["mode"],
+            "accent": out["accent"] or None,
+            "lock_mode": out["lock_mode"],
         },
     )
     await db.commit()

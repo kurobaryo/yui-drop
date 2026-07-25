@@ -20,6 +20,7 @@ import {
   FolderOpen,
   KeyRound,
   ScrollText,
+  Palette,
   Settings,
   Menu,
   X,
@@ -34,6 +35,7 @@ const NAV = [
   { to: '/admin/collections', end: false, key: 'admin.nav.collections', Icon: FolderOpen },
   { to: '/admin/api-keys', end: false, key: 'admin.nav.apiKeys', Icon: KeyRound },
   { to: '/admin/logs', end: false, key: 'admin.nav.logs', Icon: ScrollText },
+  { to: '/admin/theme', end: false, key: 'admin.nav.theme', Icon: Palette },
   { to: '/admin/settings', end: false, key: 'admin.nav.settings', Icon: Settings },
 ];
 

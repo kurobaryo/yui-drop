@@ -9,21 +9,23 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { WashiColors, WashiMode, WashiPaletteName } from './palettes';
-import { PalettePicker } from './pickers/PalettePicker';
 import { ModePicker } from './pickers/ModePicker';
 import { LangPicker, type WashiLang } from './pickers/LangPicker';
 
 export interface MobileMenuProps {
   c: WashiColors;
-  palette: WashiPaletteName;
-  setPalette: (p: WashiPaletteName) => void;
+  /** @deprecated Site colours are admin-owned now; retained so existing
+   *  callers keep compiling. Ignored by the component. */
+  palette?: WashiPaletteName;
+  /** @deprecated See `palette`. */
+  setPalette?: (p: WashiPaletteName) => void;
   mode: WashiMode;
   setMode: (m: WashiMode) => void;
   lang: WashiLang;
   setLang: (l: WashiLang) => void;
 }
 
-export function MobileMenu({ c, palette, setPalette, mode, setMode, lang, setLang }: MobileMenuProps) {
+export function MobileMenu({ c, mode, setMode, lang, setLang }: MobileMenuProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -112,10 +114,11 @@ export function MobileMenu({ c, palette, setPalette, mode, setMode, lang, setLan
               ×
             </button>
           </div>
-          <div>
-            <div style={{ fontSize: 11, color: c.sub, marginBottom: 8 }}>{t('washi.palette')}</div>
-            <PalettePicker c={c} palette={palette} setPalette={setPalette} />
-          </div>
+          {/* Palette picker removed: colours are now owned by the *site
+              theme* (an admin setting delivered via /api/config), so a
+              visitor-side palette override would fight the configured brand
+              and silently do nothing. Appearance (light/dark) and language
+              remain visitor preferences. See `themes/washiBridge.ts`. */}
           <div>
             <div style={{ fontSize: 11, color: c.sub, marginBottom: 8 }}>{t('washi.modeLabel')}</div>
             <ModePicker c={c} mode={mode} setMode={setMode} />

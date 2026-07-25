@@ -16,6 +16,7 @@ from ..core.config import settings
 from ..db.session import get_db
 from ..schemas import ok
 from ..services.admin_turnstile import resolve_turnstile_config
+from ..services.admin_theme import resolve_theme_config
 from ..storage.factory import resolve_storage_config
 
 router = APIRouter(prefix="/api", tags=["public"])
@@ -51,6 +52,7 @@ async def public_config(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """
     storage_cfg = await resolve_storage_config(db)
     ts_cfg = await resolve_turnstile_config(db)
+    theme_cfg = await resolve_theme_config(db)
     # Mirror the existing site-key emission rule: only advertise the turnstile
     # surface when all three pieces (toggle on, public site key, server-side
     # secret) are in hand. Otherwise the SPA can't render the widget anyway,
@@ -61,8 +63,12 @@ async def public_config(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     )
     return ok(
         {
-            "appName": settings.app_name,
+            "appName": theme_cfg["brand_name"] or settings.app_name,
             "appUrl": settings.app_url,
+            # Active site theme — the SPA applies this on boot by setting
+            # data-template / data-mode / data-accent on <html>. Changing it
+            # in the admin UI restyles the site for everyone with no rebuild.
+            "theme": theme_cfg,
             "storage_backend": storage_cfg.backend,
             "maxUploadBytes": settings.max_upload_bytes,
             "maxTextBytes": settings.max_text_bytes,

@@ -390,6 +390,39 @@ export async function putAdminUploads(
   return data;
 }
 
+// ── Site theme ────────────────────────────────────────────────────────────
+/**
+ * The admin-owned site theme. Saving it restyles the site for every visitor
+ * with no rebuild and no redeploy — the SPA reads the same block from the
+ * public `/api/config` on boot.
+ */
+export interface ThemeConfigResponse {
+  template: string;
+  mode: string;
+  accent: string;
+  accent_custom: string;
+  brand_name: string;
+  hero_title: string;
+  hero_subtitle: string;
+  default_lang: string;
+  logo_url: string;
+  lock_mode: boolean;
+}
+
+export type ThemeConfigRequest = Partial<ThemeConfigResponse>;
+
+export async function getAdminTheme(): Promise<ThemeConfigResponse> {
+  const { data } = await api.get<ThemeConfigResponse>('/admin/theme');
+  return data;
+}
+
+export async function putAdminTheme(
+  body: ThemeConfigRequest,
+): Promise<ThemeConfigResponse> {
+  const { data } = await api.put<ThemeConfigResponse>('/admin/theme', body);
+  return data;
+}
+
 // ── Auth methods probe ────────────────────────────────────────────────────
 /**
  * Shape returned by ``GET /api/admin/auth/methods``. Public — the login page

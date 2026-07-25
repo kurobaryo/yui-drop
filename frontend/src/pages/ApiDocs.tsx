@@ -15,18 +15,18 @@ import { Header } from "../variants/washi/Header";
 import { Footer } from "../variants/washi/Footer";
 import { PaperTexture } from "../variants/washi/PaperTexture";
 import {
-  WASHI_DARK,
-  WASHI_PALETTES,
   type WashiColors,
   type WashiMode,
   type WashiPaletteName,
 } from "../variants/washi/palettes";
+import { templateToWashi } from "@/themes/washiBridge";
+import { useThemeStore } from "@/stores/theme";
 import type { WashiLang } from "../variants/washi/pickers/LangPicker";
 import { CodeBlock } from "./api-docs/CodeBlock";
 import { EndpointBlock } from "./api-docs/EndpointBlock";
 
 const LS_PALETTE_KEY = "yui-washi-palette";
-const LS_MODE_KEY = "yui-washi-mode";
+// Mode is persisted by the shared theme store under its own key.
 const LS_LANG_KEY = "yui-washi-lang";
 
 function readLs<T extends string>(key: string, fallback: T): T {
@@ -39,10 +39,6 @@ function resolveMode(mode: WashiMode): "light" | "dark" {
   if (mode !== "auto") return mode;
   if (typeof window === "undefined" || !window.matchMedia) return "light";
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function pickColors(palette: WashiPaletteName, mode: WashiMode): WashiColors {
-  return resolveMode(mode) === "dark" ? WASHI_DARK[palette] : WASHI_PALETTES[palette];
 }
 
 const TOC_IDS = [
@@ -235,21 +231,37 @@ export default function ApiDocs() {
   const [palette, setPalette] = useState<WashiPaletteName>(() =>
     readLs<WashiPaletteName>(LS_PALETTE_KEY, "sumi"),
   );
-  const [mode, setMode] = useState<WashiMode>(() => readLs<WashiMode>(LS_MODE_KEY, "auto"));
+  // Appearance is owned by the shared theme store — see WashiApp for why.
+  const storeMode = useThemeStore((s) => s.mode);
+  const setStoreMode = useThemeStore((s) => s.setMode);
+  const mode = storeMode as WashiMode;
+  const setMode = (m: WashiMode) => setStoreMode(m as typeof storeMode);
+
   const [lang, setLang] = useState<WashiLang>(() => readLs<WashiLang>(LS_LANG_KEY, "zh"));
   const [tocOpen, setTocOpen] = useState(false);
 
-  useEffect(() => {
-    window.localStorage.setItem(LS_PALETTE_KEY, palette);
-  }, [palette]);
-  useEffect(() => {
-    window.localStorage.setItem(LS_MODE_KEY, mode);
-  }, [mode]);
+  // Mode persistence belongs to the theme store now (it owns the key and the
+  // server-default merge), so no local write for it here.
   useEffect(() => {
     window.localStorage.setItem(LS_LANG_KEY, lang);
   }, [lang]);
 
-  const c = useMemo(() => pickColors(palette, mode), [palette, mode]);
+  // Colours follow the active template (admin setting via /api/config);
+  // light/dark stays the visitor's own preference.
+  const template = useThemeStore((s) => s.template);
+  const storeAccent = useThemeStore((s) => s.accent);
+  const storeAccentCustom = useThemeStore((s) => s.accentCustom);
+
+  const c = useMemo(
+    () =>
+      templateToWashi(
+        template,
+        resolveMode(mode) === 'dark',
+        storeAccent,
+        storeAccentCustom,
+      ),
+    [template, mode, storeAccent, storeAccentCustom],
+  );
 
   // Apply page-level background so the iOS safe areas match.
   useEffect(() => {

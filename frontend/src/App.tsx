@@ -30,6 +30,7 @@ import AdminFiles from './pages/admin/Files';
 import AdminApiKeys from './pages/admin/ApiKeys';
 import AdminLogs from './pages/admin/Logs';
 import AdminSettings from './pages/admin/Settings';
+import AdminTheme from './pages/admin/Theme';
 import AdminCollections from './pages/admin/Collections';
 import OidcCallback from './pages/admin/auth/OidcCallback';
 import OidcBound from './pages/admin/auth/OidcBound';
@@ -37,6 +38,7 @@ import CollectionLanding from './pages/Collection/Landing';
 import CollectionCreate from './pages/Collection/Create';
 import CollectionRoom from './pages/Collection/Room';
 import { ToastProvider } from './components/ui/Toast';
+import { useApplyServerTheme } from './lib/hooks/usePublicConfig';
 
 /**
  * Wraps `<Routes>` so we can read the current location and remount the routed
@@ -46,6 +48,8 @@ import { ToastProvider } from './components/ui/Toast';
  */
 function AnimatedRoutes() {
   const location = useLocation();
+  // Apply the admin-configured site theme as soon as /api/config lands.
+  useApplyServerTheme();
   return (
     <div key={location.pathname} className="route-fade">
       <Routes location={location}>
@@ -69,6 +73,7 @@ function AnimatedRoutes() {
           <Route path="files" element={<AdminFiles />} />
           <Route path="api-keys" element={<AdminApiKeys />} />
           <Route path="logs" element={<AdminLogs />} />
+          <Route path="theme" element={<AdminTheme />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="collections" element={<AdminCollections />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
