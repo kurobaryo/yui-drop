@@ -8,16 +8,22 @@
  * own caption 「仅保存在这台设备」 — no server round-trip, nothing to sync.
  *
  * Row anatomy (desktop):
- *   [kind icon] [code chip] [name ......] [size] [left] [复制码] [复制链接] [›]
+ *   [kind icon] [code chip] [name ...] [size] [when] [left] [复制码] [复制链接] [›]
  * On narrow screens `data-r="rowmeta"` (size/expiry) and `data-r="hide-sm"`
  * (the copy buttons) are hidden by the theme stylesheet, leaving icon + code +
- * name + chevron.
+ * name + when + chevron — the creation time stays because it is the main way
+ * to tell two shares apart once the size column is gone.
+ *
+ * Entries whose `expires_at` has passed are pruned rather than displayed: the
+ * server has already deleted the share, so the row would only 404 when tapped.
+ * The list shows PAGE rows at a time behind a 加载更多 button.
  */
 import { useCallback, useEffect, useState } from 'react';
 
 import {
   clearRecent,
   loadRecent,
+  saveRecent,
   RECENT_CHANGED_EVENT,
   type RecentEntry,
 } from '@/lib/recent';
@@ -75,10 +81,45 @@ const quiet: React.CSSProperties = {
   fontFamily: 'inherit',
 };
 
+/** "刚刚" / "12 分钟前" / "3 小时前" / "7月20日" — when the share was created. */
+function formatWhen(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const diff = Date.now() - t;
+  if (diff < 60_000) return '刚刚';
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 60) return `${mins} 分钟前`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} 天前`;
+  const d = new Date(t);
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+/** A share the server has already dropped — clicking it would 404. */
+function isDead(e: RecentEntry): boolean {
+  if (!e.expires_at) return false;
+  const t = new Date(e.expires_at).getTime();
+  return !Number.isNaN(t) && t <= Date.now();
+}
+
+/** How many rows to show before the user asks for more. */
+const PAGE = 5;
+
 export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) {
   const [items, setItems] = useState<RecentEntry[]>([]);
+  const [shown, setShown] = useState(PAGE);
 
-  const refresh = useCallback(() => setItems(loadRecent()), []);
+  const refresh = useCallback(() => {
+    // Expired entries are pruned on read: the server has already deleted the
+    // share, so keeping the row would only produce a 404 when tapped. Persist
+    // the pruned list so dead codes don't accumulate against the MAX cap.
+    const all = loadRecent();
+    const live = all.filter((e) => !isDead(e));
+    if (live.length !== all.length) saveRecent(live);
+    setItems(live);
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -130,7 +171,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
           background: 'var(--pn)',
         }}
       >
-        {items.map((it, i) => (
+        {items.slice(0, shown).map((it, i) => (
           <div
             key={it.code}
             data-yd="row"
@@ -190,6 +231,17 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
                 : formatSize(it.size ?? it.totalSize)}
             </span>
             <span
+              data-r="rowtime"
+              style={{
+                fontSize: 12,
+                color: 'var(--tx3)',
+                whiteSpace: 'nowrap',
+              }}
+              title={new Date(it.created_at).toLocaleString()}
+            >
+              {formatWhen(it.created_at)}
+            </span>
+            <span
               data-r="rowmeta"
               style={{
                 fontSize: 12,
@@ -236,6 +288,33 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
           </div>
         ))}
       </div>
+
+      {items.length > shown && (
+        <button
+          type="button"
+          data-yd="quiet"
+          onClick={() => setShown((s) => s + PAGE)}
+          style={{
+            width: '100%',
+            marginTop: 8,
+            height: 38,
+            border: '1px solid var(--ln)',
+            borderRadius: 10,
+            background: 'transparent',
+            color: 'var(--tx2)',
+            fontFamily: 'inherit',
+            fontSize: 13,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}
+        >
+          加载更多 · 还有 {items.length - shown} 条
+          <Icon name="i-chev" size={14} style={{ transform: 'rotate(90deg)' }} />
+        </button>
+      )}
     </div>
   );
 }

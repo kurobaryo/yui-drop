@@ -54,12 +54,13 @@ export default function AdminLogs() {
         <span style={{ fontSize: 12, color: 'var(--tx3)' }}>记录客户端 IP 与 User-Agent，用于滥用追溯</span>
       </div>
 
-      <div data-r="tablewrap" style={card}>
+      <div style={card}>
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}><Spinner /></div>
         ) : !data || data.items.length === 0 ? (
           <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--tx3)' }}>{t('admin.logs.empty')}</div>
         ) : (
+          <div data-r="tablewrap">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
             <thead>
               <tr style={{ background: 'var(--p1)' }}>
@@ -84,6 +85,7 @@ export default function AdminLogs() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
