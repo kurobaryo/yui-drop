@@ -1,0 +1,12 @@
+/*
+ * v2 stylesheet entry point.
+ *
+ * ★ ADDING A THEME: create ./themes/<slug>.css, then add one @import below and
+ *   one entry to THEMES in ../themes.ts. Nothing else changes.
+ *
+ * base.css must come first — it supplies the optional-token defaults that a
+ * partially-specified theme falls back to.
+ */
+@import './base.css';
+@import './themes/linear.css';
+@import './themes/apple.css';

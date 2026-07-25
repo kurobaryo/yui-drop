@@ -24,8 +24,8 @@ import {
   type AdminFileAccessLogItem,
 } from '@/lib/api/admin';
 import { ApiError } from '@/lib/api';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Icon } from '@/v2/components/IconSprite';
 import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
 import { Modal } from '@/components/ui/Modal';
@@ -101,207 +101,120 @@ export default function AdminFiles() {
   const totalPages = Math.max(1, Math.ceil(total / size));
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-[--text-1]">
-          {t('admin.files.title')}
-        </h1>
-      </div>
+    <div>
+      <h1 style={ptitle}>文件</h1>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div data-r="filterrow" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
         <form
-          className="flex-1 min-w-[200px]"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setKeyword(keywordInput.trim());
-            setPage(1);
-          }}
+          style={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 10px', border: '1px solid var(--ln2)', borderRadius: 9, background: 'var(--p2)' }}
+          onSubmit={(e) => { e.preventDefault(); setKeyword(keywordInput.trim()); setPage(1); }}
         >
-          <Input
-            inputSize="sm"
-            placeholder={t('admin.files.search')}
+          <Icon name="i-search" size={15} style={{ color: 'var(--tx3)' }} />
+          <input
+            placeholder="搜索取件码或文件名"
             value={keywordInput}
             onChange={(e) => setKeywordInput(e.target.value)}
+            style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', color: 'var(--tx1)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
           />
         </form>
-        <label className="flex items-center gap-2 text-sm text-[--text-2]">
-          <input
-            type="checkbox"
-            checked={includeDeleted}
-            onChange={(e) => {
-              setIncludeDeleted(e.target.checked);
-              setPage(1);
-            }}
-          />
-          {t('admin.files.includeDeleted')}
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--tx2)', cursor: 'pointer', height: 36, flexShrink: 0 }}>
+          <input type="checkbox" checked={includeDeleted} onChange={(e) => { setIncludeDeleted(e.target.checked); setPage(1); }} style={{ accentColor: 'var(--ac)', width: 15, height: 15, cursor: 'pointer' }} />
+          含已删除
         </label>
         {includeDeleted && (
-          <Button
-            variant="danger"
-            size="sm"
-            loading={emptyTrash.isPending}
-            onClick={() => {
-              if (window.confirm(t('admin.files.emptyTrashConfirm'))) {
-                emptyTrash.mutate();
-              }
-            }}
-          >
-            {t('admin.files.emptyTrash')}
-          </Button>
+          <button type="button" data-yd="quiet" disabled={emptyTrash.isPending}
+            onClick={() => { if (window.confirm(t('admin.files.emptyTrashConfirm'))) emptyTrash.mutate(); }}
+            style={{ height: 36, padding: '0 12px', border: '1px solid var(--ln2)', borderRadius: 9, background: 'transparent', color: 'var(--bad)', fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+            <Icon name="i-trash" size={14} />清空回收站
+          </button>
         )}
       </div>
 
-      <Card className="!p-0 overflow-hidden">
+      <div data-r="tablewrap" style={pcard}>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Spinner />
-          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}><Spinner /></div>
         ) : !data || data.items.length === 0 ? (
-          <div className="py-12 text-center text-sm text-[--text-muted]">
-            {t('admin.files.empty')}
-          </div>
+          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--tx3)' }}>{t('admin.files.empty')}</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[--bg-2] text-left text-xs text-[--text-2]">
-                <tr>
-                  <th className="px-3 py-2">{t('admin.files.columns.code')}</th>
-                  <th className="px-3 py-2">{t('admin.files.columns.name')}</th>
-                  <th className="px-3 py-2">{t('admin.files.columns.size')}</th>
-                  <th className="px-3 py-2">{t('admin.files.columns.created')}</th>
-                  <th className="px-3 py-2">{t('admin.files.columns.expires')}</th>
-                  <th className="px-3 py-2">{t('admin.files.columns.used')}</th>
-                  <th className="px-3 py-2">{t('admin.files.columns.status')}</th>
-                  <th className="px-3 py-2">{t('admin.files.columns.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[--border]">
-                {data.items.map((row) => {
-                  const deleted = !!row.deleted_at;
-                  const expired = !deleted && isExpired(row.expired_at);
-                  const status = deleted
-                    ? t('admin.files.statusDeleted')
-                    : expired
-                    ? t('admin.files.statusExpired')
-                    : t('admin.files.statusActive');
-                  return (
-                    <tr
-                      key={row.id}
-                      onClick={() => setActiveCode(row.code)}
-                      className={cn(
-                        'cursor-pointer hover:bg-[--bg-2]',
-                        (deleted || expired) && 'opacity-60',
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 }}>
+            <thead>
+              <tr style={{ background: 'var(--p1)' }}>
+                {['取件码', '名称', '大小', '创建', '过期', '取件', '状态'].map((h) => <th key={h} style={pth}>{h}</th>)}
+                <th style={{ ...pth, textAlign: 'right' }}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((row) => {
+                const deleted = !!row.deleted_at;
+                const expired = !deleted && isExpired(row.expired_at);
+                const status = deleted ? t('admin.files.statusDeleted') : expired ? t('admin.files.statusExpired') : t('admin.files.statusActive');
+                const tone = deleted ? 'var(--bad)' : expired ? 'var(--warn)' : 'var(--ok)';
+                return (
+                  <tr key={row.id} data-yd="row" onClick={() => setActiveCode(row.code)}
+                    style={{ cursor: 'pointer', borderTop: '1px solid var(--ln)', opacity: deleted || expired ? 0.6 : 1 }}>
+                    <td style={{ ...ptd, fontFamily: "'JetBrains Mono',monospace", color: 'var(--act)' }}>{row.code}</td>
+                    <td style={{ ...ptd, color: 'var(--tx1)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.name ?? ''}>{row.is_text ? '[文字]' : row.name ?? '—'}</td>
+                    <td style={pmeta}>{humanBytes(row.size)}</td>
+                    <td style={pmeta}>{formatTime(row.created_at)}</td>
+                    <td style={pmeta}>{row.expired_at ? formatTime(row.expired_at) : '∞'}</td>
+                    <td style={pmeta}>{row.used_count}{row.expired_count > 0 ? ` / ${row.expired_count}` : ''}</td>
+                    <td style={ptd}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}>{status}</span></td>
+                    <td style={{ ...ptd, textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                      <button type="button" onClick={() => setEditing(row)} style={pact('var(--tx2)')}>改期</button>
+                      {deleted ? (
+                        <>
+                          <button type="button" onClick={() => restore.mutate(row.id)} style={pact('var(--tx2)')}>恢复</button>
+                          <button type="button" onClick={() => hardDel.mutate(row.id)} style={pact('var(--bad)')}>彻底删除</button>
+                        </>
+                      ) : (
+                        <button type="button" onClick={() => softDel.mutate(row.id)} style={pact('var(--bad)')}>删除</button>
                       )}
-                    >
-                      <td className="px-3 py-2 font-mono">{row.code}</td>
-                      <td className="px-3 py-2 max-w-[240px] truncate" title={row.name ?? ''}>
-                        {row.is_text ? '[text]' : row.name ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {humanBytes(row.size)}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {formatTime(row.created_at)}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {row.expired_at ? formatTime(row.expired_at) : '∞'}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {row.used_count}
-                        {row.expired_count > 0 ? ` / ${row.expired_count}` : ''}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {status}
-                      </td>
-                      <td
-                        className="px-3 py-2"
-                        // Stop row click from firing when interacting with action buttons.
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEditing(row)}
-                          >
-                            {t('admin.files.action.edit')}
-                          </Button>
-                          {deleted ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => restore.mutate(row.id)}
-                              >
-                                {t('admin.files.action.restore')}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                onClick={() => hardDel.mutate(row.id)}
-                              >
-                                {t('admin.files.action.hardDelete')}
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              onClick={() => softDel.mutate(row.id)}
-                            >
-                              {t('admin.files.action.softDelete')}
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
-      </Card>
+      </div>
 
-      <div className="flex items-center justify-between text-xs text-[--text-2]">
-        <span>{t('admin.files.page', { page, total: totalPages })}</span>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            ‹
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            ›
-          </Button>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, fontSize: 12, color: 'var(--tx3)' }}>
+        <span>第 {page} / {totalPages} 页 · 共 {total} 条</span>
+        <span style={{ display: 'flex', gap: 6 }}>
+          <button type="button" data-yd="quiet" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} style={pageBtn(page <= 1)}>
+            <Icon name="i-chev" size={14} style={{ transform: 'rotate(180deg)' }} />
+          </button>
+          <button type="button" data-yd="quiet" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} style={pageBtn(page >= totalPages)}>
+            <Icon name="i-chev" size={14} />
+          </button>
+        </span>
       </div>
 
       {editing && (
         <EditExpiryModal
           row={editing}
           onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            invalidate();
-          }}
+          onSaved={() => { setEditing(null); invalidate(); }}
         />
       )}
 
-      <FileDetailModal
-        code={activeCode}
-        onClose={() => setActiveCode(null)}
-      />
+      <FileDetailModal code={activeCode} onClose={() => setActiveCode(null)} />
     </div>
   );
+}
+
+const ptitle: React.CSSProperties = { fontSize: 22, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--tx)', marginBottom: 14 };
+const pcard: React.CSSProperties = { border: '1px solid var(--ln)', borderRadius: 12, background: 'var(--pn)', overflow: 'hidden' };
+const pth: React.CSSProperties = { textAlign: 'left', fontWeight: 500, fontSize: 11.5, color: 'var(--tx3)', padding: '9px 12px' };
+const ptd: React.CSSProperties = { padding: '10px 12px' };
+const pmeta: React.CSSProperties = { padding: '10px 12px', color: 'var(--tx3)', fontSize: 12 };
+const ppage: React.CSSProperties = { width: 30, height: 30, border: '1px solid var(--ln)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: 'inherit' };
+/** Pager button style with an explicit disabled affordance. */
+function pageBtn(disabled: boolean): React.CSSProperties {
+  return { ...ppage, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.35 : 1 };
+}
+function pact(color: string): React.CSSProperties {
+  return { fontSize: 12, color, border: '1px solid var(--ln)', borderRadius: 6, padding: '3px 8px', marginLeft: 8, background: 'transparent', fontFamily: 'inherit', cursor: 'pointer' };
 }
 
 // ─── Edit-expiry modal ──────────────────────────────────────────────────

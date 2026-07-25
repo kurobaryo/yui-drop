@@ -33,6 +33,12 @@ class CreateCollectionRequest(BaseModel):
     # may also call ``/join`` separately, but the typical flow is one round
     # trip on create.
     creator_nickname: str | None = Field(default=None, min_length=1, max_length=40)
+    # v2 per-room policy. Stored in settings_kv (no schema migration) and
+    # enforced server-side during upload/message creation.
+    max_file_bytes: int | None = Field(default=2 * 1024**3, ge=1)
+    capacity_bytes: int | None = Field(default=10 * 1024**3, ge=1)
+    allow_messages: bool = True
+    notify_on_activity: bool = False
 
 
 class CreateCollectionResponse(BaseModel):
@@ -62,6 +68,10 @@ class PreviewResponse(BaseModel):
     file_count: int
     message_count: int
     visibility: str
+    max_file_bytes: int | None = None
+    capacity_bytes: int | None = None
+    allow_messages: bool = True
+    notify_on_activity: bool = False
 
 
 # ── Join ───────────────────────────────────────────────────────────────────
