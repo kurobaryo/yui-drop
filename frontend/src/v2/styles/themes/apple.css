@@ -1,0 +1,242 @@
+/*
+ * v2 theme: Apple
+ *
+ * Ported verbatim from the design prototype
+ * (export/apple-theme/*.dc.html <style> block). Values are the designer's.
+ *
+ * Note the shape tokens (--rc/--rs/--ri) are much larger than Linear's — this
+ * is the theme's whole identity, and it is exactly what silently breaks if
+ * radii are hard-coded in components instead of read from tokens.
+ */
+
+[data-template='apple'] {
+  --bg: #f5f5f7;
+  --pn: #ffffff;
+  --p1: #f5f5f7;
+  --p2: #ffffff;
+  --ln: rgba(0, 0, 0, 0.08);
+  --ln2: rgba(0, 0, 0, 0.14);
+  --tx: #1d1d1f;
+  --tx1: #1d1d1f;
+  --tx2: #6e6e73;
+  --tx3: #86868b;
+  --ac: #0071e3;
+  --acs: rgba(0, 113, 227, 0.1);
+  --act: #0071e3;
+  --fill: rgba(120, 120, 128, 0.12);
+  --grab: #d1d1d6;
+  --chev: #c7c7cc;
+  --ok: #1a7f37;
+  --warn: #a56100;
+  --bad: #c9372c;
+  --sh: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --shl: 0 24px 60px rgba(0, 0, 0, 0.2);
+  --rc: 20px;
+  --rs: 14px;
+  --ri: 12px;
+}
+
+[data-template='apple'][data-accent='sky'] {
+  --ac: #3f7bb3;
+  --acs: rgba(107, 159, 212, 0.14);
+  --act: #3f7bb3;
+}
+[data-template='apple'][data-accent='blue'] {
+  --ac: #0071e3;
+  --acs: rgba(0, 113, 227, 0.1);
+  --act: #0071e3;
+}
+[data-template='apple'][data-accent='graphite'] {
+  --ac: #3a3a3c;
+  --acs: rgba(60, 60, 67, 0.1);
+  --act: #3a3a3c;
+}
+[data-template='apple'][data-accent='teal'] {
+  --ac: #0a8a8a;
+  --acs: rgba(10, 138, 138, 0.1);
+  --act: #0a8a8a;
+}
+
+[data-template='apple'][data-mode='dark'] {
+  --bg: #000000;
+  --pn: #1c1c1e;
+  --p1: #2c2c2e;
+  --p2: #2c2c2e;
+  --ln: rgba(255, 255, 255, 0.12);
+  --ln2: rgba(255, 255, 255, 0.18);
+  --tx: #f5f5f7;
+  --tx1: #f5f5f7;
+  --tx2: #98989d;
+  --tx3: #8e8e93;
+  --ac: #0a84ff;
+  --acs: rgba(10, 132, 255, 0.18);
+  --act: #0a84ff;
+  --fill: rgba(120, 120, 128, 0.28);
+  --grab: #48484a;
+  --chev: #5a5a5e;
+  --ok: #30d158;
+  --warn: #ffd60a;
+  --bad: #ff453a;
+  --sh: none;
+  --shl: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+[data-template='apple'][data-mode='dark'][data-accent='sky'] {
+  --ac: #4d8ac5;
+  --acs: rgba(107, 159, 212, 0.2);
+  --act: #93bce4;
+}
+[data-template='apple'][data-mode='dark'][data-accent='blue'] {
+  --ac: #0a84ff;
+  --acs: rgba(10, 132, 255, 0.18);
+  --act: #0a84ff;
+}
+[data-template='apple'][data-mode='dark'][data-accent='graphite'] {
+  --ac: #8e8e93;
+  --acs: rgba(142, 142, 147, 0.2);
+  --act: #c7c7cc;
+}
+[data-template='apple'][data-mode='dark'][data-accent='teal'] {
+  --ac: #30d5c8;
+  --acs: rgba(48, 213, 200, 0.18);
+  --act: #30d5c8;
+}
+
+/* ── Interaction states (prototype-defined) ─────────────────────────────── */
+[data-template='apple'] a:hover {
+  opacity: 0.75;
+}
+[data-template='apple'] [data-yd='row']:active,
+[data-template='apple'] [data-yd='row']:hover {
+  background: var(--fill);
+}
+[data-template='apple'] [data-yd='btn']:hover {
+  filter: brightness(1.06);
+}
+[data-template='apple'] [data-yd='btn']:active {
+  transform: scale(0.985);
+}
+[data-template='apple'] [data-yd='soft']:hover {
+  background: var(--ln);
+}
+[data-template='apple'] [data-yd='drop'] {
+  transition: background 0.18s, box-shadow 0.18s;
+}
+[data-template='apple'] [data-yd='drop']:hover {
+  background: var(--acs);
+  box-shadow: 0 0 0 2px var(--ac) inset;
+}
+[data-template='apple'] [data-yd='tap']:hover {
+  opacity: 0.7;
+}
+[data-template='apple'] [data-yd='sheetup'] {
+  animation: ydSheet 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+[data-template='apple'] [data-yd='backdrop'] {
+  animation: ydFade 0.18s ease both;
+}
+[data-template='apple'] [data-yd='dialog'] {
+  animation: ydPopApple 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Apple's dialog entrance is a pure scale (no translate) — keep it distinct
+   from Linear's ydPop so both can coexist in one bundle. */
+@keyframes ydPopApple {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Responsive: prototype breakpoint is 860px ──────────────────────────── */
+@media (max-width: 860px) {
+  [data-template='apple'] [data-r='two-col'] {
+    grid-template-columns: 1fr !important;
+  }
+  [data-template='apple'] [data-r='mob-only'] {
+    display: flex !important;
+  }
+  [data-template='apple'] [data-r='hide-sm'] {
+    display: none !important;
+  }
+  [data-template='apple'] [data-r='center-sm'] {
+    text-align: left !important;
+  }
+  [data-template='apple'] [data-r='tabs'] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  [data-template='apple'] [data-r='tabs']::-webkit-scrollbar {
+    display: none;
+  }
+  [data-template='apple'] [data-r='cells'] {
+    display: grid !important;
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 7px !important;
+    width: 100%;
+  }
+  [data-template='apple'] [data-r='cell'] {
+    width: auto !important;
+    height: auto !important;
+    aspect-ratio: 0.82;
+    font-size: 23px !important;
+  }
+  [data-template='apple'] [data-r='go'] {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-top: 14px !important;
+  }
+  [data-template='apple'] [data-r='coderow'] {
+    flex-wrap: wrap !important;
+  }
+  [data-template='apple'] [data-r='hero'] {
+    font-size: 32px !important;
+  }
+  [data-template='apple'] [data-r='lede'] {
+    font-size: 16px !important;
+  }
+  [data-template='apple'] [data-r='pad'] {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  [data-template='apple'] [data-r='card'] {
+    padding: 20px 16px !important;
+  }
+  [data-template='apple'] [data-r='rowmeta'] {
+    display: none !important;
+  }
+  [data-template='apple'] [data-r='sheet'] {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    border-radius: 20px 20px 0 0 !important;
+    animation: ydSheet 0.3s cubic-bezier(0.32, 0.72, 0, 1) both !important;
+    max-height: 90vh;
+    border-left: none !important;
+  }
+  [data-template='apple'] [data-r='grabber'] {
+    display: block !important;
+  }
+  [data-template='apple'] [data-r='backdrop'] {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  [data-template='apple'] [data-r='stats'] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  [data-template='apple'] [data-r='sidebar'] {
+    display: none !important;
+  }
+  [data-template='apple'] [data-r='mobnav'] {
+    display: grid !important;
+  }
+  [data-template='apple'] [data-r='adminmain'] {
+    padding-bottom: 84px !important;
+  }
+}

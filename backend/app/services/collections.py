@@ -46,11 +46,55 @@ from ..models.collection import Collection
 from ..models.collection_file import CollectionFile
 from ..models.collection_member import CollectionMember
 from ..models.collection_message import CollectionMessage
+from ..models.settings_kv import SettingsKV
 from ..storage.factory import get_storage
 from . import collection_sse, presence
 from .common import ServiceError, as_utc
 
 SELF_DELETE_WINDOW = timedelta(minutes=5)
+
+# Per-room v2 policy lives in the existing JSON settings overlay so existing
+# SQLite installations need NO ALTER TABLE migration. The room code is random
+# and bounded, so it is safe as part of a settings key.
+DEFAULT_COLLECTION_POLICY: dict[str, Any] = {
+    "max_file_bytes": 2 * 1024**3,
+    "capacity_bytes": 10 * 1024**3,
+    "allow_messages": True,
+    "notify_on_activity": False,
+}
+
+
+def _policy_key(code: str) -> str:
+    return f"collection.policy.{code.upper()}"
+
+
+async def get_collection_policy(db: AsyncSession, code: str) -> dict[str, Any]:
+    row = await db.get(SettingsKV, _policy_key(code))
+    raw = row.value if row is not None and isinstance(row.value, dict) else {}
+    return {**DEFAULT_COLLECTION_POLICY, **raw}
+
+
+async def set_collection_policy(
+    db: AsyncSession,
+    code: str,
+    *,
+    max_file_bytes: int | None,
+    capacity_bytes: int | None,
+    allow_messages: bool,
+    notify_on_activity: bool,
+) -> None:
+    value = {
+        "max_file_bytes": max_file_bytes,
+        "capacity_bytes": capacity_bytes,
+        "allow_messages": bool(allow_messages),
+        "notify_on_activity": bool(notify_on_activity),
+    }
+    row = await db.get(SettingsKV, _policy_key(code))
+    if row is None:
+        db.add(SettingsKV(key=_policy_key(code), value=value))
+    else:
+        row.value = value
+    await db.flush()
 
 
 # ── Private helpers ────────────────────────────────────────────────────────
@@ -134,6 +178,10 @@ async def create_collection(
     permanent: bool,
     created_by_ip: str | None,
     creator_nickname: str | None,
+    max_file_bytes: int | None = DEFAULT_COLLECTION_POLICY["max_file_bytes"],
+    capacity_bytes: int | None = DEFAULT_COLLECTION_POLICY["capacity_bytes"],
+    allow_messages: bool = True,
+    notify_on_activity: bool = False,
 ) -> tuple[Collection, CollectionMember | None, str | None]:
     """Create a new room (and optionally auto-join the creator)."""
 
@@ -196,6 +244,15 @@ async def create_collection(
     db.add(member)
     await db.flush()
 
+    await set_collection_policy(
+        db,
+        code,
+        max_file_bytes=max_file_bytes,
+        capacity_bytes=capacity_bytes,
+        allow_messages=allow_messages,
+        notify_on_activity=notify_on_activity,
+    )
+
     return collection, member, token
 
 
@@ -220,6 +277,7 @@ async def preview_collection(db: AsyncSession, code: str) -> dict[str, Any]:
             CollectionMessage.deleted_at.is_(None),
         )
     )
+    policy = await get_collection_policy(db, code)
     return {
         "visible": True,
         "closed": _is_closed(collection),
@@ -229,6 +287,7 @@ async def preview_collection(db: AsyncSession, code: str) -> dict[str, Any]:
         "file_count": int(file_count or 0),
         "message_count": int(message_count or 0),
         "visibility": collection.visibility,
+        **policy,
     }
 
 
@@ -329,6 +388,9 @@ async def send_message(
     member: CollectionMember,
     text: str,
 ) -> CollectionMessage:
+    policy = await get_collection_policy(db, collection.code)
+    if not policy.get("allow_messages", True):
+        raise ServiceError("messages_disabled", code=4032, http_status=403)
     msg = CollectionMessage(collection_id=collection.id, member_id=member.id, body=text)
     db.add(msg)
     await db.flush()
@@ -506,6 +568,21 @@ async def init_collection_file(
       4. UPDATE storage_key + storage_backend on the row.
       5. Return ``{upload_id, backend, total_chunks, presigned_part_size}``.
     """
+    policy = await get_collection_policy(db, collection.code)
+    max_file = policy.get("max_file_bytes")
+    if max_file is not None and size > int(max_file):
+        raise ServiceError("file_too_large_for_collection", code=4130, http_status=413)
+    capacity = policy.get("capacity_bytes")
+    if capacity is not None:
+        used = await db.scalar(
+            select(func.coalesce(func.sum(CollectionFile.size), 0)).where(
+                CollectionFile.collection_id == collection.id,
+                CollectionFile.deleted_at.is_(None),
+            )
+        )
+        if int(used or 0) + size > int(capacity):
+            raise ServiceError("collection_capacity_exceeded", code=4131, http_status=413)
+
     backend_name = _backend_name()
     is_s3 = _is_s3_like(backend_name)
     part_size = _S3_PART_SIZE if is_s3 else (chunk_size or _LOCAL_CHUNK_DEFAULT)
