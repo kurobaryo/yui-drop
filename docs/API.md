@@ -74,8 +74,16 @@ A stable, externally-versioned REST surface for programmatic clients. All endpoi
 | POST   | `/api/v1/upload/{upload_id}/sign-part`        | upload | Sign one part. Body: `{ part_number }`. Returns `{ url, headers, expires_at, part_number }`. |
 | POST   | `/api/v1/upload/{upload_id}/complete`         | upload | Finalize: `{ parts: [{ part_number, etag }] }`. Returns the same shape as `/upload`. |
 | DELETE | `/api/v1/upload/{upload_id}`                  | upload | Abort an in-progress multipart session. |
+| POST   | `/api/v1/share/text`                          | upload | Create a text share. Body: `{ text, expire_value?, expire_style? }`. Returns `{ code, name, size, expired_at, expired_count, url: null, short_url }`. Unlike the anonymous `/api/share/text`, the row is attributed to the calling key so it appears in `/api/v1/shares`. |
+| POST   | `/api/v1/pickup`                              | read   | Redeem a pickup code. Body: `{ code }`. Returns the resolved share (`kind` ∈ `text`, `file`, `multi`) with absolute URLs. See the notes below. |
 | GET    | `/api/v1/shares?limit&offset&status`          | read   | List shares created by the current key. `status` ∈ `active`, `expired`, `all`. |
 | GET    | `/api/v1/shares/{code}`                       | read   | Inspect a single share. 404 if not owned by the current key. |
+
+**Notes on `/api/v1/pickup`:**
+
+- **Consuming.** It decrements `expired_count` and increments `used_count`, exactly like the public SPA pickup. There is no read-only preview variant — resolving a code spends a download.
+- **Not ownership-scoped.** Any valid code redeems with any key; possession of the code is the authorisation. This deliberately differs from `GET /api/v1/shares/{code}`, which only returns shares the calling key created.
+- **Failure tracking is key-scoped, not IP-scoped.** v1 clients typically call through a server-side proxy, so they all share one source IP. Keying the retrieve-failure ban on the API key means one client mistyping codes locks out only that key, not every caller behind the proxy. The real client IP is still recorded in the access log.
 
 **Quota enforcement** is layered on top of the existing global rate limits:
 
