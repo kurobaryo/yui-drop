@@ -59,12 +59,23 @@ interface ThemeState {
   heroTitle: string;
   heroSubtitle: string;
   logoUrl: string;
+  /**
+   * True once the server's theme has been applied (or the fetch has failed and
+   * we've fallen back to defaults). Consumers that must not render the wrong
+   * UI — e.g. choosing between the v2 and legacy component trees — should wait
+   * for this rather than flashing one and swapping to the other.
+   */
+  hydrated: boolean;
 
   setTemplate: (t: string) => void;
   setMode: (m: ThemeMode) => void;
   setAccent: (a: string, customHex?: string) => void;
   /** Apply the server's theme; visitor mode override wins unless locked. */
   hydrateFromServer: (t: ServerTheme) => void;
+  /** Mark hydration finished without a server theme (fetch failed, or the
+   *  backend predates the field). Prevents consumers gated on `hydrated` from
+   *  blocking render forever. */
+  markHydrated: () => void;
   /** Live preview (admin theme page) — apply without persisting anything. */
   preview: (patch: Partial<ServerTheme>) => void;
   /** Resolve the *effective* appearance (auto → prefers-color-scheme). */
@@ -165,6 +176,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   heroTitle: '',
   heroSubtitle: '',
   logoUrl: '',
+  hydrated: false,
 
   setTemplate: (t) => {
     const tpl = resolveTemplate(t);
@@ -239,9 +251,12 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       heroTitle: t.hero_title || '',
       heroSubtitle: t.hero_subtitle || '',
       logoUrl: t.logo_url || '',
+      hydrated: true,
     });
     applyToDOM(tpl.id, mode, accent, t.accent_custom || '');
   },
+
+  markHydrated: () => set({ hydrated: true }),
 
   preview: (patch) => {
     const s = get();

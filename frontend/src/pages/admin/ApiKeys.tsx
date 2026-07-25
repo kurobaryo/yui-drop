@@ -16,7 +16,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Pencil, BarChart3, Trash2, Plus, KeyRound } from 'lucide-react';
 
 import {
   listApiKeys,
@@ -24,12 +23,12 @@ import {
   type ApiKeyListItem,
 } from '@/lib/api/adminApiKeys';
 import { ApiError } from '@/lib/api';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from '@/components/ui/Toast';
-import { humanBytes, isExpired } from '@/lib/format';
+import { Icon } from '@/v2/components/IconSprite';
+import { humanBytes, isExpired, formatTime } from '@/lib/format';
 
 import ApiKeyIssueModal from './ApiKeyIssueModal';
 import ApiKeyEditModal from './ApiKeyEditModal';
@@ -41,25 +40,6 @@ function statusOf(row: ApiKeyListItem): Status {
   if (row.revoked_at) return 'revoked';
   if (isExpired(row.expires_at)) return 'expired';
   return 'active';
-}
-
-function StatusBadge({ status }: { status: Status }) {
-  const { t } = useTranslation();
-  const styles: Record<Status, string> = {
-    active: 'border-emerald-500/40 text-emerald-300 bg-emerald-500/5',
-    revoked: 'border-red-500/40 text-red-300 bg-red-500/5',
-    expired: 'border-amber-500/40 text-amber-300 bg-amber-500/5',
-  };
-  const label = t(`admin.apiKeys.statuses.${status}`);
-  return (
-    <span
-      className={
-        'inline-block rounded-md border px-2 py-0.5 text-xs ' + styles[status]
-      }
-    >
-      {label}
-    </span>
-  );
 }
 
 export default function AdminApiKeys() {
@@ -90,112 +70,51 @@ export default function AdminApiKeys() {
   const items = data?.items ?? [];
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h1 className="text-xl font-semibold text-[--text-1] flex items-center gap-2">
-          <KeyRound className="h-5 w-5" />
-          {t('admin.apiKeys.title')}
-        </h1>
-        <Button
-          variant="primary"
-          leftIcon={<Plus className="h-4 w-4" />}
-          onClick={() => setIssueOpen(true)}
-        >
-          {t('admin.apiKeys.issueNew')}
-        </Button>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <h1 style={title}>API Keys</h1>
+        <button type="button" data-yd="btn" onClick={() => setIssueOpen(true)} style={primary}>
+          <Icon name="i-plus" size={15} />签发新 Key
+        </button>
       </div>
 
-      <Card>
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <Spinner />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="py-12 text-center text-sm text-[--text-2]">
-            {t('admin.apiKeys.empty')}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-xs uppercase tracking-wider text-[--text-2]">
-                <tr className="border-b border-[--border]">
-                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.keyId')}</th>
-                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.note')}</th>
-                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.scopes')}</th>
-                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.quota')}</th>
-                  <th className="py-2 px-2 text-left font-medium">{t('admin.apiKeys.table.status')}</th>
-                  <th className="py-2 px-2 text-right font-medium">{t('admin.apiKeys.table.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => {
-                  const status = statusOf(row);
-                  return (
-                    <tr
-                      key={row.id}
-                      className="border-b border-[--border] last:border-b-0 align-top"
-                    >
-                      <td className="py-2 px-2 font-mono text-[--text-1]">
-                        {row.key_id}
-                      </td>
-                      <td className="py-2 px-2 text-[--text-1] max-w-[16ch] truncate">
-                        {row.note || <span className="text-[--text-2]">—</span>}
-                      </td>
-                      <td className="py-2 px-2 text-[--text-2]">
-                        {row.scopes
-                          .map((s) => s[0].toUpperCase())
-                          .join(' ')}
-                      </td>
-                      <td className="py-2 px-2 text-[--text-2] whitespace-nowrap">
-                        {humanBytes(row.quota_daily_bytes)}/{t('admin.apiKeys.dayUnit')} ·{' '}
-                        {humanBytes(row.max_file_size)}/{t('admin.apiKeys.fileUnit')} ·{' '}
-                        {row.quota_per_minute}/{t('admin.apiKeys.minUnit')}
-                      </td>
-                      <td className="py-2 px-2">
-                        <StatusBadge status={status} />
-                      </td>
-                      <td className="py-2 px-2 text-right">
-                        <div className="inline-flex items-center gap-1">
-                          <button
-                            type="button"
-                            aria-label={t('admin.apiKeys.actions.edit')}
-                            title={t('admin.apiKeys.actions.edit')}
-                            onClick={() => setEditTarget(row)}
-                            disabled={status === 'revoked'}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[--text-2] hover:text-[--text-1] hover:bg-[--bg-2] disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={t('admin.apiKeys.actions.usage')}
-                            title={t('admin.apiKeys.actions.usage')}
-                            onClick={() => setUsageTarget(row.id)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[--text-2] hover:text-[--text-1] hover:bg-[--bg-2]"
-                          >
-                            <BarChart3 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={t('admin.apiKeys.actions.revoke')}
-                            title={t('admin.apiKeys.actions.revoke')}
-                            onClick={() => setRevokeTarget(row)}
-                            disabled={status === 'revoked'}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-300 hover:text-red-200 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {isLoading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}><Spinner /></div>
+      ) : items.length === 0 ? (
+        <div style={{ ...card, padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--tx3)' }}>{t('admin.apiKeys.empty')}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {items.map((row) => {
+            const status = statusOf(row);
+            const tone = status === 'active' ? 'var(--ok)' : status === 'revoked' ? 'var(--bad)' : 'var(--warn)';
+            return (
+              <div key={row.id} style={{ ...card, padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--tx)' }}>{row.note || '未命名 Key'}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--tx3)' }}>{row.key_id}</span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, background: 'var(--acs)', color: 'var(--act)' }}>
+                    {row.scopes.join(' · ') || '—'}
+                  </span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}>
+                    {t(`admin.apiKeys.statuses.${status}`)}
+                  </span>
+                  <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6 }}>
+                    <button type="button" data-yd="quiet" onClick={() => setUsageTarget(row.id)} style={act('var(--tx2)')}>用量</button>
+                    <button type="button" data-yd="quiet" onClick={() => setEditTarget(row)} disabled={status === 'revoked'} style={act('var(--tx2)', status === 'revoked')}>编辑</button>
+                    <button type="button" data-yd="quiet" onClick={() => setRevokeTarget(row)} disabled={status === 'revoked'} style={act('var(--bad)', status === 'revoked')}>吊销</button>
+                  </span>
+                </div>
+                <div style={{ marginTop: 10, display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 12, color: 'var(--tx3)' }}>
+                  <span>单文件上限 {humanBytes(row.max_file_size)}</span>
+                  <span>每日配额 {humanBytes(row.quota_daily_bytes)}</span>
+                  <span>限速 {row.quota_per_minute}/{t('admin.apiKeys.minUnit')}</span>
+                  <span>最后使用 {row.last_used_at ? formatTime(row.last_used_at) : '从未'}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Modals */}
       <ApiKeyIssueModal
@@ -244,4 +163,11 @@ export default function AdminApiKeys() {
       </Modal>
     </div>
   );
+}
+
+const title: React.CSSProperties = { fontSize: 22, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--tx)', marginRight: 'auto' };
+const card: React.CSSProperties = { border: '1px solid var(--ln)', borderRadius: 12, background: 'var(--pn)' };
+const primary: React.CSSProperties = { height: 36, padding: '0 14px', border: 'none', borderRadius: 9, background: 'var(--ac)', color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' };
+function act(color: string, disabled = false): React.CSSProperties {
+  return { fontSize: 12, color, border: '1px solid var(--ln)', borderRadius: 7, padding: '4px 9px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1, background: 'transparent', fontFamily: 'inherit' };
 }

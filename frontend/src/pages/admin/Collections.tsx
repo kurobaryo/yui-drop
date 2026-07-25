@@ -26,14 +26,26 @@ import {
   type AdminCollectionStatus,
 } from '@/lib/api/admin';
 import { ApiError } from '@/lib/api';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from '@/components/ui/Toast';
-import { formatTime, isExpired } from '@/lib/format';
-import { cn } from '@/lib/cn';
+import { Icon } from '@/v2/components/IconSprite';
+import { isExpired } from '@/lib/format';
+
+const ptitle: React.CSSProperties = { fontSize: 22, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--tx)', marginBottom: 14 };
+const pcard: React.CSSProperties = { border: '1px solid var(--ln)', borderRadius: 12, background: 'var(--pn)', overflow: 'hidden' };
+const pth: React.CSSProperties = { textAlign: 'left', fontWeight: 500, fontSize: 11.5, color: 'var(--tx3)', padding: '9px 12px' };
+const ptd: React.CSSProperties = { padding: '10px 12px' };
+const pmeta: React.CSSProperties = { padding: '10px 12px', color: 'var(--tx3)', fontSize: 12 };
+const ppage: React.CSSProperties = { width: 30, height: 30, border: '1px solid var(--ln)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: 'inherit' };
+/** Pager button style with an explicit disabled affordance. */
+function pageBtn(disabled: boolean): React.CSSProperties {
+  return { ...ppage, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.35 : 1 };
+}
+function pact(color: string, disabled = false): React.CSSProperties {
+  return { fontSize: 12, color, border: '1px solid var(--ln)', borderRadius: 6, padding: '3px 8px', marginLeft: 8, background: 'transparent', fontFamily: 'inherit', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1 };
+}
 
 type StatusFilter = AdminCollectionStatus | 'all';
 
@@ -43,24 +55,6 @@ function rowStatus(row: AdminCollectionRow): AdminCollectionStatus {
   if (row.closed_at) return 'closed';
   if (isExpired(row.expires_at)) return 'expired';
   return 'active';
-}
-
-function StatusBadge({ status }: { status: AdminCollectionStatus }) {
-  const { t } = useTranslation();
-  const styles: Record<AdminCollectionStatus, string> = {
-    active: 'border-emerald-500/40 text-emerald-300 bg-emerald-500/5',
-    closed: 'border-zinc-500/40 text-zinc-300 bg-zinc-500/5',
-    expired: 'border-amber-500/40 text-amber-300 bg-amber-500/5',
-  };
-  return (
-    <span
-      className={
-        'inline-block rounded-md border px-2 py-0.5 text-xs ' + styles[status]
-      }
-    >
-      {t(`admin.collections.statuses.${status}`)}
-    </span>
-  );
 }
 
 export default function AdminCollections() {
@@ -125,197 +119,87 @@ export default function AdminCollections() {
   const totalPages = Math.max(1, Math.ceil(total / size));
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-[--text-1]">
-          {t('admin.collections.title')}
-        </h1>
-      </div>
+    <div>
+      <h1 style={ptitle}>收集箱</h1>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div data-r="filterrow" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
         <form
-          className="flex-1 min-w-[200px]"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setKeyword(keywordInput.trim());
-            setPage(1);
-          }}
+          style={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 10px', border: '1px solid var(--ln2)', borderRadius: 9, background: 'var(--p2)' }}
+          onSubmit={(e) => { e.preventDefault(); setKeyword(keywordInput.trim()); setPage(1); }}
         >
-          <Input
-            inputSize="sm"
-            placeholder={t('admin.collections.search')}
+          <Icon name="i-search" size={15} style={{ color: 'var(--tx3)' }} />
+          <input
+            placeholder="搜索收集箱编号"
             value={keywordInput}
             onChange={(e) => setKeywordInput(e.target.value)}
+            style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', color: 'var(--tx1)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
           />
         </form>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {STATUS_FILTERS.map((s) => (
-            <Button
-              key={s}
-              size="sm"
-              variant={statusFilter === s ? 'primary' : 'outline'}
-              onClick={() => {
-                setStatusFilter(s);
-                setPage(1);
-              }}
-            >
-              {t(`admin.collections.filter.${s}`)}
-            </Button>
-          ))}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {STATUS_FILTERS.map((s) => {
+            const on = statusFilter === s;
+            return (
+              <button key={s} type="button" data-yd="quiet"
+                onClick={() => { setStatusFilter(s); setPage(1); }}
+                style={{ height: 34, padding: '0 12px', borderRadius: 9, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                  border: `1px solid ${on ? 'var(--ac)' : 'var(--ln2)'}`, background: on ? 'var(--acs)' : 'transparent',
+                  color: on ? 'var(--act)' : 'var(--tx2)', fontWeight: on ? 600 : 500 }}>
+                {t(`admin.collections.filter.${s}`)}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <Card className="!p-0 overflow-hidden">
+      <div data-r="tablewrap" style={pcard}>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Spinner />
-          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}><Spinner /></div>
         ) : !data || data.items.length === 0 ? (
-          <div className="py-12 text-center text-sm text-[--text-muted]">
-            {t('admin.collections.empty')}
-          </div>
+          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--tx3)' }}>{t('admin.collections.empty')}</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[--bg-2] text-left text-xs text-[--text-2]">
-                <tr>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.code')}
-                  </th>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.name')}
-                  </th>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.created')}
-                  </th>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.expires')}
-                  </th>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.members')}
-                  </th>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.files')}
-                  </th>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.messages')}
-                  </th>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.visibility')}
-                  </th>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.status')}
-                  </th>
-                  <th className="px-3 py-2">
-                    {t('admin.collections.columns.actions')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[--border]">
-                {data.items.map((row) => {
-                  const status = rowStatus(row);
-                  const dim = status !== 'active';
-                  return (
-                    <tr
-                      key={row.id}
-                      className={cn(
-                        'hover:bg-[--bg-2]',
-                        dim && 'opacity-60',
-                      )}
-                    >
-                      <td className="px-3 py-2 font-mono">{row.code}</td>
-                      <td
-                        className="px-3 py-2 max-w-[240px] truncate"
-                        title={row.name ?? ''}
-                      >
-                        {row.name ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {formatTime(row.created_at)}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {row.expires_at ? formatTime(row.expires_at) : '∞'}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {row.member_count}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {row.file_count}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {row.message_count}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-[--text-2]">
-                        {t(
-                          `admin.collections.visibilities.${row.visibility}`,
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <StatusBadge status={status} />
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              window.open(
-                                `/c/${encodeURIComponent(row.code)}`,
-                                '_blank',
-                                'noopener,noreferrer',
-                              )
-                            }
-                          >
-                            {t('admin.collections.action.view')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={status !== 'active'}
-                            onClick={() => setCloseTarget(row)}
-                          >
-                            {t('admin.collections.action.close')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => setDeleteTarget(row)}
-                          >
-                            {t('admin.collections.action.delete')}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 680 }}>
+            <thead>
+              <tr style={{ background: 'var(--p1)' }}>
+                {['编号', '名称', '成员', '文件', '留言', '可见性', '状态'].map((h) => <th key={h} style={pth}>{h}</th>)}
+                <th style={{ ...pth, textAlign: 'right' }}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((row) => {
+                const status = rowStatus(row);
+                const tone = status === 'active' ? 'var(--ok)' : status === 'closed' ? 'var(--tx3)' : 'var(--warn)';
+                return (
+                  <tr key={row.id} data-yd="row" style={{ borderTop: '1px solid var(--ln)', opacity: status === 'active' ? 1 : 0.6 }}>
+                    <td style={{ ...ptd, fontFamily: "'JetBrains Mono',monospace", color: 'var(--act)' }}>{row.code}</td>
+                    <td style={{ ...ptd, color: 'var(--tx1)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.name ?? ''}>{row.name ?? '—'}</td>
+                    <td style={pmeta}>{row.member_count}</td>
+                    <td style={pmeta}>{row.file_count}</td>
+                    <td style={pmeta}>{row.message_count}</td>
+                    <td style={pmeta}>{t(`admin.collections.visibilities.${row.visibility}`)}</td>
+                    <td style={ptd}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}>{t(`admin.collections.statuses.${status}`)}</span></td>
+                    <td style={{ ...ptd, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button type="button" onClick={() => window.open(`/c/${encodeURIComponent(row.code)}`, '_blank', 'noopener,noreferrer')} style={pact('var(--tx2)')}>查看</button>
+                      <button type="button" disabled={status !== 'active'} onClick={() => setCloseTarget(row)} style={pact('var(--tx2)', status !== 'active')}>关闭</button>
+                      <button type="button" onClick={() => setDeleteTarget(row)} style={pact('var(--bad)')}>删除</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
-      </Card>
+      </div>
 
-      <div className="flex items-center justify-between text-xs text-[--text-2]">
-        <span>
-          {t('admin.collections.page', { page, total: totalPages })}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, fontSize: 12, color: 'var(--tx3)' }}>
+        <span>第 {page} / {totalPages} 页 · 共 {total} 条</span>
+        <span style={{ display: 'flex', gap: 6 }}>
+          <button type="button" data-yd="quiet" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} style={pageBtn(page <= 1)}>
+            <Icon name="i-chev" size={14} style={{ transform: 'rotate(180deg)' }} />
+          </button>
+          <button type="button" data-yd="quiet" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} style={pageBtn(page >= totalPages)}>
+            <Icon name="i-chev" size={14} />
+          </button>
         </span>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            ‹
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            ›
-          </Button>
-        </div>
       </div>
 
       {/* Close confirm */}
