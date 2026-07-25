@@ -72,13 +72,22 @@
 [data-r='mob-only'] {
   display: none !important;
 }
+/* The rounded card and the horizontal scroller must NOT be the same element:
+   `overflow: hidden` (needed to clip the border radius) overrides the
+   `overflow-x: auto` this rule sets, which silently made admin tables
+   undraggable on touch. Card = outer element, tablewrap = inner element. */
 [data-r='tablewrap'] {
   overflow-x: auto;
+  overflow-y: hidden;
   /* Scroll affordance: without this the table silently cuts off on mobile and
      users have no signal that more columns exist to the right. The mask fades
-     the trailing edge, and disappears once scrolled to the end. */
+     the trailing edge. */
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type: none;
+  /* Rows inside are clickable (`cursor:pointer` + onClick). Without an explicit
+     touch-action the browser resolves a horizontal drag as a tap on the row
+     instead of a pan, so the table felt "stuck" on touch devices. */
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
 }
 @media (max-width: 860px) {
   [data-r='tablewrap'] {

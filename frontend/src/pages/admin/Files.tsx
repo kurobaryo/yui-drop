@@ -26,6 +26,7 @@ import {
 import { ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/v2/components/IconSprite';
+import { useTapOnly } from '@/v2/useTapOnly';
 import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
 import { Modal } from '@/components/ui/Modal';
@@ -130,12 +131,13 @@ export default function AdminFiles() {
         )}
       </div>
 
-      <div data-r="tablewrap" style={pcard}>
+      <div style={pcard}>
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}><Spinner /></div>
         ) : !data || data.items.length === 0 ? (
           <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--tx3)' }}>{t('admin.files.empty')}</div>
         ) : (
+          <div data-r="tablewrap">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 }}>
             <thead>
               <tr style={{ background: 'var(--p1)' }}>
@@ -150,8 +152,7 @@ export default function AdminFiles() {
                 const status = deleted ? t('admin.files.statusDeleted') : expired ? t('admin.files.statusExpired') : t('admin.files.statusActive');
                 const tone = deleted ? 'var(--bad)' : expired ? 'var(--warn)' : 'var(--ok)';
                 return (
-                  <tr key={row.id} data-yd="row" onClick={() => setActiveCode(row.code)}
-                    style={{ cursor: 'pointer', borderTop: '1px solid var(--ln)', opacity: deleted || expired ? 0.6 : 1 }}>
+                  <FileRow key={row.id} onOpen={() => setActiveCode(row.code)} dim={deleted || expired}>
                     <td style={{ ...ptd, fontFamily: "'JetBrains Mono',monospace", color: 'var(--act)' }}>{row.code}</td>
                     <td style={{ ...ptd, color: 'var(--tx1)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.name ?? ''}>{row.is_text ? '[文字]' : row.name ?? '—'}</td>
                     <td style={pmeta}>{humanBytes(row.size)}</td>
@@ -159,7 +160,7 @@ export default function AdminFiles() {
                     <td style={pmeta}>{row.expired_at ? formatTime(row.expired_at) : '∞'}</td>
                     <td style={pmeta}>{row.used_count}{row.expired_count > 0 ? ` / ${row.expired_count}` : ''}</td>
                     <td style={ptd}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}>{status}</span></td>
-                    <td style={{ ...ptd, textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                    <td style={{ ...ptd, textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}>
                       <button type="button" onClick={() => setEditing(row)} style={pact('var(--tx2)')}>改期</button>
                       {deleted ? (
                         <>
@@ -170,11 +171,12 @@ export default function AdminFiles() {
                         <button type="button" onClick={() => softDel.mutate(row.id)} style={pact('var(--bad)')}>删除</button>
                       )}
                     </td>
-                  </tr>
+                  </FileRow>
                 );
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -204,6 +206,16 @@ export default function AdminFiles() {
 }
 
 const ptitle: React.CSSProperties = { fontSize: 22, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--tx)', marginBottom: 14 };
+
+/** Table row that opens on tap but not when the user drags to scroll. */
+function FileRow({ onOpen, dim, children }: { onOpen: () => void; dim: boolean; children: React.ReactNode }) {
+  const tap = useTapOnly<HTMLTableRowElement>(onOpen);
+  return (
+    <tr data-yd="row" {...tap} style={{ cursor: 'pointer', borderTop: '1px solid var(--ln)', opacity: dim ? 0.6 : 1 }}>
+      {children}
+    </tr>
+  );
+}
 const pcard: React.CSSProperties = { border: '1px solid var(--ln)', borderRadius: 12, background: 'var(--pn)', overflow: 'hidden' };
 const pth: React.CSSProperties = { textAlign: 'left', fontWeight: 500, fontSize: 11.5, color: 'var(--tx3)', padding: '9px 12px' };
 const ptd: React.CSSProperties = { padding: '10px 12px' };
