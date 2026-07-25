@@ -2,6 +2,7 @@
  * Public (unauthenticated) API endpoints.
  */
 import { api } from '../api';
+import type { ServerTheme } from '@/stores/theme';
 
 export interface PublicConfig {
   app_name: string;
@@ -20,6 +21,8 @@ export interface PublicConfig {
    * frontend just trusts whatever it gets and defaults to `false`. */
   turnstileProtectUpload: boolean;
   turnstileProtectPickup: boolean;
+  /** Active site theme (template / accent / branding), server-owned. */
+  theme?: ServerTheme;
   /** Optional list of allowed expiry styles surfaced by the server. */
   expire_styles?: string[];
   /** Optional multi-file caps; if absent, fall back to max_upload_bytes. */

@@ -18,12 +18,9 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import type { CSSProperties } from 'react';
-import {
-  WASHI_DARK,
-  WASHI_PALETTES,
-  type WashiMode,
-  type WashiPaletteName,
-} from './palettes';
+import { type WashiMode } from './palettes';
+import { templateToWashi } from '@/themes/washiBridge';
+import { useThemeStore } from '@/stores/theme';
 import { PaperTexture } from './PaperTexture';
 import { Header } from './Header';
 import { Footer } from './Footer';
@@ -36,24 +33,10 @@ import { Collection } from './tabs/Collection';
 import { Recent } from './tabs/Recent';
 import type { WashiLang } from './pickers/LangPicker';
 
-const LS_PALETTE = 'yui-drop:palette';
-const LS_MODE = 'yui-drop:mode';
+// Palette + mode persistence now live in the shared theme store; the site
+// colours are an admin-owned setting delivered by /api/config.
 // Lang persistence is owned by i18next (key `yui-drop:lang`), so we re-use
 // that key rather than write a parallel one.
-
-function readPalette(): WashiPaletteName {
-  if (typeof window === 'undefined') return 'sumi';
-  const v = localStorage.getItem(LS_PALETTE);
-  if (v === 'sumi' || v === 'matcha' || v === 'ai' || v === 'kogane') return v;
-  return 'sumi';
-}
-
-function readMode(): WashiMode {
-  if (typeof window === 'undefined') return 'auto';
-  const v = localStorage.getItem(LS_MODE);
-  if (v === 'auto' || v === 'light' || v === 'dark') return v;
-  return 'auto';
-}
 
 /** Map i18next code (en | zh-CN | ja) ↔ Washi short code (zh | ja | en). */
 function i18nToWashiLang(code: string): WashiLang {
@@ -91,8 +74,17 @@ export function WashiApp() {
     !!params.code,
   );
 
-  const [palette, setPalette] = useState<WashiPaletteName>(readPalette);
-  const [mode, setMode] = useState<WashiMode>(readMode);
+  // ── Appearance (light / dark) ───────────────────────────────────────────
+  // Owned by the shared theme store, NOT by local state: the store already
+  // merges the server default (admin's `theme.mode`) with the visitor's own
+  // stored override and honours `lock_mode`. Keeping a second copy here is
+  // what made the public page ignore the admin's dark-mode setting while the
+  // admin surface obeyed it.
+  const storeMode = useThemeStore((s) => s.mode);
+  const setStoreMode = useThemeStore((s) => s.setMode);
+  const mode = storeMode as WashiMode;
+  const setMode = (m: WashiMode) => setStoreMode(m as typeof storeMode);
+
   const [lang, setLangLocal] = useState<WashiLang>(() => i18nToWashiLang(i18nInstance.language));
   const [tab, setTab] = useState<WashiTab>(prefillCode ? 'pickup' : 'pickup');
 
@@ -111,21 +103,9 @@ export function WashiApp() {
 
   const resolvedDark = mode === 'auto' ? systemDark : mode === 'dark';
 
-  // Persist palette / mode.
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_PALETTE, palette);
-    } catch {
-      /* ignore */
-    }
-  }, [palette]);
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_MODE, mode);
-    } catch {
-      /* ignore */
-    }
-  }, [mode]);
+  // Mode persistence is handled by the theme store (which owns its key and
+  // the server-default merge). Palette persistence is gone: colours are an
+  // admin-owned site setting now.
 
   // Language: drive both local state (for Stamp glyphs) and i18next.
   const setLang = (l: WashiLang) => {
@@ -141,9 +121,24 @@ export function WashiApp() {
     };
   }, [i18nInstance]);
 
+  // ── Palette source ──────────────────────────────────────────────────────
+  // The active *template* (an admin setting delivered by /api/config) drives
+  // the colours now. `templateToWashi` maps the template tokens into the
+  // WashiColors shape this variant's inline styles expect, so switching the
+  // template in the admin restyles the public surface with no rebuild.
+  //
+  // `resolvedDark` still comes from the visitor's local light/dark choice —
+  // appearance stays a visitor preference (unless the admin locks it).
+  const template = useThemeStore((s) => s.template);
+  const storeAccent = useThemeStore((s) => s.accent);
+  const storeAccentCustom = useThemeStore((s) => s.accentCustom);
+  // Admin-configured copy overrides (empty = use the built-in i18n strings).
+  const heroTitle = useThemeStore((s) => s.heroTitle);
+  const heroSubtitle = useThemeStore((s) => s.heroSubtitle);
+
   const c = useMemo(
-    () => (resolvedDark ? WASHI_DARK[palette] : WASHI_PALETTES[palette]),
-    [resolvedDark, palette],
+    () => templateToWashi(template, resolvedDark, storeAccent, storeAccentCustom),
+    [template, resolvedDark, storeAccent, storeAccentCustom],
   );
 
   // Paint the active paper colour onto <html> and <body>. iOS Safari pulls
@@ -194,7 +189,7 @@ export function WashiApp() {
           [data-yui="header"] { flex-wrap: wrap; gap: 12px; }
           [data-yui="tabs"] { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; }
           [data-yui="tabs"]::-webkit-scrollbar { display: none; }
-          [data-yui="tab-btn"] { padding: 12px 14px !important; font-size: 14px !important; flex-shrink: 0; }
+          [data-yui="tab-btn"] { padding: 12px 6px !important; font-size: 13px !important; flex: 1 1 auto; min-width: 0; justify-content: center; white-space: nowrap; gap: 5px !important; }
           [data-yui="page"] { padding: 88px 16px 32px !important; }
           [data-yui="header"] { position: fixed !important; top: 0; left: 0; right: 0; z-index: 40; padding: 14px 16px; background: var(--paper-blur, rgba(0,0,0,.35)); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px); border-bottom: 1px solid var(--soft-c, transparent); }
           [data-yui="code-cell"] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; height: auto !important; aspect-ratio: 1 / 1 !important; font-size: 24px !important; box-sizing: border-box !important; }
@@ -235,8 +230,6 @@ export function WashiApp() {
       >
         <Header
           c={c}
-          palette={palette}
-          setPalette={setPalette}
           mode={mode}
           setMode={setMode}
           lang={lang}
@@ -258,14 +251,14 @@ export function WashiApp() {
                 letterSpacing: lang === 'en' ? '-0.02em' : '0.02em',
               }}
             >
-              <div>{t('washi.heroLine1')}</div>
+              <div>{heroTitle || t('washi.heroLine1')}</div>
               <div
                 style={{
                   color: c.accent,
                   fontStyle: lang === 'en' ? 'italic' : 'normal',
                 }}
               >
-                {t('washi.heroLine2')}
+                {heroSubtitle || t('washi.heroLine2')}
               </div>
             </div>
             <div

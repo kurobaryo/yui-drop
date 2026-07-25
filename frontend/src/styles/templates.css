@@ -1,0 +1,410 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * Yui-Drop TEMPLATE tokens
+ *
+ * A "template" is a complete visual language (Linear-style vs Apple-style).
+ * It is selected at RUNTIME by `data-template` on <html>, which the SPA sets
+ * from the server-persisted theme (`GET /api/config` → `theme.template`).
+ * No rebuild, no redeploy — flip the attribute and the whole site restyles.
+ *
+ * Three independent switches, all attributes on <html>:
+ *   data-template = "linear" | "apple" | …   → shape / depth / density
+ *   data-mode     = "light"  | "dark"        → surfaces & text
+ *   data-accent   = "<slug>" | "custom"      → accent hue
+ *
+ * ── The token contract ────────────────────────────────────────────────────
+ * Every template MUST define this exact set of variables for BOTH modes.
+ * Components only ever read these names, never a template-specific one —
+ * that is what makes a new template a pure data addition.
+ *
+ *   Surfaces   --bg  --p1  --p2  --pn
+ *   Lines      --ln  --ln2
+ *   Text       --tx  --tx1  --tx2  --tx3
+ *   Accent     --ac  --acs  --act
+ *   Status     --ok  --warn --bad
+ *   Depth      --sh  --shl
+ *   Shape      --rc (card) --rs (surface) --ri (input) --rb (button)
+ *              --rp (pill) --rt (tag/chip)
+ *   Density    --gap-card  --pad-card  --pad-row  --h-ctl
+ *   Type       --fw-title --fw-label --ff  --fs-hero
+ *   Motion     --dur --ease
+ *
+ * Source of truth for the values: the two approved design prototypes
+ * (`YUI_Drop_UI_.zip` → linear-theme / apple-theme). Hex values are copied
+ * byte-for-byte from those files; changing one changes the visual replica.
+ *
+ * ★ Adding a new template = append one `[data-template="x"]` block below
+ *   (plus its dark-mode block) and register the slug in
+ *   `src/themes/registry.ts`. No component code changes.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * TEMPLATE: linear — compact tool feel, small radii, hairline borders,
+ * almost no shadow. Default template.
+ * ══════════════════════════════════════════════════════════════════════════ */
+:root,
+:root[data-template="linear"] {
+  --bg: #fbfbfc;
+  --p1: #f4f5f7;
+  --p2: #ffffff;
+  --pn: #ffffff;
+
+  --ln: #e3e5ea;
+  --ln2: #cdd0d8;
+
+  --tx: #14161c;
+  --tx1: #20232c;
+  --tx2: #4b4f5b;
+  --tx3: #828795;
+
+  --ac: #3f7bb3;
+  --acs: rgba(107, 159, 212, 0.16);
+  --act: #2f6293;
+
+  --ok: #178a5a;
+  --warn: #a4690b;
+  --bad: #c2402f;
+
+  --sh: 0 1px 2px rgba(16, 18, 24, 0.06);
+  --shl: 0 20px 48px rgba(16, 18, 24, 0.16);
+
+  /* Shape — tight, tool-like. */
+  --rc: 12px;
+  --rs: 10px;
+  --ri: 9px;
+  --rb: 8px;
+  --rp: 999px;
+  --rt: 6px;
+
+  /* Density — compact. */
+  --gap-card: 14px;
+  --pad-card: 16px;
+  --pad-row: 9px 12px;
+  --h-ctl: 36px;
+
+  /* Type. */
+  --ff: 'Manrope', 'Noto Sans SC', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', system-ui, sans-serif;
+  --fw-title: 700;
+  --fw-label: 600;
+  --fs-hero: 42px;
+
+  /* Motion. */
+  --dur: 0.16s;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+:root[data-template="linear"][data-mode="dark"] {
+  --bg: #0b0d12;
+  --p1: #11141b;
+  --p2: #171b24;
+  --pn: #11141b;
+
+  --ln: #232734;
+  --ln2: #2e3340;
+
+  --tx: #ffffff;
+  --tx1: #e6e8ee;
+  --tx2: #a8adba;
+  --tx3: #6c7180;
+
+  --ac: #4d8ac5;
+  --acs: rgba(107, 159, 212, 0.2);
+  --act: #93bce4;
+
+  --ok: #3ecf8e;
+  --warn: #e0b341;
+  --bad: #f07a68;
+
+  --sh: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shl: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* Accents available inside the linear template. */
+:root[data-template="linear"][data-accent="linear-blue"] {
+  --ac: hsl(232 68% 56%);
+  --acs: hsl(232 68% 60% / 0.12);
+  --act: hsl(232 68% 46%);
+}
+:root[data-template="linear"][data-accent="sapphire"] {
+  --ac: hsl(217 91% 52%);
+  --acs: hsl(217 91% 58% / 0.12);
+  --act: hsl(217 91% 42%);
+}
+:root[data-template="linear"][data-accent="emerald"] {
+  --ac: hsl(160 84% 34%);
+  --acs: hsl(160 84% 44% / 0.14);
+  --act: hsl(160 84% 28%);
+}
+:root[data-template="linear"][data-mode="dark"][data-accent="linear-blue"] {
+  --ac: hsl(232 68% 62%);
+  --acs: hsl(232 68% 62% / 0.16);
+  --act: hsl(232 68% 74%);
+}
+:root[data-template="linear"][data-mode="dark"][data-accent="sapphire"] {
+  --ac: hsl(217 91% 60%);
+  --acs: hsl(217 91% 60% / 0.16);
+  --act: hsl(217 91% 74%);
+}
+:root[data-template="linear"][data-mode="dark"][data-accent="emerald"] {
+  --ac: hsl(160 72% 42%);
+  --acs: hsl(160 72% 46% / 0.18);
+  --act: hsl(160 68% 60%);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * TEMPLATE: apple — roomy, large radii, pill controls, soft diffuse shadows.
+ * ══════════════════════════════════════════════════════════════════════════ */
+:root[data-template="apple"] {
+  --bg: #f5f5f7;
+  --pn: #ffffff;
+  --p1: #f5f5f7;
+  --p2: #ffffff;
+
+  --ln: rgba(0, 0, 0, 0.08);
+  --ln2: rgba(0, 0, 0, 0.14);
+
+  --tx: #1d1d1f;
+  --tx1: #1d1d1f;
+  --tx2: #6e6e73;
+  --tx3: #86868b;
+
+  --ac: #0071e3;
+  --acs: rgba(0, 113, 227, 0.1);
+  --act: #0071e3;
+
+  /* Apple-only extras — iOS "fill" tint, sheet grabber, chevron grey. */
+  --fill: rgba(120, 120, 128, 0.12);
+  --grab: #d1d1d6;
+  --chev: #c7c7cc;
+
+  --ok: #1a7f37;
+  --warn: #a56100;
+  --bad: #c9372c;
+
+  --sh: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --shl: 0 24px 60px rgba(0, 0, 0, 0.2);
+
+  /* Shape — large and soft; controls are pills. */
+  --rc: 20px;
+  --rs: 14px;
+  --ri: 12px;
+  --rb: 999px;
+  --rp: 999px;
+  --rt: 999px;
+
+  /* Density — generous. */
+  --gap-card: 20px;
+  --pad-card: 24px;
+  --pad-row: 13px 18px;
+  --h-ctl: 44px;
+
+  /* Type. */
+  --ff: 'Manrope', 'Noto Sans SC', -apple-system, BlinkMacSystemFont,
+    'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --fw-title: 700;
+  --fw-label: 600;
+  --fs-hero: 48px;
+
+  /* Motion — iOS spring-ish. */
+  --dur: 0.22s;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root[data-template="apple"][data-mode="dark"] {
+  --bg: #000000;
+  --pn: #1c1c1e;
+  --p1: #2c2c2e;
+  --p2: #2c2c2e;
+
+  --ln: rgba(255, 255, 255, 0.12);
+  --ln2: rgba(255, 255, 255, 0.18);
+
+  --tx: #f5f5f7;
+  --tx1: #f5f5f7;
+  --tx2: #98989d;
+  --tx3: #8e8e93;
+
+  --ac: #0a84ff;
+  --acs: rgba(10, 132, 255, 0.18);
+  --act: #0a84ff;
+
+  --fill: rgba(120, 120, 128, 0.28);
+  --grab: #48484a;
+  --chev: #5a5a5e;
+
+  --ok: #30d158;
+  --warn: #ffd60a;
+  --bad: #ff453a;
+
+  --sh: none;
+  --shl: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* Accents available inside the apple template. */
+:root[data-template="apple"][data-accent="sky"] {
+  --ac: #3f7bb3;
+  --acs: rgba(107, 159, 212, 0.14);
+  --act: #3f7bb3;
+}
+:root[data-template="apple"][data-accent="blue"] {
+  --ac: #0071e3;
+  --acs: rgba(0, 113, 227, 0.1);
+  --act: #0071e3;
+}
+:root[data-template="apple"][data-accent="graphite"] {
+  --ac: #3a3a3c;
+  --acs: rgba(60, 60, 67, 0.1);
+  --act: #3a3a3c;
+}
+:root[data-template="apple"][data-accent="teal"] {
+  --ac: #0a8a8a;
+  --acs: rgba(10, 138, 138, 0.1);
+  --act: #0a8a8a;
+}
+:root[data-template="apple"][data-mode="dark"][data-accent="sky"] {
+  --ac: #4d8ac5;
+  --acs: rgba(107, 159, 212, 0.2);
+  --act: #93bce4;
+}
+:root[data-template="apple"][data-mode="dark"][data-accent="blue"] {
+  --ac: #0a84ff;
+  --acs: rgba(10, 132, 255, 0.18);
+  --act: #0a84ff;
+}
+:root[data-template="apple"][data-mode="dark"][data-accent="graphite"] {
+  --ac: #8e8e93;
+  --acs: rgba(142, 142, 147, 0.2);
+  --act: #c7c7cc;
+}
+:root[data-template="apple"][data-mode="dark"][data-accent="teal"] {
+  --ac: #30d5c8;
+  --acs: rgba(48, 213, 200, 0.18);
+  --act: #30d5c8;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * CUSTOM ACCENT — template-independent.
+ *
+ * When the admin picks a custom colour we can't precompute the hover/soft
+ * variants in CSS, so the theme store writes three inline vars on <html>
+ * (--ac-custom / --acs-custom / --act-custom) and we alias them here. The
+ * `:where()` keeps specificity at 0 so per-template rules above still lose
+ * to this one only because it comes later in source order for the same
+ * specificity — which is the intent (custom always wins).
+ * ══════════════════════════════════════════════════════════════════════════ */
+:root[data-accent="custom"] {
+  --ac: var(--ac-custom, #3f7bb3);
+  --acs: var(--acs-custom, rgba(63, 123, 179, 0.14));
+  --act: var(--act-custom, #2f6293);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Legacy bridge — the pre-existing components read --accent-h/s/l plus the
+ * older surface names (--bg-1, --bg-2, --text…, --border…). Keep them mapped
+ * onto the new contract so the whole app restyles with the template even
+ * before every component has migrated. Safe to delete once nothing refers
+ * to the old names.
+ *
+ * ★ --accent-h/s/l cannot be derived from --ac in CSS (there is no way to
+ *   decompose a hex back into HSL components), so every template/accent pair
+ *   must publish the triplet explicitly. Miss one and accent-tinted controls
+ *   (Button primary, Input focus ring) silently fall back to the default.
+ * ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --bg-1: var(--p1);
+  --bg-2: var(--p2);
+  --text: var(--tx);
+  --text-1: var(--tx1);
+  --text-2: var(--tx2);
+  --text-muted: var(--tx3);
+  --border: var(--ln);
+  --border-strong: var(--ln2);
+
+  /* Default triplet = linear/sky (#3f7bb3). */
+  --accent-h: 207;
+  --accent-s: 47%;
+  --accent-l: 47%;
+}
+
+/* linear accents */
+:root[data-template="linear"][data-accent="sky"] {
+  --accent-h: 207;
+  --accent-s: 47%;
+  --accent-l: 47%;
+}
+:root[data-template="linear"][data-accent="linear-blue"] {
+  --accent-h: 232;
+  --accent-s: 68%;
+  --accent-l: 56%;
+}
+:root[data-template="linear"][data-accent="sapphire"] {
+  --accent-h: 217;
+  --accent-s: 91%;
+  --accent-l: 52%;
+}
+:root[data-template="linear"][data-accent="emerald"] {
+  --accent-h: 160;
+  --accent-s: 84%;
+  --accent-l: 34%;
+}
+:root[data-template="linear"][data-mode="dark"] {
+  --accent-h: 207;
+  --accent-s: 49%;
+  --accent-l: 54%;
+}
+:root[data-template="linear"][data-mode="dark"][data-accent="linear-blue"] {
+  --accent-l: 62%;
+}
+:root[data-template="linear"][data-mode="dark"][data-accent="sapphire"] {
+  --accent-h: 217;
+  --accent-s: 91%;
+  --accent-l: 60%;
+}
+:root[data-template="linear"][data-mode="dark"][data-accent="emerald"] {
+  --accent-h: 160;
+  --accent-s: 72%;
+  --accent-l: 42%;
+}
+
+/* apple accents */
+:root[data-template="apple"] {
+  --accent-h: 211;
+  --accent-s: 100%;
+  --accent-l: 44%;
+}
+:root[data-template="apple"][data-accent="sky"] {
+  --accent-h: 207;
+  --accent-s: 47%;
+  --accent-l: 47%;
+}
+:root[data-template="apple"][data-accent="graphite"] {
+  --accent-h: 240;
+  --accent-s: 2%;
+  --accent-l: 23%;
+}
+:root[data-template="apple"][data-accent="teal"] {
+  --accent-h: 180;
+  --accent-s: 86%;
+  --accent-l: 29%;
+}
+:root[data-template="apple"][data-mode="dark"] {
+  --accent-h: 211;
+  --accent-s: 100%;
+  --accent-l: 52%;
+}
+:root[data-template="apple"][data-mode="dark"][data-accent="sky"] {
+  --accent-h: 207;
+  --accent-s: 49%;
+  --accent-l: 54%;
+}
+:root[data-template="apple"][data-mode="dark"][data-accent="graphite"] {
+  --accent-h: 240;
+  --accent-s: 2%;
+  --accent-l: 57%;
+}
+:root[data-template="apple"][data-mode="dark"][data-accent="teal"] {
+  --accent-h: 174;
+  --accent-s: 64%;
+  --accent-l: 51%;
+}
+

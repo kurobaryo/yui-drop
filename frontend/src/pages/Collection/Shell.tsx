@@ -11,32 +11,25 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import {
-  WASHI_DARK,
-  WASHI_PALETTES,
   type WashiColors,
   type WashiMode,
   type WashiPaletteName,
 } from '@/variants/washi/palettes';
+import { templateToWashi } from '@/themes/washiBridge';
+import { useThemeStore } from '@/stores/theme';
 import { PaperTexture } from '@/variants/washi/PaperTexture';
 import { Header } from '@/variants/washi/Header';
 import { Footer } from '@/variants/washi/Footer';
 import type { WashiLang } from '@/variants/washi/pickers/LangPicker';
 
 const LS_PALETTE = 'yui-drop:palette';
-const LS_MODE = 'yui-drop:mode';
+// Mode is persisted by the shared theme store under its own key.
 
 function readPalette(): WashiPaletteName {
   if (typeof window === 'undefined') return 'sumi';
   const v = localStorage.getItem(LS_PALETTE);
   if (v === 'sumi' || v === 'matcha' || v === 'ai' || v === 'kogane') return v;
   return 'sumi';
-}
-
-function readMode(): WashiMode {
-  if (typeof window === 'undefined') return 'auto';
-  const v = localStorage.getItem(LS_MODE);
-  if (v === 'auto' || v === 'light' || v === 'dark') return v;
-  return 'auto';
 }
 
 function i18nToWashiLang(code: string): WashiLang {
@@ -60,7 +53,13 @@ export function CollectionShell({ children }: CollectionShellProps) {
   const { i18n: i18nInstance } = useTranslation();
 
   const [palette, setPalette] = useState<WashiPaletteName>(readPalette);
-  const [mode, setMode] = useState<WashiMode>(readMode);
+  // Appearance is owned by the shared theme store (server default merged with
+  // the visitor's override + `lock_mode`), not by local state — see WashiApp.
+  const storeMode = useThemeStore((s) => s.mode);
+  const setStoreMode = useThemeStore((s) => s.setMode);
+  const mode = storeMode as WashiMode;
+  const setMode = (m: WashiMode) => setStoreMode(m as typeof storeMode);
+
   const [lang, setLangLocal] = useState<WashiLang>(() =>
     i18nToWashiLang(i18nInstance.language),
   );
@@ -79,20 +78,8 @@ export function CollectionShell({ children }: CollectionShellProps) {
 
   const resolvedDark = mode === 'auto' ? systemDark : mode === 'dark';
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_PALETTE, palette);
-    } catch {
-      /* ignore */
-    }
-  }, [palette]);
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_MODE, mode);
-    } catch {
-      /* ignore */
-    }
-  }, [mode]);
+  // Mode persistence belongs to the theme store now; a local write here would
+  // fight it (different key, no server-default merge).
 
   const setLang = (l: WashiLang) => {
     setLangLocal(l);
@@ -106,9 +93,16 @@ export function CollectionShell({ children }: CollectionShellProps) {
     };
   }, [i18nInstance]);
 
+  // Colours come from the active template (admin setting via /api/config);
+  // appearance (light/dark) remains the visitor's own preference.
+  // See `themes/washiBridge.ts` for why this returns hex rather than var().
+  const template = useThemeStore((s) => s.template);
+  const storeAccent = useThemeStore((s) => s.accent);
+  const storeAccentCustom = useThemeStore((s) => s.accentCustom);
+
   const c = useMemo(
-    () => (resolvedDark ? WASHI_DARK[palette] : WASHI_PALETTES[palette]),
-    [resolvedDark, palette],
+    () => templateToWashi(template, resolvedDark, storeAccent, storeAccentCustom),
+    [template, resolvedDark, storeAccent, storeAccentCustom],
   );
 
   // Paint the active paper color onto html+body — prevents iOS safe-area
