@@ -29,17 +29,33 @@ export function usePublicConfig(): PublicConfig {
  * Mount this once, near the router root. It renders nothing.
  */
 export function useApplyServerTheme(): void {
-  const config = usePublicConfig();
+  const { data, isError, isSuccess } = useQuery({
+    queryKey: ['public-config'],
+    queryFn: getConfig,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: DEFAULT_CONFIG,
+  });
   const hydrate = useThemeStore((s) => s.hydrateFromServer);
-  const theme = config.theme;
+  const markHydrated = useThemeStore((s) => s.markHydrated);
+  const theme = data?.theme;
 
   useEffect(() => {
-    if (!theme) return;
-    hydrate(theme);
+    if (theme) {
+      hydrate(theme);
+      return;
+    }
+    // No theme in the payload — either the request failed or the backend
+    // predates the theme field. Either way we must stop blocking render, or
+    // consumers gated on `hydrated` (e.g. the v2/legacy switch) would show a
+    // permanently blank page.
+    if (isError || isSuccess) markHydrated();
     // Re-run only when the server actually sends a different theme. The
     // object identity changes on every refetch, so compare by value.
   }, [
     hydrate,
+    markHydrated,
+    isError,
+    isSuccess,
     theme,
     theme?.template,
     theme?.mode,

@@ -20,9 +20,8 @@ import {
   useLocation,
 } from 'react-router-dom';
 
-import Home from './pages/Home';
+import SiteRoot from './SiteRoot';
 import NotFound from './pages/NotFound';
-import ApiDocs from './pages/ApiDocs';
 import AdminLogin from './pages/admin/Login';
 import AdminLayout from './pages/admin/Layout';
 import Dashboard from './pages/admin/Dashboard';
@@ -35,8 +34,6 @@ import AdminCollections from './pages/admin/Collections';
 import OidcCallback from './pages/admin/auth/OidcCallback';
 import OidcBound from './pages/admin/auth/OidcBound';
 import CollectionLanding from './pages/Collection/Landing';
-import CollectionCreate from './pages/Collection/Create';
-import CollectionRoom from './pages/Collection/Room';
 import { ToastProvider } from './components/ui/Toast';
 import { useApplyServerTheme } from './lib/hooks/usePublicConfig';
 
@@ -53,16 +50,17 @@ function AnimatedRoutes() {
   return (
     <div key={location.pathname} className="route-fade">
       <Routes location={location}>
-        <Route path="/" element={<Home />} />
+        {/* `/` picks the v2 or legacy public UI from the active site theme. */}
+        <Route path="/" element={<SiteRoot />} />
         {/* Deep links — all funnel into WashiApp via Home with `:code` param. */}
-        <Route path="/s/:code" element={<Home />} />
-        <Route path="/v/:code" element={<Home />} />
-        <Route path="/m/:code" element={<Home />} />
-        <Route path="/docs" element={<ApiDocs />} />
+        <Route path="/s/:code" element={<SiteRoot />} />
+        <Route path="/v/:code" element={<SiteRoot />} />
+        <Route path="/m/:code" element={<SiteRoot />} />
+        <Route path="/docs" element={<SiteRoot />} />
         {/* Collection (共享空间) — multi-user drop boxes. */}
         <Route path="/collection" element={<CollectionLanding />} />
-        <Route path="/collection/new" element={<CollectionCreate />} />
-        <Route path="/c/:code" element={<CollectionRoom />} />
+        <Route path="/collection/new" element={<SiteRoot />} />
+        <Route path="/c/:code" element={<SiteRoot />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         {/* OIDC SPA-side landings — must sit *outside* the AdminLayout so they
             don't require an existing admin token to render. */}

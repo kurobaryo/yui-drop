@@ -1,0 +1,161 @@
+/*
+ * v2 base stylesheet — theme-agnostic.
+ *
+ * Holds: the reset, keyframes, and DEFAULTS for every optional token. A new
+ * theme therefore only has to restate the required tokens; anything it omits
+ * resolves here instead of rendering unstyled.
+ *
+ * Import order matters: this file first, then each theme file.
+ */
+
+/* Optional-token defaults. Themes override as needed. Keep in sync with
+   OPTIONAL_TOKENS in v2/themes.ts. */
+:root {
+  --rc: 12px;
+  --rs: 10px;
+  --ri: 9px;
+  --fill: var(--p1);
+  --grab: var(--ln2);
+  --chev: var(--tx3);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Shared keyframes — referenced by both themes. Apple overrides its dialog
+   entrance with ydPopApple; the rest are common. */
+@keyframes ydFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ydPop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ydSheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+/* Caret blink for the six-cell code input (the prototype shows a static bar;
+   blinking makes the focused cell readable as a text field). */
+@keyframes ydCaret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── Structural defaults shared by all themes ───────────────────────────── */
+/* `mob-only` is hidden on desktop; each theme re-shows it at its own
+   breakpoint (Linear 820px, Apple 860px). */
+[data-r='mob-only'] {
+  display: none !important;
+}
+[data-r='tablewrap'] {
+  overflow-x: auto;
+  /* Scroll affordance: without this the table silently cuts off on mobile and
+     users have no signal that more columns exist to the right. The mask fades
+     the trailing edge, and disappears once scrolled to the end. */
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: none;
+}
+@media (max-width: 860px) {
+  [data-r='tablewrap'] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  }
+}
+[data-r='grabber'] {
+  display: none;
+}
+/* Admin filter rows pack a search box + toggles onto one line. Below the
+   prototype breakpoint that crowds the right gutter, so let the search field
+   claim a full row and the toggles wrap underneath. */
+@media (max-width: 860px) {
+  [data-r='filterrow'] > form {
+    flex: 1 0 100% !important;
+  }
+}
+/* Icon buttons render as a compact 30px box by design, but a 30px touch
+   target is below the 44px accessibility minimum. Expand the hit area with a
+   transparent pseudo-element instead of growing the visible chrome. */
+[data-yd='icon-btn'] {
+  position: relative;
+}
+@media (pointer: coarse) {
+  [data-yd='icon-btn']::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+[data-r='mobnav'] {
+  display: none;
+}
+
+[data-yd='backdrop'] {
+  animation: ydFade 0.16s ease both;
+}
+[data-yd='dialog'] {
+  animation: ydPop 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+[data-yd='sheetup'] {
+  animation: ydSheet 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* The v2 root owns background/typography so the theme applies even before a
+   screen renders. */
+[data-yd-root] {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--tx1);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+[data-yd-root] a {
+  color: var(--ac);
+  text-decoration: none;
+}
+[data-yd-root] h1,
+[data-yd-root] h2,
+[data-yd-root] h3,
+[data-yd-root] h4 {
+  font-family: inherit;
+  margin: 0;
+}
+
+/* Respect reduced-motion: the prototype's animations are decorative. */
+@media (prefers-reduced-motion: reduce) {
+  [data-yd='backdrop'],
+  [data-yd='dialog'],
+  [data-yd='sheetup'],
+  [data-r='sheet'] {
+    animation: none !important;
+  }
+}

@@ -39,6 +39,11 @@ export interface CreateCollectionRequest {
   creator_nickname?: string | null;
   /** Optional Turnstile token, gated by the same setting as uploads. */
   turnstile_token?: string | null;
+  /** v2 per-room policy; enforced by the backend. null capacity = unlimited. */
+  max_file_bytes?: number | null;
+  capacity_bytes?: number | null;
+  allow_messages?: boolean;
+  notify_on_activity?: boolean;
 }
 
 export interface CreateCollectionResponse {
@@ -74,6 +79,13 @@ export interface PreviewCollectionResponse {
   file_count: number;
   message_count: number;
   closed: boolean;
+  /** Backend returns this in the preview payload; used for the drop hint. */
+  visibility?: CollectionVisibility;
+  /** v2 per-room policy (server-enforced). null capacity = unlimited. */
+  max_file_bytes?: number | null;
+  capacity_bytes?: number | null;
+  allow_messages?: boolean;
+  notify_on_activity?: boolean;
 }
 
 export async function previewCollection(

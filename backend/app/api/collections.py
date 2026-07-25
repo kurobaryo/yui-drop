@@ -68,6 +68,18 @@ def _service_to_http(exc: ServiceError) -> HTTPException:
     )
 
 
+def _file_error_to_http(exc: "svc.CollectionFileError") -> HTTPException:
+    """Map the file-specific service error onto an HTTP response.
+
+    Without this, ``CollectionFileError`` escaped the router uncaught and
+    surfaced as a bare 500 (e.g. ``sign_part_not_supported_for_local``).
+    """
+    return HTTPException(
+        status_code=exc.http_status,
+        detail={"code": exc.http_status * 10, "message": exc.code},
+    )
+
+
 async def require_member(
     request: Request,
     db: AsyncSession,
@@ -89,6 +101,8 @@ async def require_member(
         return await svc.get_member_by_token(db, code=code, member_token=x_member_token)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
 
 
 async def require_admin_password_match(
@@ -129,9 +143,15 @@ async def create(
             permanent=body.permanent,
             creator_nickname=body.creator_nickname,
             created_by_ip=ip,
+            max_file_bytes=body.max_file_bytes,
+            capacity_bytes=body.capacity_bytes,
+            allow_messages=body.allow_messages,
+            notify_on_activity=body.notify_on_activity,
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     await db.commit()
     _ = ua  # reserved for future audit
     return ok(
@@ -164,6 +184,8 @@ async def preview(
         out = await svc.preview_collection(db, code=code)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     return ok(out)
 
 
@@ -193,6 +215,8 @@ async def join(
         collection = await svc.get_collection_by_code(db, code)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     await db.commit()
     _ = ua
     return ok(
@@ -225,6 +249,8 @@ async def messages_list(
         out = await svc.list_messages(db, collection=collection, member=member, after_id=after_id)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     return ok({"messages": out})
 
 
@@ -251,6 +277,8 @@ async def messages_send(
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     await db.commit()
     return ok(
         {
@@ -292,6 +320,8 @@ async def messages_delete(
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     await db.commit()
     return ok({"deleted": True})
 
@@ -326,6 +356,8 @@ async def admin_verify(
         verified = await svc.verify_admin_password(db, collection=collection, admin_password=x_admin_password)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
 
     if not verified:
         await record_access(
@@ -350,6 +382,8 @@ async def admin_verify(
         out = await svc.mark_member_creator(db, member)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
 
     await record_access(
         db,
@@ -389,6 +423,8 @@ async def admin_upload_toggle(
         collection = await svc.get_collection_by_code(db, code=code)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
 
     if not await require_admin_password_match(db, collection, x_admin_password):
         await record_access(
@@ -413,6 +449,8 @@ async def admin_upload_toggle(
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
 
     await record_access(
         db,
@@ -451,6 +489,8 @@ async def admin_close(
         collection = await svc.get_collection_by_code(db, code=code)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
 
     if not await require_admin_password_match(db, collection, x_admin_password):
         await record_access(
@@ -471,6 +511,8 @@ async def admin_close(
         out = await svc.admin_close(db, collection=collection,)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
 
     await record_access(
         db,
@@ -552,6 +594,8 @@ async def files_init(
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     await db.commit()
     return ok(out)
 
@@ -583,6 +627,8 @@ async def files_sign_part(
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     return ok(out)
 
 
@@ -651,6 +697,8 @@ async def files_complete(
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     await db.commit()
     return ok(
         {
@@ -675,6 +723,8 @@ async def files_list(
         out = await svc.list_files(db, collection=collection, member=member)
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     return ok({"files": out})
 
 
@@ -700,6 +750,8 @@ async def files_download(
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     return ok({"download_url": url, "expires_in": expires_in})
 
 
@@ -792,6 +844,8 @@ async def files_delete(
         )
     except ServiceError as e:
         raise _service_to_http(e) from e
+    except svc.CollectionFileError as e:
+        raise _file_error_to_http(e) from e
     await db.commit()
     return ok({"deleted": True, "id": file_id})
 
