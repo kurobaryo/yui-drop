@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark" data-accent="aurora-gold">
+<html lang="en" data-theme="dark" data-mode="dark" data-template="linear" data-accent="sky">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -16,18 +16,26 @@
     />
     <title>Yui-Drop</title>
     <script>
-      // Restore saved theme + accent before paint to avoid a flash.
+      // Restore the visitor's appearance choice before first paint to avoid a
+      // flash. Only light/dark is restored here: the *template* and *accent*
+      // are server-owned (admin setting) and arrive with /api/config a moment
+      // later, at which point the theme store re-applies all three attributes.
+      // The `data-template`/`data-accent` values in the <html> tag above are
+      // the built-in defaults and act as the pre-hydration fallback.
       try {
         const t = localStorage.getItem('yui-drop:theme');
-        const a = localStorage.getItem('yui-drop:accent');
         const root = document.documentElement;
+        let resolved = null;
         if (t === 'light' || t === 'dark') {
-          root.setAttribute('data-theme', t);
+          resolved = t;
         } else if (t === 'auto' || !t) {
           const mql = window.matchMedia('(prefers-color-scheme: light)');
-          root.setAttribute('data-theme', mql.matches ? 'light' : 'dark');
+          resolved = mql.matches ? 'light' : 'dark';
         }
-        if (a) root.setAttribute('data-accent', a);
+        if (resolved) {
+          root.setAttribute('data-theme', resolved);
+          root.setAttribute('data-mode', resolved);
+        }
       } catch (_) { /* localStorage may be unavailable */ }
     </script>
   </head>

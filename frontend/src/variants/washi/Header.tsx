@@ -15,12 +15,16 @@ import { Link, useLocation } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 import type { WashiColors, WashiMode, WashiPaletteName } from './palettes';
 import { MobileMenu } from './MobileMenu';
+import { useThemeStore } from '@/stores/theme';
 import type { WashiLang } from './pickers/LangPicker';
 
 export interface HeaderProps {
   c: WashiColors;
-  palette: WashiPaletteName;
-  setPalette: (p: WashiPaletteName) => void;
+  /** @deprecated Site colours are admin-owned now; ignored. Kept optional so
+   *  existing callers keep compiling. */
+  palette?: WashiPaletteName;
+  /** @deprecated See `palette`. */
+  setPalette?: (p: WashiPaletteName) => void;
   mode: WashiMode;
   setMode: (m: WashiMode) => void;
   lang: WashiLang;
@@ -31,8 +35,10 @@ export interface HeaderProps {
 // `var(--soft-c)`). React typings need them widened to a string-keyed map.
 type CSSWithVars = CSSProperties & Record<`--${string}`, string>;
 
-export function Header({ c, palette, setPalette, mode, setMode, lang, setLang }: HeaderProps) {
+export function Header({ c, mode, setMode, lang, setLang }: HeaderProps) {
   const { t } = useTranslation();
+  // Admin-configured site name (empty = fall back to the built-in i18n brand).
+  const brandName = useThemeStore((s) => s.brandName);
   const location = useLocation();
   const isHome = location.pathname === '/';
   const headerStyle: CSSWithVars = {
@@ -92,7 +98,9 @@ export function Header({ c, palette, setPalette, mode, setMode, lang, setLang }:
           結
         </div>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 15, letterSpacing: '0.02em' }}>{t('washi.brand')}</div>
+          <div style={{ fontWeight: 600, fontSize: 15, letterSpacing: '0.02em' }}>
+            {brandName || t('washi.brand')}
+          </div>
           <div style={{ fontSize: 10.5, color: c.sub, letterSpacing: '0.18em' }}>{t('washi.tagBrand')}</div>
         </div>
       </Link>
@@ -109,8 +117,6 @@ export function Header({ c, palette, setPalette, mode, setMode, lang, setLang }:
         )}
         <MobileMenu
           c={c}
-          palette={palette}
-          setPalette={setPalette}
           mode={mode}
           setMode={setMode}
           lang={lang}
