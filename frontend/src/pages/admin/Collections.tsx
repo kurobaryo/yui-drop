@@ -151,12 +151,13 @@ export default function AdminCollections() {
         </div>
       </div>
 
-      <div data-r="tablewrap" style={pcard}>
+      <div style={pcard}>
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}><Spinner /></div>
         ) : !data || data.items.length === 0 ? (
           <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--tx3)' }}>{t('admin.collections.empty')}</div>
         ) : (
+          <div data-r="tablewrap">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 680 }}>
             <thead>
               <tr style={{ background: 'var(--p1)' }}>
@@ -187,6 +188,7 @@ export default function AdminCollections() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
