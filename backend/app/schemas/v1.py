@@ -89,6 +89,80 @@ class V1MultipartCompleteRequest(BaseModel):
 V1MultipartCompleteResponse = V1UploadResponse
 
 
+# ── Text share ──────────────────────────────────────────────────────────────
+
+
+class V1TextShareRequest(BaseModel):
+    """Create a text-only share attributed to the calling API key."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(..., min_length=1)
+    expire_value: int = Field(default=1, ge=1)
+    expire_style: ExpireStyle = "day"
+
+
+class V1TextShareResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    name: str | None
+    size: int
+    expired_at: str | None
+    expired_count: int = -1
+    url: str | None
+    short_url: str
+
+
+# ── Pickup (resolve a code) ─────────────────────────────────────────────────
+
+
+class V1PickupRequest(BaseModel):
+    """Redeem a pickup code.
+
+    NOTE: this is a *consuming* operation upstream — it decrements
+    ``expired_count`` and increments ``used_count``, exactly like the public
+    SPA pickup. There is no read-only variant.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(..., min_length=1, max_length=16)
+
+
+class V1PickupFile(BaseModel):
+    """One member file of a multi-file share."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    file_id: int
+    order: int
+    name: str | None
+    size: int | None
+    url: str | None
+    content_type: str | None
+    force_download: bool = False
+
+
+class V1PickupResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    kind: Literal["text", "file", "multi"]
+    name: str | None
+    size: int | None
+    text: str | None
+    url: str | None
+    content_type: str | None
+    force_download: bool = False
+    expired_at: str | None
+    expired_count: int
+    used_count: int
+    total_size: int | None = None
+    file_count: int | None = None
+    files: list[V1PickupFile] | None = None
+
+
 # ── Share listing / inspection ──────────────────────────────────────────────
 
 
