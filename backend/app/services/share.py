@@ -90,8 +90,14 @@ async def create_text_share(
     expire_style: str,
     ip: str | None,
     ua: str | None,
+    created_by_key_id: int | None = None,
 ) -> dict[str, Any]:
-    """Insert a text-only FileCode row and return its summary."""
+    """Insert a text-only FileCode row and return its summary.
+
+    ``created_by_key_id`` attributes the share to an admin-issued API key so
+    it shows up in ``GET /api/v1/shares``. Anonymous callers (the SPA) leave
+    it ``None``, matching :func:`create_simple_file_share`.
+    """
     body = text or ""
     if len(body.encode("utf-8")) > settings.max_text_bytes:
         raise ServiceError(
@@ -111,6 +117,12 @@ async def create_text_share(
         file_path=None,
         text=body,
         file_hash=None,
+        # Without this the row inherits the column default "file" and every
+        # text share is reported as kind="file" on the wire (harmless while
+        # the only reader tested `kind == "multi"`, wrong once /api/v1
+        # started surfacing it). Readers that need the old inference use
+        # `text is not None and file_path is None`.
+        kind="text",
         expired_at=expired_at,
         expired_count=expired_count,
         used_count=0,
@@ -118,6 +130,7 @@ async def create_text_share(
         upload_id=None,
         created_by_ip=ip,
         created_by_ua=ua,
+        created_by_key_id=created_by_key_id,
     )
     db.add(row)
     await record_access(
@@ -284,16 +297,26 @@ async def resolve_share(
     code: str,
     ip: str | None,
     ua: str | None,
+    fail_key: str | None = None,
 ) -> dict[str, Any]:
     """Look up an active share and return a payload pointer for the client.
 
     Enforces:
         * soft-delete + expiry filters
-        * per-IP retrieve-failure tracking (caller's IP banned after threshold)
+        * per-caller retrieve-failure tracking (banned after threshold)
         * decrements ``expired_count`` and bumps ``used_count`` on success
+
+    ``fail_key`` selects the identity that failure-tracking bans. It defaults
+    to ``ip`` (the anonymous SPA path). Authenticated callers that reach us
+    through a server-side proxy MUST pass a caller-specific key (e.g.
+    ``"key:<api_key.id>"``) — otherwise every proxied request shares the
+    proxy's IP and one client fat-fingering codes would ban the whole
+    upstream host. ``ip`` is still recorded in the audit log either way.
     """
-    # Banned IP? Short-circuit.
-    if ip and await retrieve_fail_tracker.is_banned(ip):
+    tracked = fail_key if fail_key is not None else ip
+
+    # Banned caller? Short-circuit.
+    if tracked and await retrieve_fail_tracker.is_banned(tracked):
         raise ForbiddenError("ip_banned", detail={"reason": "too_many_failures"})
 
     now = datetime.now(tz=UTC)
@@ -316,11 +339,11 @@ async def resolve_share(
             extra={"event": "share.retrieve.miss", "reason": reason},
         )
         await db.commit()
-        if ip:
-            n = await retrieve_fail_tracker.record_failure(ip)
+        if tracked:
+            n = await retrieve_fail_tracker.record_failure(tracked)
             if n >= settings.rate_limit_retrieve_fails_per_hour:
                 await retrieve_fail_tracker.ban(
-                    ip, settings.retrieve_ban_duration_min * 60
+                    tracked, settings.retrieve_ban_duration_min * 60
                 )
 
     if row is None:
@@ -384,8 +407,8 @@ async def resolve_share(
             extra={"event": "share.retrieve.multi", "file_count": len(files_out)},
         )
         await db.commit()
-        if ip:
-            await retrieve_fail_tracker.record_success(ip)
+        if tracked:
+            await retrieve_fail_tracker.record_success(tracked)
         return {
             "code": row.code,
             "kind": "multi",
@@ -415,8 +438,8 @@ async def resolve_share(
             extra={"event": "share.retrieve.text"},
         )
         await db.commit()
-        if ip:
-            await retrieve_fail_tracker.record_success(ip)
+        if tracked:
+            await retrieve_fail_tracker.record_success(tracked)
         return {
             "code": row.code,
             "kind": "text",
@@ -450,8 +473,8 @@ async def resolve_share(
         extra={"event": "share.retrieve.file", "force_download": force_dl},
     )
     await db.commit()
-    if ip:
-        await retrieve_fail_tracker.record_success(ip)
+    if tracked:
+        await retrieve_fail_tracker.record_success(tracked)
     return {
         "code": row.code,
         "kind": "file",

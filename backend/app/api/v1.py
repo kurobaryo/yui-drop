@@ -7,6 +7,8 @@ POST   /api/v1/upload/init                   — open multipart presigned sessio
 POST   /api/v1/upload/{upload_id}/sign-part  — presigned PUT URL for one part
 POST   /api/v1/upload/{upload_id}/complete   — finalize, create share
 DELETE /api/v1/upload/{upload_id}            — abort an in-flight session
+POST   /api/v1/share/text                    — create a text share
+POST   /api/v1/pickup                        — redeem a pickup code (consuming)
 GET    /api/v1/shares                        — list shares created by this key
 GET    /api/v1/shares/{code}                 — fetch one share by code
 
@@ -44,7 +46,9 @@ from ..schemas import ok
 from ..schemas.v1 import (
     V1MultipartCompleteRequest,
     V1MultipartInitRequest,
+    V1PickupRequest,
     V1SignPartRequest,
+    V1TextShareRequest,
 )
 from ..services.api_quota import check_can_upload, record_usage
 from ..services.common import ServiceError
@@ -54,7 +58,7 @@ from ..services.presign import (
     init_presign_upload,
     sign_presign_part,
 )
-from ..services.share import create_simple_file_share
+from ..services.share import create_simple_file_share, create_text_share, resolve_share
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
@@ -269,7 +273,97 @@ async def v1_upload_abort(
     return ok(out)
 
 
-# ── Share listing / inspection ──────────────────────────────────────────────
+# ── Text share ──────────────────────────────────────────────────────────────
+
+
+@router.post("/share/text")
+async def v1_share_text(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    api_key: Annotated[ApiKey, Depends(require_api_key("upload"))],
+    body: V1TextShareRequest,
+):
+    """Create a text-only share owned by this API key.
+
+    Unlike the anonymous ``POST /api/share/text`` used by the SPA, the row is
+    stamped with ``created_by_key_id`` so it appears in ``GET /api/v1/shares``.
+    Text bodies are capped by ``settings.max_text_bytes`` inside the service.
+    """
+    size = len(body.text.encode("utf-8"))
+    try:
+        await check_can_upload(db, api_key, file_size=size)
+    except ServiceError as exc:
+        raise _service_to_http(exc) from exc
+
+    try:
+        out = await create_text_share(
+            db,
+            text=body.text,
+            expire_value=body.expire_value,
+            expire_style=body.expire_style,
+            ip=real_client_ip(request),
+            ua=request.headers.get("user-agent"),
+            created_by_key_id=api_key.id,
+        )
+    except ServiceError as exc:
+        raise _service_to_http(exc) from exc
+
+    await record_usage(db, api_key, bytes_used=size)
+
+    # Text shares have no download URL — the body rides in the pickup payload.
+    _, short_url = _share_urls(out["code"])
+    out["size"] = size
+    out["url"] = None
+    out["short_url"] = short_url
+    return ok(out)
+
+
+# ── Pickup ──────────────────────────────────────────────────────────────────
+
+
+@router.post("/pickup")
+async def v1_pickup(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    api_key: Annotated[ApiKey, Depends(require_api_key("read"))],
+    body: V1PickupRequest,
+):
+    """Redeem a pickup code — any code, not just ones this key created.
+
+    Consuming operation: decrements ``expired_count`` and bumps ``used_count``,
+    identical to the SPA pickup path.
+
+    Failure tracking is keyed on the API key rather than the caller IP. v1
+    clients typically sit behind a server-side proxy, so every request would
+    otherwise share one source IP and a single client mistyping codes could
+    ban the entire upstream host for everyone. The real IP is still recorded
+    in the access log.
+    """
+    try:
+        out = await resolve_share(
+            db,
+            code=body.code,
+            ip=real_client_ip(request),
+            ua=request.headers.get("user-agent"),
+            fail_key=f"key:{api_key.id}",
+        )
+    except ServiceError as exc:
+        raise _service_to_http(exc) from exc
+
+    # resolve_share hands back same-origin relative paths; v1 clients are
+    # off-host, so promote them to absolute URLs.
+    base = settings.app_url.rstrip("/")
+
+    def _abs(value: str | None) -> str | None:
+        return f"{base}{value}" if value and value.startswith("/") else value
+
+    out["url"] = _abs(out.get("url"))
+    for member in out.get("files") or []:
+        member["url"] = _abs(member.get("url"))
+    return ok(out)
+
+
+# ── Share listing ───────────────────────────────────────────────────────────
 
 
 def _row_to_list_item(row: FileCode) -> dict:
