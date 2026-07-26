@@ -11,6 +11,7 @@ import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Icon } from './IconSprite';
+import { useTranslation } from 'react-i18next';
 
 export interface SiteHeaderProps {
   /** Brand name; falls back to the design default. */
@@ -47,6 +48,7 @@ export function SiteHeader({
   onCycleLang,
   githubUrl = 'https://github.com/kurobaryo/yui-drop',
 }: SiteHeaderProps) {
+  const { t } = useTranslation();
   return (
     <div
       data-r="pad"
@@ -113,7 +115,7 @@ export function SiteHeader({
               color: 'var(--tx3)',
             }}
           >
-            文件快递柜
+            {t('v2.header.tagline')}
           </div>
         </div>
       </Link>
@@ -122,7 +124,7 @@ export function SiteHeader({
         type="button"
         onClick={onCycleLang}
         data-yd="icon-btn"
-        title="切换语言"
+        title={t('v2.header.toggleLang')}
         style={{
           ...iconBtn,
           width: 'auto',
@@ -140,7 +142,7 @@ export function SiteHeader({
         type="button"
         onClick={onToggleMode}
         data-yd="icon-btn"
-        title="切换亮暗"
+        title={t('v2.header.toggleMode')}
         style={{ ...iconBtn, color: 'var(--act)' }}
       >
         <Icon name={dark ? 'i-moon' : 'i-sun'} size={15} />
@@ -153,7 +155,7 @@ export function SiteHeader({
         target="_blank"
         rel="noopener noreferrer"
         data-yd="icon-btn"
-        title="在 GitHub 查看项目"
+        title={t('v2.header.github')}
         style={iconBtn}
       >
         <Icon name="i-gh" size={15} />

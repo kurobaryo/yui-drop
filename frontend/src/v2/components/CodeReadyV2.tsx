@@ -1,4 +1,5 @@
 import { Icon } from './IconSprite';
+import { useTranslation } from 'react-i18next';
 
 export interface CodeReadyV2Props {
   code: string;
@@ -7,11 +8,12 @@ export interface CodeReadyV2Props {
 
 /** Success state shared by v2 send-file / send-text. */
 export function CodeReadyV2({ code, onReset }: CodeReadyV2Props) {
+  const { t } = useTranslation();
   const link = `${window.location.origin}/s/${code}`;
   const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => {});
   return (
     <div style={{ padding: '34px 22px 30px', textAlign: 'center' }}>
-      <div style={{ fontSize: 12, color: 'var(--tx3)', marginBottom: 12 }}>取件码已生成</div>
+      <div style={{ fontSize: 12, color: 'var(--tx3)', marginBottom: 12 }}>{t('v2.codeReady.title')}</div>
       <div
         style={{
           display: 'inline-flex',
@@ -31,13 +33,13 @@ export function CodeReadyV2({ code, onReset }: CodeReadyV2Props) {
       </div>
       <div style={{ marginTop: 18, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
         <button type="button" data-yd="btn" onClick={() => copy(code)} style={button}>
-          <Icon name="i-copy" size={14} />复制码
+          <Icon name="i-copy" size={14} />{t('v2.codeReady.copyCode')}
         </button>
         <button type="button" data-yd="btn" onClick={() => copy(link)} style={button}>
-          <Icon name="i-link" size={14} />复制链接
+          <Icon name="i-link" size={14} />{t('v2.codeReady.copyLink')}
         </button>
         <button type="button" data-yd="quiet" onClick={onReset} style={{ ...button, background: 'transparent', color: 'var(--tx2)', border: '1px solid var(--ln)' }}>
-          再发一个
+          {t('v2.codeReady.again')}
         </button>
       </div>
     </div>

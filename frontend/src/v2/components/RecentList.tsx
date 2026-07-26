@@ -19,6 +19,8 @@
  * The list shows PAGE rows at a time behind a 加载更多 button.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import {
   clearRecent,
@@ -56,14 +58,14 @@ function formatSize(bytes: number | null | undefined): string {
 }
 
 /** "剩 6 天" / "剩 22 小时" / "已过期", matching the prototype's phrasing. */
-function formatLeft(entry: RecentEntry): string {
-  if (!entry.expires_at) return entry.kind === 'collection' ? '进行中' : '长期';
+function formatLeft(entry: RecentEntry, t: TFunction): string {
+  if (!entry.expires_at) return t(entry.kind === 'collection' ? 'v2.recent.ongoing' : 'v2.recent.permanent');
   const ms = new Date(entry.expires_at).getTime() - Date.now();
   if (Number.isNaN(ms)) return '';
-  if (ms <= 0) return '已过期';
+  if (ms <= 0) return t('v2.recent.expired');
   const hours = Math.floor(ms / 3_600_000);
-  if (hours < 24) return `剩 ${Math.max(1, hours)} 小时`;
-  return `剩 ${Math.floor(hours / 24)} 天`;
+  if (hours < 24) return t('v2.recent.leftHours', { n: Math.max(1, hours) });
+  return t('v2.recent.leftDays', { n: Math.floor(hours / 24) });
 }
 
 const quiet: React.CSSProperties = {
@@ -82,19 +84,18 @@ const quiet: React.CSSProperties = {
 };
 
 /** "刚刚" / "12 分钟前" / "3 小时前" / "7月20日" — when the share was created. */
-function formatWhen(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return '';
-  const diff = Date.now() - t;
-  if (diff < 60_000) return '刚刚';
+function formatWhen(iso: string, t: TFunction, locale: string): string {
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return '';
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return t('v2.recent.justNow');
   const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `${mins} 分钟前`;
+  if (mins < 60) return t('v2.recent.minutesAgo', { n: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小时前`;
+  if (hours < 24) return t('v2.recent.hoursAgo', { n: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} 天前`;
-  const d = new Date(t);
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
+  if (days < 7) return t('v2.recent.daysAgo', { n: days });
+  return new Date(ts).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
 /** A share the server has already dropped — clicking it would 404. */
@@ -108,6 +109,7 @@ function isDead(e: RecentEntry): boolean {
 const PAGE = 5;
 
 export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) {
+  const { t, i18n } = useTranslation();
   const [items, setItems] = useState<RecentEntry[]>([]);
   const [shown, setShown] = useState(PAGE);
 
@@ -140,9 +142,9 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
   return (
     <div style={{ marginTop: 36 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx)' }}>最近分享</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx)' }}>{t('v2.recent.title')}</div>
         <div style={{ fontSize: 12, color: 'var(--tx3)', marginRight: 'auto' }}>
-          仅保存在这台设备 · 点一行即可查看
+          {t('v2.recent.caption')}
         </div>
         <button
           type="button"
@@ -159,7 +161,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
           }}
         >
           <Icon name="i-trash" size={13} />
-          清空
+          {t('v2.recent.clear')}
         </button>
       </div>
 
@@ -216,7 +218,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
                 color: 'var(--tx1)',
               }}
             >
-              {it.name || (it.kind === 'text' ? '文字分享' : it.code)}
+              {it.name || (it.kind === 'text' ? t('v2.recent.textShare') : it.code)}
             </span>
             <span
               data-r="rowmeta"
@@ -227,7 +229,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
               }}
             >
               {it.kind === 'multi' && it.fileCount
-                ? `${it.fileCount} 个文件`
+                ? t('v2.recent.fileCount', { n: it.fileCount })
                 : formatSize(it.size ?? it.totalSize)}
             </span>
             <span
@@ -239,7 +241,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
               }}
               title={new Date(it.created_at).toLocaleString()}
             >
-              {formatWhen(it.created_at)}
+              {formatWhen(it.created_at, t, i18n.language)}
             </span>
             <span
               data-r="rowmeta"
@@ -250,7 +252,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
                 textAlign: 'right',
               }}
             >
-              {formatLeft(it)}
+              {formatLeft(it, t)}
             </span>
 
             <button
@@ -264,7 +266,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
               }}
             >
               <Icon name="i-copy" size={13} />
-              复制码
+              {t('v2.recent.copyCode')}
             </button>
             <button
               type="button"
@@ -277,7 +279,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
               }}
             >
               <Icon name="i-link" size={13} />
-              复制链接
+              {t('v2.recent.copyLink')}
             </button>
 
             <Icon
@@ -311,7 +313,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
             gap: 6,
           }}
         >
-          加载更多 · 还有 {items.length - shown} 条
+          {t('v2.recent.loadMore', { n: items.length - shown })}
           <Icon name="i-chev" size={14} style={{ transform: 'rotate(90deg)' }} />
         </button>
       )}
