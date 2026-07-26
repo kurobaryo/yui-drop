@@ -14,11 +14,13 @@ import { useCollectionMemberStore } from '@/stores/collectionMember';
 import { pushRecent } from '@/lib/recent';
 import { toast } from '@/components/ui/Toast';
 import { Icon } from '../components/IconSprite';
+import { useTranslation } from 'react-i18next';
 
 function fmt(n:number){if(n<1024)return`${n} B`;if(n<1024**2)return`${(n/1024).toFixed(1)} KB`;if(n<1024**3)return`${(n/1024**2).toFixed(1)} MB`;return`${(n/1024**3).toFixed(1)} GB`;}
-function fileIcon(t:string|null){return t?.startsWith('image/')?'i-img':t?.startsWith('video/')?'i-vid':'i-file';}
+function fileIcon(ct:string|null){return ct?.startsWith('image/')?'i-img':ct?.startsWith('video/')?'i-vid':'i-file';}
 
 export function RoomV2() {
+  const { t } = useTranslation();
   const {code:raw}=useParams(); const code=(raw||'').toUpperCase(); const navigate=useNavigate();
   const config=usePublicConfig(); const member=useCollectionMemberStore(s=>s.members[code]); const setMember=useCollectionMemberStore(s=>s.set);
   const [preview,setPreview]=useState<PreviewCollectionResponse|null>(null); const [error,setError]=useState('');
@@ -35,8 +37,8 @@ export function RoomV2() {
   const post=async()=>{if(!message.trim()||!member?.memberToken)return;try{const m=await sendMessage(code,member.memberToken,{text:message.trim()});setMessages(x=>x.some(v=>v.id===m.id)?x:[...x,m]);setMessage('');}catch(e){toast.error(e instanceof ApiError?e.message:'发送失败');}};
 
   if(error)return <Status text={error} back={()=>navigate('/')}/>;
-  if(!preview)return <Status text="正在打开收集箱…" back={()=>navigate('/')}/>;
-  if(!preview.visible||preview.closed)return <Status text="收集箱已关闭或过期" back={()=>navigate('/')}/>;
+  if(!preview)return <Status text={t('v2.room.opening')} back={()=>navigate('/')}/>;
+  if(!preview.visible||preview.closed)return <Status text={t('v2.room.closed')} back={()=>navigate('/')}/>;
 
   return <>
     <div data-r="pad" style={{maxWidth:920,width:'100%',margin:'0 auto',padding:'32px 24px 40px',flex:1}}>

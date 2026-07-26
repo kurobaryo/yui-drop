@@ -181,7 +181,10 @@
     width: auto !important;
     border-radius: 18px 18px 0 0 !important;
     animation: ydSheet 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
-    max-height: 88vh;
+    /* Give the sheet most of the screen: the pickup preview (text, Markdown,
+       images) was cramped at 88vh on phones. */
+    height: 92vh;
+    max-height: 92vh;
   }
   [data-template='linear'] [data-r='grabber'] {
     display: block !important;

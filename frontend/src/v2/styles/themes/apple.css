@@ -217,7 +217,9 @@
     max-width: none !important;
     border-radius: 20px 20px 0 0 !important;
     animation: ydSheet 0.3s cubic-bezier(0.32, 0.72, 0, 1) both !important;
-    max-height: 90vh;
+    /* Match Linear: give the pickup preview most of the screen on phones. */
+    height: 92vh;
+    max-height: 92vh;
     border-left: none !important;
   }
   [data-template='apple'] [data-r='grabber'] {

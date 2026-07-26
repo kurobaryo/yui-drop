@@ -861,5 +861,149 @@
       "sendPlaceholder": "说点什么…",
       "dropHere": "松开鼠标上传文件"
     }
+  },
+  "v2": {
+    "badge": "匿名 · 无需账号",
+    "badgeMeta": "单文件 {{max}} · 浏览器直传对象存储",
+    "heroTitle": "丢入文件，取得六位取件码。",
+    "heroSubtitle": "把码告诉对方就行 —— 不用链接、不用邮件、不用注册。",
+    "tabs": {
+      "pickup": "取件",
+      "file": "寄文件",
+      "text": "寄文字",
+      "collection": "收集箱"
+    },
+    "pasteHint": "粘贴取件码",
+    "codeLabel": "取件码 · 输入完 6 位自动取件",
+    "supported": "支持的内容",
+    "supportedPreview": "图片 / PDF / 视频 / 音频 预览",
+    "supportedMarkdown": "文字与 Markdown 直接渲染",
+    "supportedMulti": "多文件打包，逐个下载",
+    "go": "取件",
+    "recent": {
+      "title": "最近分享",
+      "caption": "仅保存在这台设备 · 点一行即可查看",
+      "clear": "清空",
+      "copyCode": "复制码",
+      "copyLink": "复制链接",
+      "loadMore": "加载更多 · 还有 {{n}} 条",
+      "textShare": "文字分享",
+      "justNow": "刚刚",
+      "minutesAgo": "{{n}} 分钟前",
+      "hoursAgo": "{{n}} 小时前",
+      "daysAgo": "{{n}} 天前",
+      "ongoing": "进行中",
+      "permanent": "长期",
+      "expired": "已过期",
+      "leftHours": "剩 {{n}} 小时",
+      "leftDays": "剩 {{n}} 天",
+      "fileCount": "{{n}} 个文件"
+    },
+    "send": {
+      "dropTitle": "拖入文件，或点击选择",
+      "dropHint": "单文件最大 {{max}} · 可多选 · 大文件浏览器直传，断网可继传",
+      "anyFormat": "任何格式",
+      "choose": "选择文件",
+      "textPlaceholder": "在这里输入或粘贴文字…",
+      "chars": "{{n}} 字符",
+      "submit": "生成取件码",
+      "submitting": "生成中…",
+      "uploading": "上传中…",
+      "uploadProgress": "上传中 · 分块直传",
+      "failedUpload": "上传失败，请稍后重试",
+      "failedText": "发送失败，请稍后重试",
+      "turnstileRequired": "请先完成人机验证"
+    },
+    "detail": {
+      "raw": "原文",
+      "rendered": "渲染",
+      "downloadAll": "下载全部",
+      "copyCode": "复制取件码",
+      "shareLink": "分享链接",
+      "multiShare": "多文件分享",
+      "downloadable": "文件可下载",
+      "textKind": "文字",
+      "fileKind": "文件"
+    },
+    "pickupFailed": "取件失败",
+    "header": {
+      "tagline": "文件快递柜",
+      "toggleLang": "切换语言",
+      "toggleMode": "切换亮暗",
+      "github": "在 GitHub 查看项目"
+    },
+    "footer": {
+      "legal": "Yui-Drop · MIT · TLS 1.3 · 存储侧 AES-256",
+      "docs": "文档",
+      "admin": "后台"
+    },
+    "codeReady": {
+      "title": "取件码已生成",
+      "copyCode": "复制码",
+      "copyLink": "复制链接",
+      "again": "再发一个"
+    },
+    "join": {
+      "label": "收集箱编号 · 输入完自动进入",
+      "paste": "粘贴编号",
+      "none": "还没有收集箱？",
+      "create": "新建收集箱",
+      "hint": "可设有效期、单文件上限、是否允许留言；创建者可随时关闭"
+    },
+    "expiry": {
+      "title": "过期方式",
+      "byDays": "按天数",
+      "byCount": "按取件次数",
+      "days": "{{n}} 天",
+      "custom": "自定义",
+      "dayUnit": "天",
+      "countUnit": "次",
+      "countHint": "取满次数后自动失效，可自行输入 1–999"
+    },
+    "fileTypes": {
+      "image": "图片",
+      "video": "视频",
+      "pdf": "PDF",
+      "archive": "压缩包"
+    },
+    "docs": {
+      "title": "API 文档",
+      "back": "返回首页",
+      "upload": "简单上传",
+      "initUpload": "初始化分块上传",
+      "signPart": "签名上传分块",
+      "completeUpload": "完成分块上传",
+      "readShare": "读取分享信息",
+      "cancelUpload": "取消上传"
+    },
+    "newCollection": {
+      "title": "新建收集箱",
+      "lede": "创建后会得到一个 C + 5 位的编号，把编号发给大家，每个人都能往里丢文件。",
+      "name": "收集箱名称",
+      "namePlaceholder": "例：市场部素材收集",
+      "lifetime": "开放时长",
+      "maxFile": "单文件上限",
+      "capacity": "收集箱容量",
+      "unlimited": "不限",
+      "oneYear": "1 年",
+      "failed": "创建失败，请稍后重试",
+      "showFiles": "投递后所有人可见",
+      "showFilesHint": "关闭后只有创建者能查看文件",
+      "allowMessages": "允许留言",
+      "allowMessagesHint": "参与者可以在收集箱内交流",
+      "notify": "收集更新通知",
+      "notifyHint": "这个浏览器里提示新文件和留言",
+      "entryPassword": "进入密码（选填）",
+      "entryPasswordPlaceholder": "留空则有编号就能进入",
+      "create": "创建收集箱",
+      "creating": "创建中…",
+      "cancel": "取消",
+      "back": "返回首页"
+    },
+    "room": {
+      "opening": "正在打开收集箱…",
+      "closed": "收集箱已关闭或过期"
+    },
+    "codeAria": "取件码"
   }
 }

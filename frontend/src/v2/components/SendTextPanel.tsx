@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/lib/api';
 import { shareText } from '@/lib/api/share';
@@ -8,9 +9,11 @@ import { toast } from '@/components/ui/Toast';
 import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/TurnstileWidget';
 import { CodeReadyV2 } from './CodeReadyV2';
 import { ExpiryControl, expiryToApi, type ExpiryValue } from './ExpiryControl';
+import { panelGrid, panelMain, submitButton } from './panelLayout';
 import { Icon } from './IconSprite';
 
 export function SendTextPanel() {
+  const { t } = useTranslation();
   const config = usePublicConfig();
   const [text, setText] = useState('');
   const [expiry, setExpiry] = useState<ExpiryValue>({ mode: 'count', days: 7, count: 1 });
@@ -28,13 +31,13 @@ export function SendTextPanel() {
     try {
       if (gated) {
         token = await turnstileRef.current?.executeAndWaitForToken();
-        if (!token) throw new Error('请先完成人机验证');
+        if (!token) throw new Error(t('v2.send.turnstileRequired'));
       }
       const res = await shareText({ text, ...expiryToApi(expiry), ...(token ? { turnstile_token: token } : {}) });
       pushRecent({
         code: res.code,
         kind: 'text',
-        name: '文字分享',
+        name: t('v2.recent.textShare'),
         size: new Blob([text]).size,
         type: 'text/plain',
         created_at: new Date().toISOString(),
@@ -44,8 +47,8 @@ export function SendTextPanel() {
       turnstileRef.current?.reset();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : (e as Error)?.message;
-      setError(msg || '发送失败，请稍后重试');
-      toast.error(msg || '发送失败，请稍后重试');
+      setError(msg || t('v2.send.failedText'));
+      toast.error(msg || t('v2.send.failedText'));
       turnstileRef.current?.reset();
     } finally {
       setSubmitting(false);
@@ -55,16 +58,16 @@ export function SendTextPanel() {
   if (code) return <CodeReadyV2 code={code} onReset={() => { setCode(null); setText(''); }} />;
 
   return (
-    <div data-r="two-col" style={{ padding: '26px 22px 24px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 30, alignItems: 'start' }}>
-      <div>
+    <div data-r="two-col" style={panelGrid}>
+      <div data-r="panelmain" style={panelMain}>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="在这里输入或粘贴文字…"
-          style={{ width: '100%', minHeight: 220, padding: '14px 16px', border: '1px solid var(--ln2)', borderRadius: 12, background: 'var(--p2)', color: 'var(--tx1)', fontFamily: 'inherit', fontSize: 15, lineHeight: 1.6, resize: 'vertical', outline: 'none' }}
+          placeholder={t('v2.send.textPlaceholder')}
+          style={{ width: '100%', flex: 1, minHeight: 0, padding: '14px 16px', border: '1px solid var(--ln2)', borderRadius: 12, background: 'var(--p2)', color: 'var(--tx1)', fontFamily: 'inherit', fontSize: 15, lineHeight: 1.6, resize: 'vertical', outline: 'none' }}
         />
         <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--tx3)' }}>
-          <span>{text.length} 字符</span>
+          <span>{t('v2.send.chars', { n: text.length })}</span>
           <span style={{ fontFamily: "'JetBrains Mono',monospace" }}>UTF-8 · plain</span>
         </div>
         {error && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--bad)' }}>{error}</div>}
@@ -83,16 +86,10 @@ export function SendTextPanel() {
           onClick={() => void submit()}
           style={{ ...submitButton, opacity: !text.trim() || submitting ? 0.5 : 1, cursor: !text.trim() || submitting ? 'not-allowed' : 'pointer' }}
         >
-          {submitting ? '生成中…' : '生成取件码'}
+          {submitting ? t('v2.send.submitting') : t('v2.send.submit')}
           <Icon name="i-arr" size={16} style={{ opacity: 0.85 }} />
         </button>
       </div>
     </div>
   );
 }
-
-const submitButton: React.CSSProperties = {
-  width: '100%', height: 48, marginTop: 14, border: 'none', borderRadius: 10,
-  background: 'var(--ac)', color: '#fff', fontFamily: 'inherit', fontSize: 15,
-  fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-};

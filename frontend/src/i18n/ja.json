@@ -861,5 +861,149 @@
       "sendPlaceholder": "メッセージを入力…",
       "dropHere": "ファイルをドロップしてアップロード"
     }
+  },
+  "v2": {
+    "badge": "匿名 · アカウント不要",
+    "badgeMeta": "1ファイル最大 {{max}} · ブラウザから直接アップロード",
+    "heroTitle": "ファイルを置いて、6桁のコードを受け取る。",
+    "heroSubtitle": "コードを伝えるだけ — リンクもメールも登録も不要。",
+    "tabs": {
+      "pickup": "受け取る",
+      "file": "ファイル",
+      "text": "テキスト",
+      "collection": "収集ボックス"
+    },
+    "pasteHint": "コードを貼り付け",
+    "codeLabel": "受取コード · 6桁入力で自動取得",
+    "supported": "対応コンテンツ",
+    "supportedPreview": "画像 / PDF / 動画 / 音声のプレビュー",
+    "supportedMarkdown": "テキストと Markdown をそのまま表示",
+    "supportedMulti": "複数ファイルを個別にダウンロード",
+    "go": "受取",
+    "recent": {
+      "title": "最近の共有",
+      "caption": "この端末にのみ保存 · 行をタップで表示",
+      "clear": "クリア",
+      "copyCode": "コードをコピー",
+      "copyLink": "リンクをコピー",
+      "loadMore": "さらに読み込む · 残り {{n}} 件",
+      "textShare": "テキスト共有",
+      "justNow": "たった今",
+      "minutesAgo": "{{n}} 分前",
+      "hoursAgo": "{{n}} 時間前",
+      "daysAgo": "{{n}} 日前",
+      "ongoing": "進行中",
+      "permanent": "無期限",
+      "expired": "期限切れ",
+      "leftHours": "残り {{n}} 時間",
+      "leftDays": "残り {{n}} 日",
+      "fileCount": "{{n}} ファイル"
+    },
+    "send": {
+      "dropTitle": "ファイルをドロップ、またはクリックして選択",
+      "dropHint": "1ファイル最大 {{max}} · 複数選択可 · 大きなファイルは直接アップロード、再開可能",
+      "anyFormat": "あらゆる形式",
+      "choose": "ファイルを選択",
+      "textPlaceholder": "ここにテキストを入力または貼り付け…",
+      "chars": "{{n}} 文字",
+      "submit": "受取コードを生成",
+      "submitting": "生成中…",
+      "uploading": "アップロード中…",
+      "uploadProgress": "アップロード中 · 分割直接転送",
+      "failedUpload": "アップロードに失敗しました。しばらくしてお試しください",
+      "failedText": "送信に失敗しました。しばらくしてお試しください",
+      "turnstileRequired": "先に認証を完了してください"
+    },
+    "detail": {
+      "raw": "原文",
+      "rendered": "表示",
+      "downloadAll": "すべてダウンロード",
+      "copyCode": "コードをコピー",
+      "shareLink": "共有リンク",
+      "multiShare": "複数ファイル共有",
+      "downloadable": "ダウンロード可能",
+      "textKind": "テキスト",
+      "fileKind": "ファイル"
+    },
+    "pickupFailed": "受け取りに失敗しました",
+    "header": {
+      "tagline": "ファイル宅配ボックス",
+      "toggleLang": "言語を切り替え",
+      "toggleMode": "ライト/ダーク切り替え",
+      "github": "GitHub で見る"
+    },
+    "footer": {
+      "legal": "Yui-Drop · MIT · TLS 1.3 · 保存時 AES-256",
+      "docs": "ドキュメント",
+      "admin": "管理"
+    },
+    "codeReady": {
+      "title": "受取コードを生成しました",
+      "copyCode": "コードをコピー",
+      "copyLink": "リンクをコピー",
+      "again": "もう一つ送る"
+    },
+    "join": {
+      "label": "収集ボックス番号 · 入力で自動的に開きます",
+      "paste": "番号を貼り付け",
+      "none": "まだありませんか？",
+      "create": "収集ボックスを作成",
+      "hint": "有効期限・1ファイル上限・メッセージ可否を設定でき、作成者はいつでも閉じられます"
+    },
+    "expiry": {
+      "title": "有効期限",
+      "byDays": "日数で",
+      "byCount": "受取回数で",
+      "days": "{{n}} 日",
+      "custom": "カスタム",
+      "dayUnit": "日",
+      "countUnit": "回",
+      "countHint": "回数を使い切ると失効します。1〜999 で入力可"
+    },
+    "fileTypes": {
+      "image": "画像",
+      "video": "動画",
+      "pdf": "PDF",
+      "archive": "圧縮ファイル"
+    },
+    "docs": {
+      "title": "API ドキュメント",
+      "back": "ホームに戻る",
+      "upload": "シンプルアップロード",
+      "initUpload": "分割アップロード開始",
+      "signPart": "分割の署名",
+      "completeUpload": "分割アップロード完了",
+      "readShare": "共有情報の取得",
+      "cancelUpload": "アップロードの取消"
+    },
+    "newCollection": {
+      "title": "収集ボックスを作成",
+      "lede": "C + 5桁の番号が発行されます。番号を共有すれば誰でもファイルを投稿できます。",
+      "name": "収集ボックス名",
+      "namePlaceholder": "例：マーケティング素材",
+      "lifetime": "公開期間",
+      "maxFile": "1ファイル上限",
+      "capacity": "合計容量",
+      "unlimited": "無制限",
+      "oneYear": "1 年",
+      "failed": "作成に失敗しました。しばらくしてお試しください",
+      "showFiles": "投稿を全員に公開",
+      "showFilesHint": "オフの場合は作成者のみ閲覧できます",
+      "allowMessages": "メッセージを許可",
+      "allowMessagesHint": "参加者が収集ボックス内で会話できます",
+      "notify": "更新を通知",
+      "notifyHint": "このブラウザで新しいファイルとメッセージを通知",
+      "entryPassword": "入室パスワード（任意）",
+      "entryPasswordPlaceholder": "空欄なら番号だけで入れます",
+      "create": "収集ボックスを作成",
+      "creating": "作成中…",
+      "cancel": "キャンセル",
+      "back": "ホームに戻る"
+    },
+    "room": {
+      "opening": "収集ボックスを開いています…",
+      "closed": "この収集ボックスは閉鎖または期限切れです"
+    },
+    "codeAria": "受取コード"
   }
 }
