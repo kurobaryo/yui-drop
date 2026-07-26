@@ -30,6 +30,7 @@ import {
   type RecentEntry,
 } from '@/lib/recent';
 import { Icon } from './IconSprite';
+import { haptic } from '../haptics';
 
 export interface RecentListProps {
   /** Open the detail view (desktop dialog / mobile sheet). */
@@ -177,7 +178,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
           <div
             key={it.code}
             data-yd="row"
-            onClick={() => onOpen(it)}
+            onClick={() => { haptic(); onOpen(it); }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -262,6 +263,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
               style={quiet}
               onClick={(e) => {
                 e.stopPropagation();
+                haptic('success');
                 onCopyCode(it);
               }}
             >
@@ -275,6 +277,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
               style={quiet}
               onClick={(e) => {
                 e.stopPropagation();
+                haptic('success');
                 onCopyLink(it);
               }}
             >
