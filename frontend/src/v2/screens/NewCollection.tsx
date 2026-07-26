@@ -7,6 +7,7 @@ import { pushRecent } from '@/lib/recent';
 import { useCollectionMemberStore } from '@/stores/collectionMember';
 import { toast } from '@/components/ui/Toast';
 import { Icon } from '../components/IconSprite';
+import { useTranslation } from 'react-i18next';
 
 type Life = 1 | 7 | 30 | 365;
 
@@ -21,7 +22,7 @@ const MAX_FILE = [
 const CAPACITY = [
   { label: '10 GB', bytes: 10 * GB },
   { label: '50 GB', bytes: 50 * GB },
-  { label: '不限', bytes: null as number | null },
+  { label: 'unlimited', bytes: null as number | null },
 ];
 
 function adminSecret(): string {
@@ -31,6 +32,7 @@ function adminSecret(): string {
 }
 
 export function NewCollection() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const setMember = useCollectionMemberStore((s) => s.set);
   const [name, setName] = useState('');
@@ -67,7 +69,7 @@ export function NewCollection() {
       pushRecent({ code: res.code, kind: 'collection', name: res.name, created_at: new Date().toISOString(), expires_at: res.expires_at, isCreator: true });
       navigate(`/c/${res.code}?created=1`);
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : '创建失败，请稍后重试');
+      toast.error(e instanceof ApiError ? e.message : t('v2.newCollection.failed'));
       setCreating(false);
     }
   };
@@ -75,36 +77,36 @@ export function NewCollection() {
   return (
     <div data-r="pad" style={{ maxWidth: 720, width: '100%', margin: '0 auto', padding: '32px 24px 40px', flex: 1 }}>
       <Back onClick={() => navigate('/')} />
-      <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--tx)' }}>新建收集箱</h1>
-      <p style={{ fontSize: 14, color: 'var(--tx2)', marginTop: 8, maxWidth: 520 }}>创建后会得到一个 C + 5 位的编号，把编号发给大家，每个人都能往里丢文件。</p>
+      <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--tx)' }}>{t('v2.newCollection.title')}</h1>
+      <p style={{ fontSize: 14, color: 'var(--tx2)', marginTop: 8, maxWidth: 520 }}>{t('v2.newCollection.lede')}</p>
 
       <div style={{ marginTop: 24, border: '1px solid var(--ln)', borderRadius: 14, background: 'var(--pn)', overflow: 'hidden' }}>
-        <Section><Field label="收集箱名称"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="例：市场部素材收集箱" style={input} /></Field></Section>
+        <Section><Field label={t('v2.newCollection.name')}><input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('v2.newCollection.namePlaceholder')} style={input} /></Field></Section>
         <Divider />
         <Section>
-          <div style={sectionLabel}>开放时长</div>
+          <div style={sectionLabel}>{t('v2.newCollection.lifetime')}</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
-            {([1,7,30,365] as Life[]).map((d) => <Choice key={d} active={life===d} onClick={() => setLife(d)}>{d===365?'1 年':`${d} 天`}</Choice>)}
+            {([1,7,30,365] as Life[]).map((d) => <Choice key={d} active={life===d} onClick={() => setLife(d)}>{d===365?t('v2.newCollection.oneYear'):t('v2.expiry.days',{n:d})}</Choice>)}
           </div>
         </Section>
         <Divider />
         <div data-r="two-col" style={{ padding: '18px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <Field label="单文件上限"><select value={maxFile} onChange={(e) => setMaxFile(e.target.value)} style={input}>{MAX_FILE.map((o) => <option key={o.label}>{o.label}</option>)}</select></Field>
-          <Field label="收集箱容量"><select value={capacity} onChange={(e) => setCapacity(e.target.value)} style={input}>{CAPACITY.map((o) => <option key={o.label}>{o.label}</option>)}</select></Field>
+          <Field label={t('v2.newCollection.maxFile')}><select value={maxFile} onChange={(e) => setMaxFile(e.target.value)} style={input}>{MAX_FILE.map((o) => <option key={o.label}>{o.label==='unlimited'?t('v2.newCollection.unlimited'):o.label}</option>)}</select></Field>
+          <Field label={t('v2.newCollection.capacity')}><select value={capacity} onChange={(e) => setCapacity(e.target.value)} style={input}>{CAPACITY.map((o) => <option key={o.label}>{o.label==='unlimited'?t('v2.newCollection.unlimited'):o.label}</option>)}</select></Field>
         </div>
         <Divider />
         <div style={{ padding: '8px 20px 12px' }}>
-          <Toggle label="投递后所有人可见" hint="关闭后只有创建者能查看文件" on={showFiles} set={setShowFiles} />
-          <Toggle label="允许留言" hint="参与者可以在收集箱内交流" on={allowMessages} set={setAllowMessages} line />
-          <Toggle label="收集更新通知" hint="这个浏览器里提示新文件和留言" on={notify} set={setNotify} line />
+          <Toggle label={t('v2.newCollection.showFiles')} hint={t('v2.newCollection.showFilesHint')} on={showFiles} set={setShowFiles} />
+          <Toggle label={t('v2.newCollection.allowMessages')} hint={t('v2.newCollection.allowMessagesHint')} on={allowMessages} set={setAllowMessages} line />
+          <Toggle label={t('v2.newCollection.notify')} hint={t('v2.newCollection.notifyHint')} on={notify} set={setNotify} line />
         </div>
         <Divider />
-        <Section><Field label="进入密码（选填）"><input type="password" value={entryPassword} onChange={(e) => setEntryPassword(e.target.value)} placeholder="留空则有编号就能进" style={input} /></Field></Section>
+        <Section><Field label={t('v2.newCollection.entryPassword')}><input type="password" value={entryPassword} onChange={(e) => setEntryPassword(e.target.value)} placeholder={t('v2.newCollection.entryPasswordPlaceholder')} style={input} /></Field></Section>
       </div>
 
       <div style={{ marginTop: 18, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button type="button" data-yd="btn" onClick={() => void create()} disabled={creating} style={primary}>{creating?'创建中…':'创建收集箱'}<Icon name="i-arr" size={16} /></button>
-        <button type="button" data-yd="quiet" onClick={() => navigate('/')} style={cancel}>取消</button>
+        <button type="button" data-yd="btn" onClick={() => void create()} disabled={creating} style={primary}>{creating?t('v2.newCollection.creating'):t('v2.newCollection.create')}<Icon name="i-arr" size={16} /></button>
+        <button type="button" data-yd="quiet" onClick={() => navigate('/')} style={cancel}>{t('v2.newCollection.cancel')}</button>
       </div>
     </div>
   );

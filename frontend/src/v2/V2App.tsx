@@ -7,7 +7,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
+import { normalizeLang } from '@/i18n/normalize';
 import { useThemeStore } from '@/stores/theme';
 import type { RecentEntry } from '@/lib/recent';
 import { pushRecent } from '@/lib/recent';
@@ -29,6 +31,12 @@ import { resolveMode, useApplyTheme, type Mode } from './applyTheme';
 
 import './styles/index.css';
 
+/**
+ * Language switcher options. `code` must match a key in i18n's `supportedLngs`
+ * so that `i18n.changeLanguage` actually resolves a translation table — the
+ * first cut of v2 only cycled a local state value, so the chip label changed
+ * but the UI stayed Chinese.
+ */
 const LANGS = [
   { code: 'zh-CN', label: '中' },
   { code: 'en', label: 'EN' },
@@ -67,10 +75,19 @@ export function V2App() {
     return () => mq.removeEventListener?.('change', onChange);
   }, [mode]);
 
-  const [langIndex, setLangIndex] = useState(0);
+  // Language is owned by i18next (it persists to localStorage and drives every
+  // `t()` call); the chip label is derived from it rather than tracked
+  // separately, so the two can never disagree.
+  const { i18n: i18nInstance } = useTranslation();
+  const { t } = useTranslation();
+  const langIndex = Math.max(
+    0,
+    LANGS.findIndex((l) => l.code === normalizeLang(i18nInstance.language)),
+  );
   const cycleLang = useCallback(() => {
-    setLangIndex((i) => (i + 1) % LANGS.length);
-  }, []);
+    const next = LANGS[(langIndex + 1) % LANGS.length];
+    void i18nInstance.changeLanguage(next.code);
+  }, [i18nInstance, langIndex]);
 
   const toggleMode = useCallback(() => {
     setMode(dark ? 'light' : 'dark');
@@ -90,7 +107,7 @@ export function V2App() {
       let token: string | null = null;
       if (config.turnstileProtectPickup && config.turnstileSiteKey) {
         token = (await turnstileRef.current?.executeAndWaitForToken()) ?? null;
-        if (!token) throw new Error('请先完成人机验证');
+        if (!token) throw new Error(t('v2.send.turnstileRequired'));
       }
       const item = await shareSelect(code, token);
       pushRecent({ code: item.code, kind: item.kind, name: item.name, size: item.size,
@@ -99,7 +116,7 @@ export function V2App() {
       setPickup(item);
       turnstileRef.current?.reset();
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : ((e as Error)?.message || '取件失败'));
+      toast.error(e instanceof ApiError ? e.message : ((e as Error)?.message || t('v2.pickupFailed')));
       turnstileRef.current?.reset();
     } finally {
       resolving.current = null;

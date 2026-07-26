@@ -4,20 +4,21 @@
  * Prototype reference: `v2-spec/linear-screens/00_issite.html`.
  *
  * Structure (matching the design exactly):
- *   badge row (🔒 匿名 · 无需账号 + capability line)
+ *   badge row (lock icon + anonymity badge + capability line)
  *   h1 hero
  *   lede
  *   action card
  *     ├ tab bar (in-card) + ⌘V paste hint on the right
  *     └ active tab panel — pickup is a two-column split:
  *         left: caption + six code cells (+ mobile paste button)
- *         right: 支持的内容 list
+ *         right: supported-content list
  *   最近分享 list
  *
  * The `data-r` attributes are load-bearing: the theme stylesheets use them for
  * the responsive collapse (single column, scrollable tabs, grid code cells).
  */
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { RecentEntry } from '@/lib/recent';
 import { CodeCells } from '../components/CodeCells';
@@ -29,17 +30,17 @@ import { CollectionJoinPanel } from '../components/CollectionJoinPanel';
 
 export type HomeTab = 'pickup' | 'file' | 'text' | 'collection';
 
-const TABS: Array<{ id: HomeTab; label: string; icon: string }> = [
-  { id: 'pickup', label: '取件', icon: 'i-in' },
-  { id: 'file', label: '寄文件', icon: 'i-up' },
-  { id: 'text', label: '寄文字', icon: 'i-pen' },
-  { id: 'collection', label: '收集箱', icon: 'i-inbox' },
+const TABS: Array<{ id: HomeTab; icon: string }> = [
+  { id: 'pickup', icon: 'i-in' },
+  { id: 'file', icon: 'i-up' },
+  { id: 'text', icon: 'i-pen' },
+  { id: 'collection', icon: 'i-inbox' },
 ];
 
-const SUPPORTED: Array<{ icon: string; text: string }> = [
-  { icon: 'i-img', text: '图片 / PDF / 视频 / 音频 预览' },
-  { icon: 'i-file', text: '文字与 Markdown 直接渲染' },
-  { icon: 'i-box', text: '多文件打包，逐个下载' },
+const SUPPORTED: Array<{ icon: string; key: string }> = [
+  { icon: 'i-img', key: 'v2.supportedPreview' },
+  { icon: 'i-file', key: 'v2.supportedMarkdown' },
+  { icon: 'i-box', key: 'v2.supportedMulti' },
 ];
 
 export interface HomeProps {
@@ -62,6 +63,7 @@ export function Home({
   onCopyLink,
   showKeyHint = true,
 }: HomeProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<HomeTab>('pickup');
   const [code, setCode] = useState('');
 
@@ -110,10 +112,10 @@ export function Home({
           }}
         >
           <Icon name="i-lock" size={12} />
-          匿名 · 无需账号
+          {t('v2.badge')}
         </span>
         <span style={{ fontSize: 12, color: 'var(--tx3)' }}>
-          单文件 10 GB · 浏览器直传对象存储
+          {t('v2.badgeMeta',{max:'10 GB'})}
         </span>
       </div>
 
@@ -128,10 +130,10 @@ export function Home({
           color: 'var(--tx)',
         }}
       >
-        {heroTitle || '丢入文件，取得六位取件码。'}
+        {heroTitle || t('v2.heroTitle')}
       </h1>
       <p style={{ fontSize: 15, color: 'var(--tx2)', margin: 0, maxWidth: 520 }}>
-        {heroSubtitle || '把码告诉对方就行 —— 不用链接、不用邮件、不用注册。'}
+        {heroSubtitle || t('v2.heroSubtitle')}
       </p>
 
       {/* Action card */}
@@ -166,14 +168,14 @@ export function Home({
               padding: 3,
             }}
           >
-            {TABS.map((t) => {
-              const active = tab === t.id;
+            {TABS.map((tabDef) => {
+              const active = tab === tabDef.id;
               return (
                 <button
-                  key={t.id}
+                  key={tabDef.id}
                   type="button"
                   data-yd="tab"
-                  onClick={() => setTab(t.id)}
+                  onClick={() => setTab(tabDef.id)}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -191,8 +193,8 @@ export function Home({
                     boxShadow: active ? 'var(--sh)' : 'none',
                   }}
                 >
-                  <Icon name={t.icon} size={14} />
-                  {t.label}
+                  <Icon name={tabDef.icon} size={14} />
+                  {t(`v2.tabs.${tabDef.id}`)}
                 </button>
               );
             })}
@@ -214,7 +216,7 @@ export function Home({
               <span style={{ ...keycap, fontFamily: "'JetBrains Mono',monospace" }}>
                 V
               </span>
-              <span>粘贴取件码</span>
+              <span>{t('v2.pasteHint')}</span>
             </div>
           )}
         </div>
@@ -232,7 +234,7 @@ export function Home({
           >
             <div>
               <div style={{ fontSize: 12, color: 'var(--tx3)', marginBottom: 10 }}>
-                取件码 · 输入完 6 位自动取件
+                {t('v2.codeLabel')}
               </div>
               <CodeCells
                 value={code}
@@ -263,7 +265,7 @@ export function Home({
                   }}
                 >
                   <Icon name="i-copy" size={14} />
-                  粘贴取件码
+                  {t('v2.pasteHint')}
                 </button>
               </div>
             </div>
@@ -286,7 +288,7 @@ export function Home({
               >
                 {SUPPORTED.map((s) => (
                   <div
-                    key={s.text}
+                    key={s.key}
                     style={{ display: 'flex', gap: 9, alignItems: 'center' }}
                   >
                     <Icon
@@ -294,7 +296,7 @@ export function Home({
                       size={15}
                       style={{ color: 'var(--act)', flexShrink: 0 }}
                     />
-                    {s.text}
+                    {t(s.key)}
                   </div>
                 ))}
               </div>

@@ -127,6 +127,131 @@
   display: none;
 }
 
+/* ── Rendered Markdown (text-share preview) ─────────────────────────────── */
+/* The container reuses the raw-text <pre> box, so reset the inherited
+   `white-space: pre-wrap` — otherwise every newline in the source would
+   double up with the block spacing the rendered elements already provide. */
+[data-r='md'] {
+  white-space: normal;
+}
+[data-r='md'] > :first-child {
+  margin-top: 0;
+}
+[data-r='md'] > :last-child {
+  margin-bottom: 0;
+}
+[data-r='md'] h1,
+[data-r='md'] h2,
+[data-r='md'] h3,
+[data-r='md'] h4,
+[data-r='md'] h5,
+[data-r='md'] h6 {
+  margin: 1.4em 0 0.5em;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--tx);
+}
+[data-r='md'] h1 {
+  font-size: 1.5em;
+}
+[data-r='md'] h2 {
+  font-size: 1.3em;
+}
+[data-r='md'] h3 {
+  font-size: 1.15em;
+}
+[data-r='md'] h4,
+[data-r='md'] h5,
+[data-r='md'] h6 {
+  font-size: 1em;
+}
+[data-r='md'] p {
+  margin: 0.7em 0;
+}
+[data-r='md'] ul,
+[data-r='md'] ol {
+  margin: 0.7em 0;
+  padding-left: 1.6em;
+  /* The global Tailwind preflight sets `list-style: none` on ul/ol, which also
+     applies inside rendered Markdown and silently drops every bullet/number.
+     Restore the markers explicitly. */
+  list-style-position: outside;
+}
+[data-r='md'] ul {
+  list-style-type: disc;
+}
+[data-r='md'] ol {
+  list-style-type: decimal;
+}
+[data-r='md'] ul ul {
+  list-style-type: circle;
+}
+[data-r='md'] li {
+  margin: 0.25em 0;
+  list-style: inherit;
+}
+[data-r='md'] blockquote {
+  margin: 0.8em 0;
+  padding: 0.1em 0 0.1em 0.9em;
+  border-left: 3px solid var(--ln2);
+  color: var(--tx2);
+}
+[data-r='md'] code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.9em;
+  background: var(--p2);
+  border: 1px solid var(--ln);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+}
+[data-r='md'] pre {
+  margin: 0.8em 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  /* --p1 reads as a distinct panel against --p2 card fill in both themes;
+     --p2 was nearly invisible on dark. */
+  background: var(--p1);
+  border: 1px solid var(--ln2);
+  border-radius: 10px;
+}
+[data-r='md'] pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 0.88em;
+}
+[data-r='md'] a {
+  color: var(--ac);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+[data-r='md'] hr {
+  margin: 1.2em 0;
+  border: 0;
+  border-top: 1px solid var(--ln);
+}
+[data-r='md'] table {
+  margin: 0.8em 0;
+  border-collapse: collapse;
+  width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+[data-r='md'] th,
+[data-r='md'] td {
+  border: 1px solid var(--ln);
+  padding: 6px 10px;
+  text-align: left;
+}
+[data-r='md'] th {
+  background: var(--p1);
+  font-weight: 600;
+}
+[data-r='md'] img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
 [data-yd='backdrop'] {
   animation: ydFade 0.16s ease both;
 }
