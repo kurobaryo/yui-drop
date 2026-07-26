@@ -862,5 +862,149 @@
       "sendPlaceholder": "Say something...",
       "dropHere": "Drop files to upload"
     }
+  },
+  "v2": {
+    "badge": "Anonymous · no account",
+    "badgeMeta": "Up to {{max}} per file · direct browser upload",
+    "heroTitle": "Drop a file, get a six-digit code.",
+    "heroSubtitle": "Just tell them the code — no links, no email, no sign-up.",
+    "tabs": {
+      "pickup": "Pick up",
+      "file": "Send file",
+      "text": "Send text",
+      "collection": "Collection"
+    },
+    "pasteHint": "paste code",
+    "codeLabel": "Pickup code · fetches automatically at 6 digits",
+    "supported": "What's supported",
+    "supportedPreview": "Image / PDF / video / audio preview",
+    "supportedMarkdown": "Text and Markdown rendered inline",
+    "supportedMulti": "Multi-file shares, downloaded individually",
+    "go": "Go",
+    "recent": {
+      "title": "Recent shares",
+      "caption": "Stored on this device only · tap a row to view",
+      "clear": "Clear",
+      "copyCode": "Copy code",
+      "copyLink": "Copy link",
+      "loadMore": "Load more · {{n}} remaining",
+      "textShare": "Text share",
+      "justNow": "just now",
+      "minutesAgo": "{{n}} min ago",
+      "hoursAgo": "{{n}} h ago",
+      "daysAgo": "{{n}} d ago",
+      "ongoing": "active",
+      "permanent": "no expiry",
+      "expired": "expired",
+      "leftHours": "{{n}} h left",
+      "leftDays": "{{n}} d left",
+      "fileCount": "{{n}} files"
+    },
+    "send": {
+      "dropTitle": "Drop files here, or click to choose",
+      "dropHint": "Up to {{max}} per file · multi-select · large files upload directly and resume",
+      "anyFormat": "any format",
+      "choose": "Choose files",
+      "textPlaceholder": "Type or paste text here…",
+      "chars": "{{n}} characters",
+      "submit": "Get pickup code",
+      "submitting": "Creating…",
+      "uploading": "Uploading…",
+      "uploadProgress": "Uploading · chunked direct transfer",
+      "failedUpload": "Upload failed, please try again",
+      "failedText": "Send failed, please try again",
+      "turnstileRequired": "Please complete the verification first"
+    },
+    "detail": {
+      "raw": "Source",
+      "rendered": "Rendered",
+      "downloadAll": "Download all",
+      "copyCode": "Copy code",
+      "shareLink": "Share link",
+      "multiShare": "Multi-file share",
+      "downloadable": "File available to download",
+      "textKind": "text",
+      "fileKind": "file"
+    },
+    "pickupFailed": "Pickup failed",
+    "header": {
+      "tagline": "file locker",
+      "toggleLang": "Switch language",
+      "toggleMode": "Toggle light/dark",
+      "github": "View on GitHub"
+    },
+    "footer": {
+      "legal": "Yui-Drop · MIT · TLS 1.3 · AES-256 at rest",
+      "docs": "Docs",
+      "admin": "Admin"
+    },
+    "codeReady": {
+      "title": "Pickup code ready",
+      "copyCode": "Copy code",
+      "copyLink": "Copy link",
+      "again": "Send another"
+    },
+    "join": {
+      "label": "Collection code · opens automatically",
+      "paste": "Paste code",
+      "none": "Don't have one?",
+      "create": "New collection",
+      "hint": "Set a lifetime, per-file limit and whether messages are allowed; the creator can close it any time"
+    },
+    "expiry": {
+      "title": "Expiry",
+      "byDays": "By days",
+      "byCount": "By pickups",
+      "days": "{{n}} d",
+      "custom": "custom",
+      "dayUnit": "days",
+      "countUnit": "x",
+      "countHint": "Expires once the pickup count is used up; enter 1–999"
+    },
+    "fileTypes": {
+      "image": "images",
+      "video": "video",
+      "pdf": "PDF",
+      "archive": "archives"
+    },
+    "docs": {
+      "title": "API docs",
+      "back": "Back to home",
+      "upload": "Simple upload",
+      "initUpload": "Init multipart upload",
+      "signPart": "Sign upload part",
+      "completeUpload": "Complete multipart upload",
+      "readShare": "Read share info",
+      "cancelUpload": "Cancel upload"
+    },
+    "newCollection": {
+      "title": "New collection",
+      "lede": "You get a C + 5-digit code. Share it and anyone can drop files in.",
+      "name": "Collection name",
+      "namePlaceholder": "e.g. Marketing assets",
+      "lifetime": "Open for",
+      "maxFile": "Max file size",
+      "capacity": "Total capacity",
+      "unlimited": "Unlimited",
+      "oneYear": "1 year",
+      "failed": "Could not create, please try again",
+      "showFiles": "Everyone can see submissions",
+      "showFilesHint": "When off, only the creator can view files",
+      "allowMessages": "Allow messages",
+      "allowMessagesHint": "Participants can chat inside the collection",
+      "notify": "Notify me of updates",
+      "notifyHint": "Show new files and messages in this browser",
+      "entryPassword": "Entry password (optional)",
+      "entryPasswordPlaceholder": "Leave blank to allow anyone with the code",
+      "create": "Create collection",
+      "creating": "Creating…",
+      "cancel": "Cancel",
+      "back": "Back to home"
+    },
+    "room": {
+      "opening": "Opening collection…",
+      "closed": "This collection is closed or expired"
+    },
+    "codeAria": "Pickup code"
   }
 }

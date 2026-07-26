@@ -12,6 +12,7 @@
  * Accepts a 6-digit pickup code or `C` + 5 digits for a collection box.
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const LEN = 6;
 
@@ -56,6 +57,7 @@ export function CodeCells({
   autoFocus,
   disabled,
 }: CodeCellsProps) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
   // Guard so a completed code fires onComplete once, not on every re-render.
@@ -118,7 +120,7 @@ export function CodeCells({
         onBlur={() => setFocused(false)}
         inputMode="numeric"
         autoComplete="one-time-code"
-        aria-label="取件码"
+        aria-label={t('v2.codeAria')}
         maxLength={LEN}
         style={{
           position: 'absolute',

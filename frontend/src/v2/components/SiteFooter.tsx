@@ -6,6 +6,7 @@
  * docs, GitHub, and the admin login.
  */
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export interface SiteFooterProps {
   githubUrl?: string;
@@ -14,6 +15,7 @@ export interface SiteFooterProps {
 export function SiteFooter({
   githubUrl = 'https://github.com/kurobaryo/yui-drop',
 }: SiteFooterProps) {
+  const { t } = useTranslation();
   return (
     <div
       data-r="pad"
@@ -28,10 +30,10 @@ export function SiteFooter({
         color: 'var(--tx3)',
       }}
     >
-      <span>Yui-Drop · MIT · TLS 1.3 · 存储侧 AES-256</span>
+      <span>{t('v2.footer.legal')}</span>
       <span style={{ display: 'flex', gap: 16 }}>
         <Link to="/docs" style={{ color: 'inherit', cursor: 'pointer' }}>
-          文档
+          {t('v2.footer.docs')}
         </Link>
         <a
           href={githubUrl}
@@ -42,7 +44,7 @@ export function SiteFooter({
           GitHub
         </a>
         <Link to="/admin" style={{ color: 'inherit', cursor: 'pointer' }}>
-          后台
+          {t('v2.footer.admin')}
         </Link>
       </span>
     </div>
