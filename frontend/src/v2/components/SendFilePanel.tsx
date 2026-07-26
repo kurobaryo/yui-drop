@@ -9,9 +9,10 @@ import { toast } from '@/components/ui/Toast';
 import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/TurnstileWidget';
 import { CodeReadyV2 } from './CodeReadyV2';
 import { ExpiryControl, expiryToApi, type ExpiryValue } from './ExpiryControl';
-import { panelGrid, panelMain, submitButton } from './panelLayout';
+import { panelGrid, panelMain, submitButton, submitButtonWrap } from './panelLayout';
 import { Icon } from './IconSprite';
 import { haptic } from '../haptics';
+import { HapticTap } from './HapticTap';
 
 function size(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -130,7 +131,7 @@ export function SendFilePanel() {
       <div>
         <ExpiryControl value={expiry} onChange={setExpiry} />
         {gated && config.turnstileSiteKey && <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}><TurnstileWidget ref={turnstileRef} mode="invisible-on-submit" siteKey={config.turnstileSiteKey} onVerify={() => {}} onExpire={() => {}} onError={() => {}} /></div>}
-        <button type="button" data-yd="btn" onClick={() => void submit()} disabled={!files.length || uploading} style={{ ...submitButton, opacity: !files.length || uploading ? .5 : 1, cursor: !files.length || uploading ? 'not-allowed' : 'pointer' }}>{uploading ? t('v2.send.uploading') : t('v2.send.submit')}<Icon name="i-arr" size={16} style={{ opacity: .85 }} /></button>
+        <HapticTap onTap={() => void submit()} radius={10} disabled={!files.length || uploading} label={t('v2.send.submit')} style={submitButtonWrap}><span data-yd="btn" style={{ ...submitButton, opacity: !files.length || uploading ? .5 : 1, cursor: !files.length || uploading ? 'not-allowed' : 'pointer' }}>{uploading ? t('v2.send.uploading') : t('v2.send.submit')}<Icon name="i-arr" size={16} style={{ opacity: .85 }} /></span></HapticTap>
       </div>
     </div>
   );

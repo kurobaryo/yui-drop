@@ -24,11 +24,16 @@ export const panelMain: CSSProperties = {
   minWidth: 0,
 };
 
-/** Primary submit button shared by both send panels. */
+/** Primary submit button shared by both send panels.
+ *
+ * NOTE: no vertical margin here. The button is wrapped in `<HapticTap>`, whose
+ * overlaid switch is sized to the wrapper — a margin on the inner element
+ * would make the wrapper taller than the visible button, so the switch's
+ * rounded hit area would no longer line up with it. Spacing belongs on
+ * `submitButtonWrap` instead. */
 export const submitButton: CSSProperties = {
   width: '100%',
   height: 48,
-  marginTop: 14,
   border: 'none',
   borderRadius: 10,
   background: 'var(--ac)',
@@ -40,6 +45,12 @@ export const submitButton: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: 8,
+};
+
+/** Wrapper for the submit button — carries the spacing the button used to. */
+export const submitButtonWrap: CSSProperties = {
+  width: '100%',
+  marginTop: 14,
 };
 
 /** Wrapper shared by both panels' two-column grid. */
