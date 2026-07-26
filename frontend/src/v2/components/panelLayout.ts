@@ -11,11 +11,17 @@ import type { CSSProperties } from 'react';
 /** Minimum height of a send panel's main column, in px. */
 export const PANEL_MIN_HEIGHT = 264;
 
-/** Left column of a send panel: fixed minimum height, contents stretch. */
+/** Left column of a send panel: fixed minimum height, contents stretch.
+ *
+ * `minWidth: 0` is load-bearing. A grid item defaults to `min-width: auto`,
+ * which refuses to shrink below its content's intrinsic width — on a 390px
+ * phone that let the textarea and the expiry card push the track to 446px and
+ * spill past the right edge. */
 export const panelMain: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   minHeight: PANEL_MIN_HEIGHT,
+  minWidth: 0,
 };
 
 /** Primary submit button shared by both send panels. */

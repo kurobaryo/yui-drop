@@ -10,6 +10,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { normalizeLang } from '@/i18n/normalize';
+import { haptic } from './haptics';
 import { useThemeStore } from '@/stores/theme';
 import type { RecentEntry } from '@/lib/recent';
 import { pushRecent } from '@/lib/recent';
@@ -85,6 +86,7 @@ export function V2App() {
     LANGS.findIndex((l) => l.code === normalizeLang(i18nInstance.language)),
   );
   const cycleLang = useCallback(() => {
+    haptic();
     const next = LANGS[(langIndex + 1) % LANGS.length];
     void i18nInstance.changeLanguage(next.code);
   }, [i18nInstance, langIndex]);
@@ -113,9 +115,11 @@ export function V2App() {
       pushRecent({ code: item.code, kind: item.kind, name: item.name, size: item.size,
         type: item.content_type, fileCount: item.file_count, totalSize: item.total_size,
         created_at: new Date().toISOString(), expires_at: item.expired_at });
+      haptic('success');
       setPickup(item);
       turnstileRef.current?.reset();
     } catch (e) {
+      haptic('error');
       toast.error(e instanceof ApiError ? e.message : ((e as Error)?.message || t('v2.pickupFailed')));
       turnstileRef.current?.reset();
     } finally {
