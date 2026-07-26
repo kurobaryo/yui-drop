@@ -1,21 +1,28 @@
 /**
  * Haptic feedback.
  *
- * Two mechanisms, because no single one covers both platforms:
+ * Three mechanisms, because no single one covers every platform:
  *
  * 1. Android / Chrome — the Vibration API (`navigator.vibrate`). Real, spec'd,
- *    supports multi-pulse patterns.
+ *    supports multi-pulse patterns. Programmatic, so it works from anywhere.
  *
- * 2. iOS Safari — never implemented the Vibration API and, as of iOS 26.5,
- *    Apple also closed the `<input type="checkbox" switch>` trick that used to
- *    emit a Taptic tick when toggled (it worked from 17.4 to 26.4). We still
- *    attempt it: devices on 17.4–26.4 get real haptics, newer ones silently
- *    get nothing. There is no supported web API that reaches the Taptic Engine
- *    from a normal page, so on current iOS this is a genuine no-op — the
- *    function must never be described to users as "works everywhere".
+ * 2. iOS 17.4 – 26.4 — Safari never shipped the Vibration API, but WebKit's
+ *    native switch control (`<input type="checkbox" switch>`) makes the system
+ *    play a haptic tick when toggled, and back then a scripted `.click()` was
+ *    enough to trigger it.
  *
- * Call at the moment of a user-visible outcome (code copied, upload finished,
- * error raised) rather than on every tap, which quickly becomes noise.
+ * 3. iOS 26.5+ — Apple closed the scripted path: only a *direct finger tap* on
+ *    a real switch control still fires the tick. So a scripted `haptic()` call
+ *    can no longer produce feedback on current iOS. What does work is putting
+ *    an invisible native switch *under the user's finger* — see `HapticTap`
+ *    below, which overlays one on top of a regular-looking control.
+ *
+ * Practical consequence: use `haptic()` for outcomes that happen away from the
+ * touch (upload finished, request failed) — those buzz on Android only. Wrap
+ * important buttons in `<HapticTap>` when you want them to buzz on iOS too.
+ *
+ * Reference: the technique is verified on-device against iOS 26.5 by
+ * https://github.com/m1ckc3s/project-fathom.
  */
 
 export type HapticPattern = 'tap' | 'success' | 'warning' | 'error';
@@ -35,12 +42,16 @@ export function setHapticsEnabled(on: boolean): void {
   enabled = on;
 }
 
+export function hapticsEnabled(): boolean {
+  return enabled;
+}
+
 /** True when the Vibration API is available (Android). False on iOS. */
 export function vibrationSupported(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 }
 
-function reducedMotion(): boolean {
+export function reducedMotion(): boolean {
   return (
     typeof window !== 'undefined' &&
     !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -48,75 +59,18 @@ function reducedMotion(): boolean {
 }
 
 /**
- * The iOS fallback: a visually hidden `<input type="checkbox" switch>` with a
- * label. Toggling it via a synthetic label click makes Safari play its native
- * switch tick. Created lazily and reused.
+ * Fire a haptic pattern programmatically.
  *
- * Only effective on iOS 17.4–26.4. Harmless elsewhere.
- */
-let switchEl: HTMLInputElement | null = null;
-let labelEl: HTMLLabelElement | null = null;
-
-function ensureSwitch(): HTMLLabelElement | null {
-  if (typeof document === 'undefined') return null;
-  if (labelEl) return labelEl;
-  try {
-    const id = 'yd-haptic-switch';
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.id = id;
-    // Non-standard Safari attribute — this is what carries the haptic.
-    input.setAttribute('switch', '');
-    const label = document.createElement('label');
-    label.htmlFor = id;
-    label.setAttribute('aria-hidden', 'true');
-    const hide: Partial<CSSStyleDeclaration> = {
-      position: 'fixed',
-      width: '1px',
-      height: '1px',
-      opacity: '0',
-      pointerEvents: 'none',
-      left: '-9999px',
-      top: '0',
-    };
-    Object.assign(input.style, hide);
-    Object.assign(label.style, hide);
-    document.body.appendChild(input);
-    document.body.appendChild(label);
-    switchEl = input;
-    labelEl = label;
-    return label;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Fire a haptic pattern. Safe to call anywhere: no-ops when disabled, when the
- * user prefers reduced motion, or when the platform offers no mechanism.
+ * Android: real vibration. iOS: no-op — Apple allows no scripted route to the
+ * Taptic Engine as of 26.5. Use `<HapticTap>` for tap-driven feedback there.
  *
- * @returns true if a vibration was actually requested (Android only).
+ * @returns true if a vibration was actually requested.
  */
 export function haptic(pattern: HapticPattern = 'tap'): boolean {
-  if (!enabled || reducedMotion()) return false;
-
-  if (vibrationSupported()) {
-    try {
-      return navigator.vibrate(PATTERNS[pattern]);
-    } catch {
-      return false;
-    }
-  }
-
-  // iOS best-effort. No way to detect whether it actually fired.
+  if (!enabled || reducedMotion() || !vibrationSupported()) return false;
   try {
-    const label = ensureSwitch();
-    if (label && switchEl) {
-      label.click();
-      switchEl.checked = false;
-    }
+    return navigator.vibrate(PATTERNS[pattern]);
   } catch {
-    /* ignore */
+    return false;
   }
-  return false;
 }

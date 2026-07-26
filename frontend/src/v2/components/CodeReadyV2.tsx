@@ -1,4 +1,5 @@
 import { Icon } from './IconSprite';
+import { HapticTap } from './HapticTap';
 import { haptic } from '../haptics';
 import { useTranslation } from 'react-i18next';
 
@@ -36,15 +37,21 @@ export function CodeReadyV2({ code, onReset }: CodeReadyV2Props) {
         {code}
       </div>
       <div style={{ marginTop: 18, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button type="button" data-yd="btn" onClick={() => copy(code)} style={button}>
-          <Icon name="i-copy" size={14} />{t('v2.codeReady.copyCode')}
-        </button>
-        <button type="button" data-yd="btn" onClick={() => copy(link)} style={button}>
-          <Icon name="i-link" size={14} />{t('v2.codeReady.copyLink')}
-        </button>
-        <button type="button" data-yd="quiet" onClick={onReset} style={{ ...button, background: 'transparent', color: 'var(--tx2)', border: '1px solid var(--ln)' }}>
-          {t('v2.codeReady.again')}
-        </button>
+        <HapticTap onTap={() => copy(code)} pattern="success" radius={10} label={t('v2.codeReady.copyCode')}>
+          <span data-yd="btn" style={button}>
+            <Icon name="i-copy" size={14} />{t('v2.codeReady.copyCode')}
+          </span>
+        </HapticTap>
+        <HapticTap onTap={() => copy(link)} pattern="success" radius={10} label={t('v2.codeReady.copyLink')}>
+          <span data-yd="btn" style={button}>
+            <Icon name="i-link" size={14} />{t('v2.codeReady.copyLink')}
+          </span>
+        </HapticTap>
+        <HapticTap onTap={onReset} radius={10} label={t('v2.codeReady.again')}>
+          <span data-yd="quiet" style={{ ...button, background: 'transparent', color: 'var(--tx2)', border: '1px solid var(--ln)' }}>
+            {t('v2.codeReady.again')}
+          </span>
+        </HapticTap>
       </div>
     </div>
   );

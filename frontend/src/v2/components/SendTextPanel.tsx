@@ -9,9 +9,10 @@ import { toast } from '@/components/ui/Toast';
 import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/TurnstileWidget';
 import { CodeReadyV2 } from './CodeReadyV2';
 import { ExpiryControl, expiryToApi, type ExpiryValue } from './ExpiryControl';
-import { panelGrid, panelMain, submitButton } from './panelLayout';
+import { panelGrid, panelMain, submitButton, submitButtonWrap } from './panelLayout';
 import { Icon } from './IconSprite';
 import { haptic } from '../haptics';
+import { HapticTap } from './HapticTap';
 
 export function SendTextPanel() {
   const { t } = useTranslation();
@@ -82,16 +83,22 @@ export function SendTextPanel() {
             <TurnstileWidget ref={turnstileRef} mode="invisible-on-submit" siteKey={config.turnstileSiteKey} onVerify={() => {}} onExpire={() => {}} onError={() => {}} />
           </div>
         )}
-        <button
-          type="button"
-          data-yd="btn"
+        <HapticTap
+          onTap={() => void submit()}
+          pattern="tap"
+          radius={10}
           disabled={!text.trim() || submitting}
-          onClick={() => void submit()}
-          style={{ ...submitButton, opacity: !text.trim() || submitting ? 0.5 : 1, cursor: !text.trim() || submitting ? 'not-allowed' : 'pointer' }}
+          label={t('v2.send.submit')}
+          style={submitButtonWrap}
         >
-          {submitting ? t('v2.send.submitting') : t('v2.send.submit')}
-          <Icon name="i-arr" size={16} style={{ opacity: 0.85 }} />
-        </button>
+          <span
+            data-yd="btn"
+            style={{ ...submitButton, opacity: !text.trim() || submitting ? 0.5 : 1, cursor: !text.trim() || submitting ? 'not-allowed' : 'pointer' }}
+          >
+            {submitting ? t('v2.send.submitting') : t('v2.send.submit')}
+            <Icon name="i-arr" size={16} style={{ opacity: 0.85 }} />
+          </span>
+        </HapticTap>
       </div>
     </div>
   );
