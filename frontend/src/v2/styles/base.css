@@ -72,6 +72,14 @@
 [data-r='mob-only'] {
   display: none !important;
 }
+/* Grid and flex items default to `min-width: auto`, which refuses to shrink
+   below the intrinsic width of their content. On narrow screens that let the
+   send panels' textarea and expiry card blow the track out to ~446px inside a
+   356px container and clip against the right edge. Every two-column track and
+   its children opt out of that floor. */
+[data-r='two-col'] > * {
+  min-width: 0;
+}
 /* The rounded card and the horizontal scroller must NOT be the same element:
    `overflow: hidden` (needed to clip the border radius) overrides the
    `overflow-x: auto` this rule sets, which silently made admin tables
@@ -108,11 +116,13 @@
 }
 /* Icon buttons render as a compact 30px box by design, but a 30px touch
    target is below the 44px accessibility minimum. Expand the hit area with a
-   transparent pseudo-element instead of growing the visible chrome. */
+   transparent pseudo-element instead of growing the visible chrome.
+   Width-keyed rather than `pointer: coarse` for the same reason as the input
+   font-size rule below — the media feature is unreliable in emulators. */
 [data-yd='icon-btn'] {
   position: relative;
 }
-@media (pointer: coarse) {
+@media (max-width: 860px) {
   [data-yd='icon-btn']::after {
     content: '';
     position: absolute;
@@ -220,6 +230,37 @@
   padding: 0;
   font-size: 0.88em;
 }
+/* Copy button injected into each rendered code block (see PickupDetail). */
+[data-yd='codecopy'] {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ln2);
+  border-radius: 7px;
+  background: var(--pn);
+  color: var(--tx3);
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.14s, color 0.14s, border-color 0.14s;
+}
+[data-yd='codecopy']:hover {
+  opacity: 1;
+  color: var(--tx1);
+}
+[data-yd='codecopy'].is-copied {
+  opacity: 1;
+  color: var(--ok, #22c55e);
+  border-color: var(--ok, #22c55e);
+}
+/* Keep the button clear of the first line of code. */
+[data-r='md'] pre {
+  padding-right: 44px;
+}
 [data-r='md'] a {
   color: var(--ac);
   text-decoration: underline;
@@ -250,6 +291,28 @@
 [data-r='md'] img {
   max-width: 100%;
   border-radius: 8px;
+}
+
+/* ── iOS: stop Safari zooming the page on focus ─────────────────────────── */
+/* Mobile Safari auto-zooms whenever a focused form control's font-size is
+   below 16px, and does not zoom back out afterwards. Several v2 inputs are
+   13–15px by design.
+   Keyed on viewport width rather than `pointer: coarse`: the media feature is
+   unreliable in emulators and on hybrid touch laptops, and the 16px floor is
+   harmless on a narrow desktop window anyway. `user-scalable=no` would also
+   suppress the zoom but blocks legitimate pinch-zoom — an accessibility
+   regression we are not taking. */
+@media (max-width: 860px) {
+  [data-yd-root] input,
+  [data-yd-root] textarea,
+  [data-yd-root] select,
+  [data-yd='backdrop'] input,
+  [data-yd='backdrop'] textarea,
+  [data-yd='backdrop'] select {
+    /* !important is required: these controls carry inline `fontSize` from
+       their component style objects, which would otherwise win. */
+    font-size: max(16px, 1em) !important;
+  }
 }
 
 [data-yd='backdrop'] {

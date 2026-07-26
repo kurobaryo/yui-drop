@@ -11,6 +11,7 @@ import { CodeReadyV2 } from './CodeReadyV2';
 import { ExpiryControl, expiryToApi, type ExpiryValue } from './ExpiryControl';
 import { panelGrid, panelMain, submitButton } from './panelLayout';
 import { Icon } from './IconSprite';
+import { haptic } from '../haptics';
 
 function size(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -73,9 +74,11 @@ export function SendFilePanel() {
         pushRecent({ code: res.code, kind: 'multi', name: files[0]?.name, size: null, type: null, fileCount: res.fileCount, totalSize: res.totalSize, created_at: new Date().toISOString(), expires_at: null });
         setCode(res.code);
       }
+      haptic('success');
       turnstileRef.current?.reset();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : (e as Error)?.message;
+      haptic('error');
       setError(msg || t('v2.send.failedUpload'));
       toast.error(msg || t('v2.send.failedUpload'));
       turnstileRef.current?.reset();
