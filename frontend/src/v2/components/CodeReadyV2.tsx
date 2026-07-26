@@ -1,4 +1,5 @@
 import { Icon } from './IconSprite';
+import { haptic } from '../haptics';
 import { useTranslation } from 'react-i18next';
 
 export interface CodeReadyV2Props {
@@ -10,7 +11,10 @@ export interface CodeReadyV2Props {
 export function CodeReadyV2({ code, onReset }: CodeReadyV2Props) {
   const { t } = useTranslation();
   const link = `${window.location.origin}/s/${code}`;
-  const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => {});
+  const copy = (text: string) => {
+    haptic('success');
+    void navigator.clipboard?.writeText(text).catch(() => {});
+  };
   return (
     <div style={{ padding: '34px 22px 30px', textAlign: 'center' }}>
       <div style={{ fontSize: 12, color: 'var(--tx3)', marginBottom: 12 }}>{t('v2.codeReady.title')}</div>

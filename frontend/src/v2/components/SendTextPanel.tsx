@@ -11,6 +11,7 @@ import { CodeReadyV2 } from './CodeReadyV2';
 import { ExpiryControl, expiryToApi, type ExpiryValue } from './ExpiryControl';
 import { panelGrid, panelMain, submitButton } from './panelLayout';
 import { Icon } from './IconSprite';
+import { haptic } from '../haptics';
 
 export function SendTextPanel() {
   const { t } = useTranslation();
@@ -43,10 +44,12 @@ export function SendTextPanel() {
         created_at: new Date().toISOString(),
         expires_at: res.expired_at,
       });
+      haptic('success');
       setCode(res.code);
       turnstileRef.current?.reset();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : (e as Error)?.message;
+      haptic('error');
       setError(msg || t('v2.send.failedText'));
       toast.error(msg || t('v2.send.failedText'));
       turnstileRef.current?.reset();

@@ -155,7 +155,9 @@
 /* ── Responsive: prototype breakpoint is 860px ──────────────────────────── */
 @media (max-width: 860px) {
   [data-template='apple'] [data-r='two-col'] {
-    grid-template-columns: 1fr !important;
+    /* minmax(0,1fr), not 1fr: a bare 1fr track still has an `auto` minimum and
+       would be widened by its content instead of clipping to the viewport. */
+    grid-template-columns: minmax(0, 1fr) !important;
   }
   [data-template='apple'] [data-r='mob-only'] {
     display: flex !important;
@@ -217,10 +219,12 @@
     max-width: none !important;
     border-radius: 20px 20px 0 0 !important;
     animation: ydSheet 0.3s cubic-bezier(0.32, 0.72, 0, 1) both !important;
-    /* Match Linear: give the pickup preview most of the screen on phones. */
-    height: 92vh;
-    max-height: 92vh;
     border-left: none !important;
+    /* Content-driven: the sheet is only as tall as it needs to be, capped at
+       70vh. A fixed height left ~140px of dead space under the action row
+       on short shares. */
+    height: auto;
+    max-height: 70vh;
   }
   [data-template='apple'] [data-r='grabber'] {
     display: block !important;
