@@ -9,6 +9,7 @@ import {
   isMarkdownName,
   isTextPreviewable,
   triggerDownload,
+  triggerTextDownload,
 } from '@/lib/preview';
 import { haptic } from '../haptics';
 import { Icon } from './IconSprite';
@@ -40,10 +41,19 @@ export function PickupDetail({item,onClose}:{item:ShareSelectResponse;onClose:()
   const files:ShareMultiFile[]=item.kind==='multi'?(item.files||[]):item.kind==='file'?[{file_id:0,order:0,name:item.name||item.code,size:item.size||0,url:item.url,content_type:item.content_type,force_download:item.force_download}]:[];
   const meta=item.kind==='text'?`${new Blob([item.text||'']).size} B · ${t('v2.detail.textKind')}`:item.kind==='multi'?`${t('v2.recent.fileCount',{n:item.file_count||files.length})} · ${fmt(item.total_size||0)}`:`${fmt(item.size||0)} · ${item.content_type||t('v2.detail.fileKind')}`;
   const copy=(s:string)=>{haptic('success');void navigator.clipboard?.writeText(s).catch(()=>{});};
-  // Real downloads: a synthetic <a download> against the ?dl=1 URL. The old
-  // window.open() hit the inline URL, so the browser rendered the file in a
-  // new tab instead of saving it.
-  const downloadAll=()=>{haptic();files.forEach((f,i)=>{if(!f.url)return;window.setTimeout(()=>triggerDownload(f.url,f.name),i*120)});};
+  // File shares download from the attachment proxy. Pure text shares have no
+  // storage URL at all — they live inside the select response — so package the
+  // in-memory body as a UTF-8 .txt Blob instead. The old `files.length > 0`
+  // guard silently hid Download for every pure text share on desktop + mobile.
+  const downloadCurrent=()=>{
+    haptic();
+    if(item.kind==='text'){
+      triggerTextDownload(item.text||'',`${item.code}.txt`);
+      return;
+    }
+    files.forEach((f,i)=>{if(!f.url)return;window.setTimeout(()=>triggerDownload(f.url,f.name),i*120)});
+  };
+  const hasDownload=item.kind==='text'||files.length>0;
   return <div data-yd="backdrop" data-r="backdrop" onClick={onClose} style={backdrop}>
     <div data-yd="dialog" data-r="sheet" onClick={e=>e.stopPropagation()} style={sheet}>
       <div data-r="grabber" style={{display:'none',padding:'10px 0 4px'}}><div style={{width:36,height:5,borderRadius:999,background:'var(--grab)',margin:'0 auto'}}/></div>
@@ -51,7 +61,7 @@ export function PickupDetail({item,onClose}:{item:ShareSelectResponse;onClose:()
       <div style={{padding:'16px 20px 20px'}}>
         <Preview item={item}/>
         {files.length>0&&<div style={{marginTop:14,border:'1px solid var(--ln)',borderRadius:12,overflow:'hidden'}}>{files.map((f,i)=><a key={f.file_id||i} href={downloadHref(f.url)||'#'} download={f.name||undefined} rel="noopener noreferrer" onClick={()=>haptic()} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderTop:i?'1px solid var(--ln)':'none',fontSize:14,color:'var(--tx1)'}}><Icon name={iconFor(f.content_type)} size={16} style={{color:'var(--tx3)',flexShrink:0}}/><span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:'var(--tx3)'}}>{fmt(f.size)}</span><Icon name="i-dl" size={16} style={{color:'var(--act)',flexShrink:0}}/></a>)}</div>}
-        <div style={{display:'flex',gap:8,marginTop:16,flexWrap:'wrap'}}>{files.length>0&&<button type="button" data-yd="btn" onClick={downloadAll} style={primary}><Icon name="i-dl" size={16}/>{t('v2.detail.downloadAll')}</button>}<button type="button" data-yd="quiet" onClick={()=>copy(item.code)} style={quiet}><Icon name="i-copy" size={15}/>{t('v2.detail.copyCode')}</button><button type="button" data-yd="quiet" onClick={()=>copy(`${location.origin}/s/${item.code}`)} style={quiet}><Icon name="i-link" size={15}/>{t('v2.detail.shareLink')}</button></div>
+        <div data-r="pickup-actions" style={{display:'flex',gap:8,marginTop:16,flexWrap:'wrap'}}>{hasDownload&&<button type="button" data-yd="btn" data-r="download" onClick={downloadCurrent} style={primary}><Icon name="i-dl" size={16}/>{item.kind==='text'?t('v2.detail.download'):t('v2.detail.downloadAll')}</button>}<button type="button" data-yd="quiet" onClick={()=>copy(item.code)} style={quiet}><Icon name="i-copy" size={15}/>{t('v2.detail.copyCode')}</button><button type="button" data-yd="quiet" onClick={()=>copy(`${location.origin}/s/${item.code}`)} style={quiet}><Icon name="i-link" size={15}/>{t('v2.detail.shareLink')}</button></div>
       </div>
     </div>
   </div>;

@@ -159,6 +159,28 @@ export function triggerDownload(url: string | null | undefined, filename?: strin
   a.remove();
 }
 
+/**
+ * Save an in-memory text share as a UTF-8 `.txt` file.
+ *
+ * Pure text shares are returned inside `/share/select` and have no storage URL,
+ * so `triggerDownload()` cannot handle them. A Blob URL avoids the length and
+ * Unicode pitfalls of a `data:` URL. Revocation is deferred because Safari may
+ * not start consuming the object URL synchronously when the anchor is clicked.
+ */
+export function triggerTextDownload(text: string, filename: string): void {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /** Cap on how much of a text share we pull down for the inline preview. */
 export const TEXT_PREVIEW_MAX_BYTES = 512 * 1024;
 

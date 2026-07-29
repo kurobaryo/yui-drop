@@ -313,6 +313,22 @@
        their component style objects, which would otherwise win. */
     font-size: max(16px, 1em) !important;
   }
+
+  /* Pickup action hierarchy on a narrow sheet: the actual download is the
+     primary action and gets its own full-width row; copy + share split the
+     row below it. Without this, adding Download to pure text shares makes the
+     three inline buttons wrap unpredictably at 390–440px widths. */
+  [data-r='pickup-actions'] > [data-r='download'] {
+    flex: 1 0 100% !important;
+    width: 100% !important;
+  }
+  [data-r='pickup-actions'] > [data-yd='quiet'] {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: 0 !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    justify-content: center !important;
+  }
 }
 
 [data-yd='backdrop'] {
