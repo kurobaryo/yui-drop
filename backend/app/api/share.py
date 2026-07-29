@@ -229,6 +229,8 @@ async def _stream_share_payload(
     db: AsyncSession,
     code: str,
     file_id: int | None,
+    *,
+    force_attachment: bool = False,
 ) -> StreamingResponse:
     """Shared body for the two same-origin download routes.
 
@@ -237,6 +239,14 @@ async def _stream_share_payload(
     local FS), and writes an access_logs row. The audit toggle is
     honoured inside :func:`record_access`, so callers don't need to
     re-check it here.
+
+    ``force_attachment`` comes from the ``?dl=1`` query parameter. The
+    default (inline) response is what makes ``<img>`` / ``<video>`` /
+    ``<iframe>`` previews work, so we can't unconditionally send
+    ``attachment`` — but a plain inline link is exactly why "Download"
+    used to open a viewer tab instead of saving the file. Splitting the
+    two behaviours onto the same URL lets the preview and the download
+    button coexist.
     """
     try:
         target = await resolve_download_target(db, code=code, file_id=file_id)
@@ -255,8 +265,12 @@ async def _stream_share_payload(
     # inline by browsers. For those we replay the FORCE_DOWNLOAD list and
     # hand the bytes back as a generic attachment.
     force_dl: bool = bool(target["force_download"])
+    # ``?dl=1`` is a client-side intent ("save this"), independent of the
+    # security-driven FORCE_DOWNLOAD_MIMES list. Either one is enough to
+    # switch us to attachment.
+    as_attachment: bool = force_dl or force_attachment
     display_name: str = target["name"] or code
-    media_type = "application/octet-stream" if force_dl else ct
+    media_type = "application/octet-stream" if as_attachment else ct
 
     from urllib.parse import quote as _q
 
@@ -270,7 +284,7 @@ async def _stream_share_payload(
     # Strip characters that would break the quoted-string form.
     ascii_name = ascii_name.replace('"', "").replace("\\", "").replace("\r", "").replace("\n", "")
 
-    disposition = "attachment" if force_dl else "inline"
+    disposition = "attachment" if as_attachment else "inline"
     headers: dict[str, str] = {
         "content-disposition": (
             f'{disposition}; filename="{ascii_name}"; '
@@ -280,6 +294,10 @@ async def _stream_share_payload(
         # the browser hold onto them briefly so repeat <img> renders
         # don't hammer R2. Short TTL keeps the cache from outliving a
         # code's expiry by much.
+        #
+        # ``Vary: accept`` is not enough here — the inline and attachment
+        # responses live on the same URL and differ only by the ``dl``
+        # query parameter, which is already part of the cache key.
         "cache-control": "private, max-age=60",
     }
     if head.get("size") is not None:
@@ -299,7 +317,8 @@ async def _stream_share_payload(
             "event": "share.download.proxy",
             "file_id": file_id,
             "size": head.get("size"),
-            "force_download": force_dl,
+            "force_download": as_attachment,
+            "disposition": disposition,
         },
     )
     await db.commit()
@@ -312,14 +331,22 @@ async def share_download_by_code(
     request: Request,
     code: str,
     db: Annotated[AsyncSession, Depends(get_db)],
+    dl: Annotated[int, Query(ge=0, le=1)] = 0,
 ) -> StreamingResponse:
     """Same-origin proxy for single-file shares.
 
     Streams the underlying object through this process so the browser
     never sees an R2 presigned URL. Restores ``<img>`` previews that
     were blocked by cross-origin CORS and centralises access logging.
+
+    ``?dl=1`` switches the response to ``Content-Disposition: attachment``
+    so the browser saves the file instead of rendering it in a tab.
+    Without it the bytes are served inline, which is what the preview
+    surfaces (``<img>``, ``<video>``, ``<iframe>``) need.
     """
-    return await _stream_share_payload(request, db, code, None)
+    return await _stream_share_payload(
+        request, db, code, None, force_attachment=bool(dl)
+    )
 
 
 @router.get("/download/{code}/{file_id}")
@@ -328,6 +355,13 @@ async def share_download_multi_by_code(
     code: str,
     file_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
+    dl: Annotated[int, Query(ge=0, le=1)] = 0,
 ) -> StreamingResponse:
-    """Same-origin proxy for one file inside a multi-file share."""
-    return await _stream_share_payload(request, db, code, file_id)
+    """Same-origin proxy for one file inside a multi-file share.
+
+    ``?dl=1`` forces an attachment disposition — see
+    :func:`share_download_by_code`.
+    """
+    return await _stream_share_payload(
+        request, db, code, file_id, force_attachment=bool(dl)
+    )

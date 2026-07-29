@@ -923,7 +923,10 @@
       "multiShare": "多文件分享",
       "downloadable": "文件可下载",
       "textKind": "文字",
-      "fileKind": "文件"
+      "fileKind": "文件",
+      "loadingPreview": "正在加载预览…",
+      "previewFailed": "无法预览，请下载文件查看",
+      "previewTruncated": "预览已截断，下载可获取完整文件"
     },
     "pickupFailed": "取件失败",
     "header": {
