@@ -923,7 +923,10 @@
       "multiShare": "複数ファイル共有",
       "downloadable": "ダウンロード可能",
       "textKind": "テキスト",
-      "fileKind": "ファイル"
+      "fileKind": "ファイル",
+      "loadingPreview": "プレビューを読み込み中…",
+      "previewFailed": "プレビューできません。ダウンロードしてご確認ください",
+      "previewTruncated": "プレビューは一部です。全文はダウンロードしてください"
     },
     "pickupFailed": "受け取りに失敗しました",
     "header": {
