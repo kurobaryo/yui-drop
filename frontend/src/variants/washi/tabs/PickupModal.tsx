@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { ShareSelectResponse } from '@/lib/api/share';
+import { downloadHref, isTextPreviewable } from '@/lib/preview';
 import type { WashiColors } from '../palettes';
 import { fmtSize } from '../utils';
 
@@ -30,30 +31,23 @@ export interface PickupModalProps {
 
 type Classified = 'image' | 'pdf' | 'video' | 'audio' | 'text' | 'other';
 
-// MIME types we treat as text even though their primary type isn't ``text/``.
-// Keeps the in-modal <pre> preview working for the common code/config formats
-// that servers usually label as ``application/*``.
-const TEXT_LIKE_MIMES = new Set<string>([
-  'application/json',
-  'application/yaml',
-  'application/x-yaml',
-  'application/xml',
-  'text/xml',
-  'application/javascript',
-  'text/javascript',
-  'application/typescript',
-  'text/csv',
-]);
-
-function classify(ct: string | null | undefined): Classified {
-  if (!ct) return 'other';
-  const lc = ct.split(';')[0]!.trim().toLowerCase();
+/**
+ * Classify by MIME for the media branches; text detection is delegated to the
+ * shared `isTextPreviewable` helper, which also consults the filename. The
+ * backend guesses content types with Python's `mimetypes`, which returns
+ * `null` for `.log` / `.yaml` / `.env` and non-`text/*` strings for others,
+ * so a MIME-only check silently drops most real-world text shares.
+ */
+function classify(
+  ct: string | null | undefined,
+  name?: string | null,
+): Classified {
+  const lc = (ct ?? '').split(';')[0]!.trim().toLowerCase();
   if (lc.startsWith('image/')) return 'image';
   if (lc === 'application/pdf') return 'pdf';
   if (lc.startsWith('video/')) return 'video';
   if (lc.startsWith('audio/')) return 'audio';
-  if (lc.startsWith('text/')) return 'text';
-  if (TEXT_LIKE_MIMES.has(lc)) return 'text';
+  if (isTextPreviewable(ct, name)) return 'text';
   return 'other';
 }
 
@@ -116,7 +110,7 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
   useEffect(() => {
     if (item.kind !== 'file') return;
     if (!item.url) return;
-    if (classify(item.content_type) !== 'text') return;
+    if (classify(item.content_type, item.name) !== 'text') return;
     let cancelled = false;
     setTextLoading(true);
     fetch(item.url)
@@ -137,7 +131,7 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
 
   const name = item.name ?? (item.kind === 'text' ? 'text.txt' : item.kind === 'multi' ? 'multi' : '—');
   const ext = extOf(item.name);
-  const cls = item.kind === 'file' ? classify(item.content_type) : item.kind === 'text' ? 'text' : 'other';
+  const cls = item.kind === 'file' ? classify(item.content_type, item.name) : item.kind === 'text' ? 'text' : 'other';
   const isImage = cls === 'image';
   const isText = item.kind === 'text' || cls === 'text';
   const isPdf = cls === 'pdf';
@@ -436,7 +430,7 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
                   </div>
                   {f.url && (
                     <a
-                      href={f.url}
+                      href={downloadHref(f.url)}
                       download={f.name}
                       style={{
                         padding: '6px 10px',
@@ -528,7 +522,7 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
                   // Previously we re-wrapped the body as a data: URL and forced
                   // ".txt", which silently rewrote the user's file extension.
                   <a
-                    href={item.url}
+                    href={downloadHref(item.url)}
                     download={item.name ?? `${item.code}.${extOf(item.name) || 'txt'}`}
                     style={{
                       padding: '10px 16px',
@@ -586,7 +580,7 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
                 {linkCopied ? '✓ ' + t('washi.copied') : '⎘  ' + t('washi.copy_link')}
               </button>
               <a
-                href={item.url}
+                href={downloadHref(item.url)}
                 download={item.name ?? undefined}
                 style={{
                   padding: '10px 22px',

@@ -11,6 +11,7 @@
  * lives in `lib/uploader.ts` and reuses these wrappers via URL builders.
  */
 import { api } from '../api';
+import { triggerDownload } from '../preview';
 
 // ─── Common ────────────────────────────────────────────────────────────────
 
@@ -272,10 +273,11 @@ export async function triggerFileDownload(
   memberToken: string,
 ): Promise<void> {
   const url = await resolveFileDownloadUrl(code, fileId, memberToken);
-  // Open in a new tab so the current room/timeline stays mounted. The blob
-  // endpoint sends `Content-Disposition: attachment` so the browser saves
-  // the file and closes the tab automatically on most platforms.
-  window.open(url, '_blank', 'noopener');
+  // Both backends already answer with `Content-Disposition: attachment`
+  // (presigned `ResponseContentDisposition` for S3/R2, an explicit header on
+  // the local `/blob` endpoint), so a synthetic anchor saves the file without
+  // the blank flash tab that `window.open` left behind.
+  triggerDownload(url);
 }
 
 /** Resolve-only sibling of :func:`triggerFileDownload`. Returns the inner

@@ -924,7 +924,10 @@
       "multiShare": "Multi-file share",
       "downloadable": "File available to download",
       "textKind": "text",
-      "fileKind": "file"
+      "fileKind": "file",
+      "loadingPreview": "Loading preview…",
+      "previewFailed": "Preview unavailable — download the file instead",
+      "previewTruncated": "Preview truncated — download for the full file"
     },
     "pickupFailed": "Pickup failed",
     "header": {
