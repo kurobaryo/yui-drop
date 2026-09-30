@@ -932,7 +932,8 @@
       "note": "Note",
       "copyText": "Copy text",
       "preview": "Preview",
-      "copied": "Copied"
+      "copied": "Copied",
+      "copyCodeBlock": "Copy code block"
     },
     "pickupFailed": "Pickup failed",
     "header": {
