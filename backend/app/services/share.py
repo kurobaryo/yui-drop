@@ -25,17 +25,7 @@ from .common import (
     compute_expiry,
     record_access,
 )
-
-# MIME types we never serve inline — too dangerous (XSS / clickjacking) in
-# the browser. Forces a download attachment instead.
-FORCE_DOWNLOAD_MIMES: frozenset[str] = frozenset(
-    {
-        "image/svg+xml",
-        "text/html",
-        "application/xhtml+xml",
-        "application/xml",
-    }
-)
+from .inline_policy import served_type
 
 # Simple-upload threshold. Anything larger should use chunk/* or presign/*.
 # Legacy default — kept as a fallback when ``settings_kv`` has no override.
@@ -280,17 +270,6 @@ async def create_simple_file_share(
 # ────────────────────────────────────────────────────────────────────────────
 
 
-def _guess_content_type(name: str | None, suffix: str | None) -> str | None:
-    """Best-effort content-type guess used only when storage doesn't provide one."""
-    import mimetypes
-
-    if not name and not suffix:
-        return None
-    cand = name or f"x{suffix or ''}"
-    ct, _ = mimetypes.guess_type(cand)
-    return ct
-
-
 async def resolve_share(
     db: AsyncSession,
     *,
@@ -380,8 +359,9 @@ async def resolve_share(
 
         files_out = []
         for sf in sfs:
-            ct = _guess_content_type(sf.name, sf.suffix)
-            force_dl = bool(ct and ct in FORCE_DOWNLOAD_MIMES)
+            # Report exactly what the proxy will serve (see inline_policy).
+            ct, inline_ok = served_type(sf.name, sf.suffix)
+            force_dl = not inline_ok
             # Always hand out the same-origin proxy path. Routing the bytes
             # through our backend (instead of an R2 presigned URL) avoids
             # the cross-origin CORS wall that breaks <img> previews and
@@ -454,9 +434,9 @@ async def resolve_share(
             "used_count": row.used_count,
         }
 
-    # File path
-    ct = _guess_content_type(row.name, row.suffix)
-    force_dl = bool(ct and ct in FORCE_DOWNLOAD_MIMES)
+    # File path — report exactly what the proxy will serve (see inline_policy).
+    ct, inline_ok = served_type(row.name, row.suffix)
+    force_dl = not inline_ok
     # Same-origin proxy URL. The dedicated /download/{code} route streams
     # bytes from storage (R2/local) without ever exposing a presigned URL
     # to the client — restores <img> previews and centralises access
@@ -586,13 +566,12 @@ async def resolve_download_target(
         ).scalars().first()
         if sf is None:
             raise NotFoundError("file_not_found")
-        ct = _guess_content_type(sf.name, sf.suffix) or "application/octet-stream"
-        force_dl = ct in FORCE_DOWNLOAD_MIMES
+        ct, inline_ok = served_type(sf.name, sf.suffix)
         return {
             "key": sf.file_path,
             "name": sf.name,
             "content_type": ct,
-            "force_download": force_dl,
+            "force_download": not inline_ok,
             "size": sf.size,
             # Multi-share files inherit the parent FileCode's wrapped DEK.
             "wrapped_dek": row.wrapped_dek,
@@ -605,13 +584,12 @@ async def resolve_download_target(
         # Reject file_id on a non-multi share so /code/<id> can't smuggle.
         raise NotFoundError("file_id_not_applicable")
 
-    ct = _guess_content_type(row.name, row.suffix) or "application/octet-stream"
-    force_dl = ct in FORCE_DOWNLOAD_MIMES
+    ct, inline_ok = served_type(row.name, row.suffix)
     return {
         "key": row.file_path,
         "name": row.name or row.code,
         "content_type": ct,
-        "force_download": force_dl,
+        "force_download": not inline_ok,
         "size": row.size,
         "wrapped_dek": row.wrapped_dek,
     }
@@ -624,7 +602,6 @@ __all__ = [
     "resolve_download_target",
     "authorize_download_token",
     "open_download_stream",
-    "FORCE_DOWNLOAD_MIMES",
     "SIMPLE_UPLOAD_MAX",
 ]
 
