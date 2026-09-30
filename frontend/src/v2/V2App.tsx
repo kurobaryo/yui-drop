@@ -15,7 +15,7 @@ import { useThemeStore } from '@/stores/theme';
 import type { RecentEntry } from '@/lib/recent';
 import { pushRecent } from '@/lib/recent';
 import { shareSelect, type ShareSelectResponse } from '@/lib/api/share';
-import { ApiError } from '@/lib/api';
+import { errorMessage } from '@/lib/errorMessage';
 import { usePublicConfig } from '@/lib/hooks/usePublicConfig';
 import { toast } from '@/components/ui/Toast';
 import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/TurnstileWidget';
@@ -120,12 +120,12 @@ export function V2App() {
       turnstileRef.current?.reset();
     } catch (e) {
       haptic('error');
-      toast.error(e instanceof ApiError ? e.message : ((e as Error)?.message || t('v2.pickupFailed')));
+      toast.error(errorMessage(e, t, t('v2.pickupFailed')));
       turnstileRef.current?.reset();
     } finally {
       resolving.current = null;
     }
-  }, [config.turnstileProtectPickup, config.turnstileSiteKey, navigate]);
+  }, [config.turnstileProtectPickup, config.turnstileSiteKey, navigate, t]);
 
   const onOpenRecent = useCallback((e: RecentEntry) => {
     if (e.kind === 'collection') navigate(`/c/${e.code}`);
