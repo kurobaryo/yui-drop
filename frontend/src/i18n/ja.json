@@ -927,7 +927,10 @@
       "fileKind": "ファイル",
       "loadingPreview": "プレビューを読み込み中…",
       "previewFailed": "プレビューできません。ダウンロードしてご確認ください",
-      "previewTruncated": "プレビューは一部です。全文はダウンロードしてください"
+      "previewTruncated": "プレビューは一部です。全文はダウンロードしてください",
+      "note": "メモ",
+      "copyText": "テキストをコピー",
+      "copied": "コピーしました"
     },
     "pickupFailed": "受け取りに失敗しました",
     "header": {

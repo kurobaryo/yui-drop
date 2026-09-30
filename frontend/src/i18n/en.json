@@ -928,7 +928,10 @@
       "fileKind": "file",
       "loadingPreview": "Loading preview…",
       "previewFailed": "Preview unavailable — download the file instead",
-      "previewTruncated": "Preview truncated — download for the full file"
+      "previewTruncated": "Preview truncated — download for the full file",
+      "note": "Note",
+      "copyText": "Copy text",
+      "copied": "Copied"
     },
     "pickupFailed": "Pickup failed",
     "header": {

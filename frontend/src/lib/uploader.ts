@@ -437,6 +437,9 @@ export interface UploadFilesOptions {
    * Sent on the first hop (`/share/multi/init`); subsequent per-file calls
    * are authenticated by the returned `upload_token`. */
   turnstileToken?: string;
+  /** Optional note stored with the share and shown above the file list on
+   * pickup. Omitted from the request when empty. */
+  text?: string;
 }
 
 export interface UploadFilesResult {
@@ -483,6 +486,7 @@ export function uploadFiles(opts: UploadFilesOptions): UploadFilesHandle {
       expire_value: opts.expireValue,
       expire_style: opts.expireStyle,
       turnstile_token: opts.turnstileToken ?? null,
+      ...(opts.text ? { text: opts.text } : {}),
     });
 
     let doneTotalBytes = 0;
