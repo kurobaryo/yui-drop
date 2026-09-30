@@ -227,8 +227,14 @@ async def init_multi_share(
     # SECRETS_KEY, and store on the parent FileCode row. Every file uploaded
     # under this share gets a fresh nonce but shares the DEK — keeping the
     # wrap site to a single row simplifies download-path lookup.
+    #
+    # Gate on the *live* storage singleton, exactly like the chunk writer
+    # does: ``settings.storage_backend`` is only the env default and is stale
+    # when the backend was switched at runtime via settings_kv. Checking the
+    # env value here minted a DEK for shares whose bytes the chunk writer then
+    # stored in plaintext on S3, so every download tried to decrypt and failed.
     wrapped: bytes | None = None
-    if (settings.storage_backend or "local").lower() == "local":
+    if hasattr(get_storage(), "server_write_encrypted"):
         wrapped = wrap_dek(generate_dek())
 
     row = FileCode(
