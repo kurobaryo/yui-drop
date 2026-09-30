@@ -4,13 +4,15 @@
  *
  * Two problems live here:
  *
- * 1. **What can we render inline?** The backend hands us a `content_type`
- *    guessed by Python's `mimetypes`, which returns `null` for common plain-text
- *    extensions (`.log`, `.yaml`, `.env`, `.toml`, …) and MIME strings that are
- *    not `text/*` for others (`application/json`, `application/x-sh`). A naive
- *    `ct.startsWith('text/')` check therefore misses most of the text files
- *    people actually share, which is why `.md` shares showed a grey file icon
- *    instead of the Markdown renderer that was already built.
+ * 1. **What can we render inline?** For pickup shares the backend reports the
+ *    exact type its download proxy serves (`backend/app/services/inline_policy.py`):
+ *    a real image/audio/video/PDF type, `text/plain; charset=utf-8` for every
+ *    text preview (Markdown, CSV, JSON, source code, …), or
+ *    `application/octet-stream` for everything else. {@link previewKind} maps
+ *    that onto a preview widget. The extension allow-list is still consulted
+ *    when the type is missing or opaque — older servers and collection rooms
+ *    report uploader-declared or `mimetypes`-guessed types — and the
+ *    never-inline guards below apply regardless, as defence in depth.
  *
  * 2. **How do we make a link actually download?** The `/api/share/download`
  *    proxy serves bytes `inline` by default so `<img>` / `<video>` / `<iframe>`
@@ -58,9 +60,9 @@ const TEXT_MIMES = new Set([
 ]);
 
 /**
- * MIME types that are textual in principle but must never be rendered inline:
- * the backend already forces an attachment for these (XSS vectors), so the
- * preview surface must not try to fetch and display them either.
+ * Types that must never be rendered inline: the backend already serves these
+ * as attachments (active content), so no preview surface may try to fetch and
+ * display them either — whatever the server or the uploader claimed.
  */
 const NEVER_INLINE_MIMES = new Set([
   'text/html',
@@ -68,6 +70,16 @@ const NEVER_INLINE_MIMES = new Set([
   'application/xhtml+xml',
   'application/xml',
   'text/xml',
+  'text/xsl',
+  'application/xslt+xml',
+  'application/rdf+xml',
+  'message/rfc822',
+  'multipart/related',
+]);
+
+/** Extension twin of {@link NEVER_INLINE_MIMES}, for missing or lying types. */
+const NEVER_INLINE_EXTENSIONS = new Set([
+  'html', 'htm', 'xhtml', 'xht', 'shtml', 'svg', 'svgz', 'xml', 'xsl', 'xslt', 'rdf', 'mht', 'mhtml',
 ]);
 
 /** Lowercased extension of a filename, without the dot. `''` when absent. */
@@ -80,7 +92,7 @@ export function extensionOf(name: string | null | undefined): string {
 }
 
 /** Strip parameters/whitespace from a Content-Type (`text/md; charset=utf-8`). */
-function bareMime(ct: string | null | undefined): string {
+export function bareMime(ct: string | null | undefined): string {
   return (ct ?? '').split(';')[0].trim().toLowerCase();
 }
 
@@ -101,14 +113,40 @@ export function isTextPreviewable(
   const ext = extensionOf(name);
   // `.svg` / `.html` can arrive with a null or lying MIME — block by extension
   // too so the never-inline rule can't be bypassed by a missing content-type.
-  if (['svg', 'html', 'htm', 'xhtml', 'xml'].includes(ext)) return false;
+  if (NEVER_INLINE_EXTENSIONS.has(ext)) return false;
 
   if (mime.startsWith('text/')) return true;
   if (mime && TEXT_MIMES.has(mime)) return true;
-  // No usable MIME (server guessed nothing, or a generic octet-stream fallback)
-  // — fall back to the extension allow-list.
+  // No usable MIME, or the opaque octet-stream the server uses for anything it
+  // will not serve inline (e.g. `.js` / `.css`) — fall back to the extension
+  // allow-list. The body is fetched and shown as escaped text, never rendered
+  // as a document, so this is safe for any bytes.
   if (!mime || mime === 'application/octet-stream') return TEXT_EXTENSIONS.has(ext);
   return false;
+}
+
+export type PreviewKind = 'image' | 'video' | 'audio' | 'pdf' | 'text';
+
+/**
+ * Which preview widget (if any) suits a file.
+ *
+ * Media kinds trust the reported type only; the widgets (`<img>`, `<video>`,
+ * `<audio>`, a PDF `<iframe>`) cannot execute a mislabelled body, and callers
+ * fall back to a placeholder via `onError` when the browser cannot decode it
+ * (e.g. HEIC outside Safari). Returns `null` when nothing should be previewed.
+ */
+export function previewKind(
+  contentType: string | null | undefined,
+  name: string | null | undefined,
+): PreviewKind | null {
+  const mime = bareMime(contentType);
+  if (NEVER_INLINE_MIMES.has(mime) || NEVER_INLINE_EXTENSIONS.has(extensionOf(name))) return null;
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('video/')) return 'video';
+  if (mime.startsWith('audio/')) return 'audio';
+  if (mime === 'application/pdf') return 'pdf';
+  if (isTextPreviewable(contentType, name)) return 'text';
+  return null;
 }
 
 /** Should this share render as Markdown rather than a plain `<pre>`? */
@@ -195,7 +233,9 @@ export interface TextPreviewResult {
  *
  * Deliberately hits the **inline** URL (no `?dl=1`) so no download is recorded
  * as an attachment, and reads at most {@link TEXT_PREVIEW_MAX_BYTES} so a
- * multi-megabyte log doesn't lock up the tab.
+ * multi-megabyte log doesn't lock up the tab: the body is streamed and the
+ * request cancelled once the cap is reached. `size` is only a hint — the cap
+ * is enforced on the bytes actually received.
  */
 export async function fetchTextPreview(
   url: string,
@@ -204,17 +244,41 @@ export async function fetchTextPreview(
 ): Promise<TextPreviewResult> {
   const res = await fetch(url, { signal, credentials: 'same-origin' });
   if (!res.ok) throw new Error(`preview_fetch_failed_${res.status}`);
-  const willTruncate = typeof size === 'number' && size > TEXT_PREVIEW_MAX_BYTES;
 
-  if (!willTruncate) {
-    const text = await res.text();
-    if (text.length <= TEXT_PREVIEW_MAX_BYTES) return { text, truncated: false };
-    return { text: text.slice(0, TEXT_PREVIEW_MAX_BYTES), truncated: true };
+  const max = TEXT_PREVIEW_MAX_BYTES;
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  let truncated = typeof size === 'number' && size > max;
+  const reader = res.body?.getReader();
+  if (reader) {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      if (received > max) {
+        truncated = true;
+        void reader.cancel().catch(() => {});
+        break;
+      }
+    }
+  } else {
+    const all = new Uint8Array(await res.arrayBuffer());
+    chunks.push(all);
+    received = all.length;
   }
+  if (received > max) truncated = true;
 
-  // Large file: stream and stop once we have enough bytes.
-  const buf = await res.arrayBuffer();
-  const slice = buf.slice(0, TEXT_PREVIEW_MAX_BYTES);
-  const text = new TextDecoder('utf-8', { fatal: false }).decode(slice);
-  return { text, truncated: true };
+  const bytes = new Uint8Array(Math.min(received, max));
+  let off = 0;
+  for (const c of chunks) {
+    if (off >= bytes.length) break;
+    const part = c.subarray(0, bytes.length - off);
+    bytes.set(part, off);
+    off += part.length;
+  }
+  // `stream: true` holds back a multi-byte character cut off by the cap
+  // instead of emitting a replacement glyph at the end.
+  const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes, { stream: truncated });
+  return { text, truncated };
 }

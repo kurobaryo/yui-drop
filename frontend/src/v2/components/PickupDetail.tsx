@@ -4,15 +4,21 @@ import { useTranslation } from 'react-i18next';
 import type { ShareMultiFile, ShareSelectResponse } from '@/lib/api/share';
 import { renderMarkdown } from '@/lib/markdown';
 import {
+  bareMime,
   downloadHref,
   fetchTextPreview,
   isMarkdownName,
-  isTextPreviewable,
+  previewKind,
   triggerDownload,
   triggerTextDownload,
 } from '@/lib/preview';
 import { haptic } from '../haptics';
 import { Icon } from './IconSprite';
+
+/** `auto` = Markdown heuristic (pasted text, notes); `force` = `.md` files; `off` = raw. */
+type MarkdownMode = 'auto' | 'force' | 'off';
+/** What the preview slot of a multi share shows: the note, a file id, or nothing. */
+type Selection = 'note' | number | null;
 
 /**
  * Heuristic: does this text look like Markdown worth rendering?
@@ -39,7 +45,15 @@ function looksLikeMarkdown(s: string): boolean {
 export function PickupDetail({item,onClose}:{item:ShareSelectResponse;onClose:()=>void}) {
   const {t}=useTranslation();
   const files:ShareMultiFile[]=item.kind==='multi'?(item.files||[]):item.kind==='file'?[{file_id:0,order:0,name:item.name||item.code,size:item.size||0,url:item.url,content_type:item.content_type,force_download:item.force_download}]:[];
-  const meta=item.kind==='text'?`${new Blob([item.text||'']).size} B · ${t('v2.detail.textKind')}`:item.kind==='multi'?`${t('v2.recent.fileCount',{n:item.file_count||files.length})} · ${fmt(item.total_size||0)}`:`${fmt(item.size||0)} · ${item.content_type||t('v2.detail.fileKind')}`;
+  const mime=bareMime(item.content_type);
+  const meta=item.kind==='text'?`${new Blob([item.text||'']).size} B · ${t('v2.detail.textKind')}`:item.kind==='multi'?`${t('v2.recent.fileCount',{n:item.file_count||files.length})} · ${fmt(item.total_size||0)}`:`${fmt(item.size||0)} · ${mime&&mime!=='application/octet-stream'?mime:t('v2.detail.fileKind')}`;
+  // Multi shares preview one thing at a time: the note by default, else the
+  // first file that has a preview. Keyed by code so a different share never
+  // inherits a stale selection.
+  const canPreview=(f:ShareMultiFile)=>item.kind==='multi'&&!!f.url&&previewKind(f.content_type,f.name)!==null;
+  const [picked,setPicked]=useState<{code:string;sel:Selection}|null>(null);
+  const selected:Selection=picked?.code===item.code?picked.sel:item.kind!=='multi'?null:item.text?'note':(files.find(canPreview)?.file_id??null);
+  const select=(sel:Selection)=>{haptic();setPicked({code:item.code,sel});};
   const copy=(s:string)=>{haptic('success');void navigator.clipboard?.writeText(s).catch(()=>{});};
   // File shares download from the attachment proxy. Pure text shares have no
   // storage URL at all — they live inside the select response — so package the
@@ -59,30 +73,72 @@ export function PickupDetail({item,onClose}:{item:ShareSelectResponse;onClose:()
       <div data-r="grabber" style={{display:'none',padding:'10px 0 4px'}}><div style={{width:36,height:5,borderRadius:999,background:'var(--grab)',margin:'0 auto'}}/></div>
       <div style={{display:'flex',alignItems:'flex-start',gap:12,padding:'18px 20px 14px',borderBottom:'1px solid var(--ln)'}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:18,fontWeight:700,letterSpacing:'-.01em',color:'var(--tx)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name|| (item.kind==='text'?t('v2.recent.textShare'):item.code)}</div><div style={{fontSize:12,color:'var(--tx3)',marginTop:3}}>{meta}</div></div><button type="button" data-yd="icon-btn" onClick={onClose} style={close}><Icon name="i-x" size={15}/></button></div>
       <div style={{padding:'16px 20px 20px'}}>
-        <Preview item={item}/>
-        {files.length>0&&<div style={{marginTop:14,border:'1px solid var(--ln)',borderRadius:12,overflow:'hidden'}}>{files.map((f,i)=><a key={f.file_id||i} href={downloadHref(f.url)||'#'} download={f.name||undefined} rel="noopener noreferrer" onClick={()=>haptic()} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderTop:i?'1px solid var(--ln)':'none',fontSize:14,color:'var(--tx1)'}}><Icon name={iconFor(f.content_type)} size={16} style={{color:'var(--tx3)',flexShrink:0}}/><span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:'var(--tx3)'}}>{fmt(f.size)}</span><Icon name="i-dl" size={16} style={{color:'var(--act)',flexShrink:0}}/></a>)}</div>}
+        {item.kind==='multi'?<MultiPreview item={item} files={files} selected={selected} onShowNote={()=>select('note')}/>:<Preview item={item}/>}
+        {files.length>0&&<div style={{marginTop:14,border:'1px solid var(--ln)',borderRadius:12,overflow:'hidden'}}>{files.map((f,i)=>{
+          const edge={borderTop:i?'1px solid var(--ln)':'none'};
+          // Rows without a preview (and the single row of a file share) stay
+          // one big download link, as before.
+          if(!canPreview(f))return <a key={f.file_id||i} href={downloadHref(f.url)||'#'} download={f.name||undefined} rel="noopener noreferrer" onClick={()=>haptic()} style={{...row,...edge,padding:'11px 14px'}}><FileRowBody f={f}/><Icon name="i-dl" size={16} style={{color:'var(--act)',flexShrink:0}}/></a>;
+          // Previewable rows: the row selects the preview, the icon downloads.
+          const active=selected===f.file_id;
+          return <div key={f.file_id} style={{...row,...edge,gap:0,background:active?'var(--p1)':'transparent'}}>
+            <button type="button" aria-pressed={active} title={t('v2.detail.preview')} onClick={()=>select(f.file_id)} style={rowBtn}><FileRowBody f={f} active={active}/></button>
+            <a href={downloadHref(f.url)||'#'} download={f.name||undefined} rel="noopener noreferrer" aria-label={t('v2.detail.download')} title={t('v2.detail.download')} onClick={()=>haptic()} style={rowDl}><Icon name="i-dl" size={16}/></a>
+          </div>;
+        })}</div>}
         <div data-r="pickup-actions" style={{display:'flex',gap:8,marginTop:16,flexWrap:'wrap'}}>{hasDownload&&<button type="button" data-yd="btn" data-r="download" onClick={downloadCurrent} style={primary}><Icon name="i-dl" size={16}/>{item.kind==='text'?t('v2.detail.download'):t('v2.detail.downloadAll')}</button>}<button type="button" data-yd="quiet" onClick={()=>copy(item.code)} style={quiet}><Icon name="i-copy" size={15}/>{t('v2.detail.copyCode')}</button><button type="button" data-yd="quiet" onClick={()=>copy(`${location.origin}/s/${item.code}`)} style={quiet}><Icon name="i-link" size={15}/>{t('v2.detail.shareLink')}</button></div>
       </div>
     </div>
   </div>;
 }
+function FileRowBody({f,active=false}:{f:ShareMultiFile;active?:boolean}){
+  return <>
+    <Icon name={active?'i-eye':iconFor(f.content_type)} size={16} style={{color:active?'var(--act)':'var(--tx3)',flexShrink:0}}/>
+    <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:active?600:undefined}}>{f.name}</span>
+    <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:'var(--tx3)'}}>{fmt(f.size)}</span>
+  </>;
+}
+
 function Preview({item}:{item:ShareSelectResponse}){
+  if(item.kind==='text')return <TextPreview text={item.text||''} markdown="auto"/>;
+  return <FilePreview key={item.code} file={{url:item.url,name:item.name,size:item.size,content_type:item.content_type}}/>;
+}
+
+/** Preview slot of a multi share: the note, or the file picked in the list. */
+function MultiPreview({item,files,selected,onShowNote}:{item:ShareSelectResponse;files:ShareMultiFile[];selected:Selection;onShowNote:()=>void}){
   const {t}=useTranslation();
-  if(item.kind==='text')return <TextPreview text={item.text||''}/>;
-  // A multi share may carry a note; it takes the preview slot above the file list.
-  if(item.kind==='multi'&&item.text)return <NotePreview text={item.text}/>;
-  const url=item.url;const ct=item.content_type||'';
-  if(url&&ct.startsWith('image/'))return <img src={url} alt={item.name||undefined} style={media}/>;
-  if(url&&ct.startsWith('video/'))return <video controls src={url} style={media}/>;
-  if(url&&ct.startsWith('audio/'))return <div style={placeholder}><audio controls src={url} style={{width:'90%'}}/></div>;
-  if(url&&ct==='application/pdf')return <iframe src={url} title={item.name||'PDF'} style={{...media,height:'52vh'}}/>;
-  // Uploaded text files (.md, .txt, .json, .log, .yaml, source code…) arrive as
-  // kind='file', so they used to fall straight through to the grey placeholder
-  // even though the Markdown renderer below was already built for pasted text.
-  // Fetch the body and reuse it.
-  if(url&&item.kind==='file'&&isTextPreviewable(item.content_type,item.name))
-    return <RemoteTextPreview url={url} size={item.size} name={item.name}/>;
-  return <div style={placeholder}><Icon name={iconFor(ct)} size={26}/><span style={{fontSize:13}}>{item.kind==='multi'?t('v2.detail.multiShare'):ct||t('v2.detail.downloadable')}</span></div>;
+  if(selected==='note'&&item.text)return <NotePreview text={item.text}/>;
+  const f=files.find((x)=>x.file_id===selected);
+  if(!f)return <div style={placeholder}><Icon name="i-folder" size={26}/><span style={{fontSize:13}}>{t('v2.detail.multiShare')}</span></div>;
+  return <div>
+    <div style={caption}>
+      <span style={captionLabel}>{f.name}</span>
+      {item.text&&<button type="button" data-yd="quiet" onClick={onShowNote} style={noteCopy}><Icon name="i-pen" size={13}/>{t('v2.detail.note')}</button>}
+    </div>
+    <FilePreview key={f.file_id} file={f}/>
+  </div>;
+}
+
+/**
+ * One file's preview, chosen from the server-reported type (the exact type the
+ * download proxy serves) plus the extension rules in `lib/preview`. Media that
+ * the browser cannot decode (HEIC outside Safari, an unsupported codec) falls
+ * back to the placeholder instead of showing a broken widget.
+ */
+function FilePreview({file}:{file:{url:string|null;name:string|null;size:number|null;content_type:string|null}}){
+  const {t}=useTranslation();
+  const [failed,setFailed]=useState(false);
+  const fail=()=>setFailed(true);
+  const url=file.url;
+  const kind=url?previewKind(file.content_type,file.name):null;
+  if(!url||!kind||failed)return <div style={placeholder}><Icon name={iconFor(file.content_type)} size={26}/><span style={{fontSize:13,textAlign:'center',padding:'0 16px'}}>{failed?t('v2.detail.previewFailed'):t('v2.detail.downloadable')}</span></div>;
+  if(kind==='image')return <img src={url} alt={file.name||''} onError={fail} style={media}/>;
+  if(kind==='video')return <video controls preload="metadata" src={url} onError={fail} style={media}/>;
+  if(kind==='audio')return <div style={placeholder}><audio controls preload="metadata" src={url} onError={fail} style={{width:'90%'}}/></div>;
+  if(kind==='pdf')return <iframe src={url} title={file.name||'PDF'} style={{...media,height:'52vh'}}/>;
+  // Text files (.md, .txt, .json, .log, .yaml, source code…): fetch the body
+  // and reuse the text renderer.
+  return <RemoteTextPreview url={url} size={file.size} name={file.name}/>;
 }
 
 /**
@@ -104,11 +160,11 @@ function NotePreview({text}:{text:string}){
     }
   };
   return <div>
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:8}}>
-      <span style={{fontSize:12,color:'var(--tx3)'}}>{t('v2.detail.note')}</span>
+    <div style={caption}>
+      <span style={captionLabel}>{t('v2.detail.note')}</span>
       <button type="button" data-yd="quiet" onClick={copy} style={noteCopy}><Icon name="i-copy" size={13}/>{copied?t('v2.detail.copied'):t('v2.detail.copyText')}</button>
     </div>
-    <TextPreview text={text} compact/>
+    <TextPreview text={text} markdown="auto" compact/>
   </div>;
 }
 
@@ -132,24 +188,27 @@ function RemoteTextPreview({url,size,name}:{url:string;size:number|null;name:str
 
   if(state.status==='loading')return <div style={placeholder}><span style={{fontSize:13}}>{t('v2.detail.loadingPreview')}</span></div>;
   if(state.status==='error')return <div style={placeholder}><Icon name="i-file" size={26}/><span style={{fontSize:13}}>{t('v2.detail.previewFailed')}</span></div>;
-  return <TextPreview text={state.text} forceMarkdown={isMarkdownName(name)} truncated={state.truncated}/>;
+  // Only Markdown files render as Markdown. CSV, JSON, source code and logs
+  // stay verbatim: the heuristic would misread a `# comment` or `| a | b |`.
+  return <TextPreview text={state.text} markdown={isMarkdownName(name)?'force':'off'} truncated={state.truncated}/>;
 }
 
 /**
- * Text share preview. Markdown-looking content renders as HTML (sanitized by
- * `renderMarkdown`), with a toggle back to the raw source; anything else stays
- * verbatim so pasted logs and code are never mangled.
+ * Text preview. Markdown renders as HTML (sanitized by `renderMarkdown`), with
+ * a toggle back to the raw source; anything else stays verbatim so pasted logs
+ * and code are never mangled.
  *
- * `forceMarkdown` is set for uploaded `.md` files: the extension is a stronger
- * signal than the heuristic, so a Markdown file whose body happens to contain
- * no block-level construct still gets the rendered/raw toggle.
+ * `markdown`: `auto` applies the {@link looksLikeMarkdown} heuristic (pasted
+ * text shares and notes, which have no extension); `force` is for uploaded
+ * `.md` files, where the extension is a stronger signal than the heuristic;
+ * `off` keeps every other uploaded file raw.
  *
  * `compact` drops the minimum height for short notes that sit above a file list.
  */
-function TextPreview({text,forceMarkdown=false,truncated=false,compact=false}:{text:string;forceMarkdown?:boolean;truncated?:boolean;compact?:boolean}){
+function TextPreview({text,markdown,truncated=false,compact=false}:{text:string;markdown:MarkdownMode;truncated?:boolean;compact?:boolean}){
   const {t}=useTranslation();
-  const box=compact?preCompact:pre;
-  const isMd=useMemo(()=>forceMarkdown||looksLikeMarkdown(text),[forceMarkdown,text]);
+  const box=compact?textBoxCompact:textBox;
+  const isMd=useMemo(()=>markdown==='force'||(markdown==='auto'&&looksLikeMarkdown(text)),[markdown,text]);
   const [raw,setRaw]=useState(false);
   const html=useMemo(()=>(isMd&&!raw?renderMarkdown(text):''),[isMd,raw,text]);
   const mdRef=useRef<HTMLDivElement>(null);
@@ -205,7 +264,7 @@ function TextPreview({text,forceMarkdown=false,truncated=false,compact=false}:{t
 
   if(!isMd||raw)return <div style={{position:'relative'}}>
     {isMd&&<button type="button" data-yd="quiet" onClick={()=>{haptic();setRaw(false);}} style={toggle}>{t('v2.detail.rendered')}</button>}
-    <pre style={box}>{text}</pre>
+    <pre style={{...box,...rawText}}>{text}</pre>
     {truncated&&<div style={truncNote}>{t('v2.detail.previewTruncated')}</div>}
   </div>;
   return <div style={{position:'relative'}}>
@@ -247,10 +306,19 @@ const sheet:React.CSSProperties={width:'min(760px, 100%)',maxWidth:'100%',maxHei
 const close:React.CSSProperties={width:30,height:30,borderRadius:8,border:'1px solid var(--ln)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--tx2)',cursor:'pointer',flexShrink:0,background:'transparent'};
 const placeholder:React.CSSProperties={height:200,borderRadius:12,background:'var(--p1)',border:'1px solid var(--ln)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8,color:'var(--tx3)'};
 const media:React.CSSProperties={width:'100%',maxHeight:'40vh',objectFit:'contain',borderRadius:12,background:'var(--p1)',border:'1px solid var(--ln)'};
-/* Shared by the raw <pre> and the rendered Markdown container so toggling
-   between them does not resize the dialog. */
-const pre:React.CSSProperties={minHeight:140,maxHeight:'40vh',overflow:'auto',margin:0,borderRadius:12,background:'var(--p1)',border:'1px solid var(--ln)',padding:14,whiteSpace:'pre-wrap',wordBreak:'break-word',fontFamily:'inherit',fontSize:13.5,lineHeight:1.7,color:'var(--tx1)'};
-const preCompact:React.CSSProperties={...pre,minHeight:0,maxHeight:'28vh'};
+/* Shared frame of the raw <pre> and the rendered Markdown container so toggling
+   between them does not resize the dialog. It must not carry `white-space`:
+   an inline `pre-wrap` here beat the `[data-r='md']` stylesheet reset and turned
+   every source newline into a visible gap between paragraphs and list items. */
+const textBox:React.CSSProperties={minHeight:140,maxHeight:'40vh',overflow:'auto',margin:0,borderRadius:12,background:'var(--p1)',border:'1px solid var(--ln)',padding:14,wordBreak:'break-word',fontFamily:'inherit',fontSize:13.5,lineHeight:1.7,color:'var(--tx1)'};
+const textBoxCompact:React.CSSProperties={...textBox,minHeight:0,maxHeight:'28vh'};
+/* Raw source only: keep its line breaks. */
+const rawText:React.CSSProperties={whiteSpace:'pre-wrap'};
+const caption:React.CSSProperties={display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:8,minHeight:26};
+const captionLabel:React.CSSProperties={fontSize:12,color:'var(--tx3)',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'};
+const row:React.CSSProperties={display:'flex',alignItems:'center',gap:10,fontSize:14,color:'var(--tx1)'};
+const rowBtn:React.CSSProperties={flex:1,minWidth:0,display:'flex',alignItems:'center',gap:10,padding:'11px 0 11px 14px',border:0,background:'transparent',color:'inherit',font:'inherit',textAlign:'left',cursor:'pointer'};
+const rowDl:React.CSSProperties={display:'flex',alignItems:'center',alignSelf:'stretch',padding:'0 14px 0 10px',color:'var(--act)',flexShrink:0};
 const noteCopy:React.CSSProperties={display:'inline-flex',alignItems:'center',gap:5,fontSize:12,padding:'4px 9px',border:'1px solid var(--ln)',borderRadius:7,background:'transparent',color:'var(--tx2)',fontFamily:'inherit',cursor:'pointer'};
 const toggle:React.CSSProperties={position:'absolute',top:8,right:8,zIndex:1,fontSize:11.5,padding:'3px 9px',border:'1px solid var(--ln2)',borderRadius:7,background:'var(--pn)',color:'var(--tx2)',fontFamily:'inherit',cursor:'pointer'};
 /* Shown under a preview that hit the 512 KB read cap, so nobody assumes the

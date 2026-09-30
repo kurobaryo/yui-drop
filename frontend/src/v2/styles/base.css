@@ -138,9 +138,10 @@
 }
 
 /* ── Rendered Markdown (text-share preview) ─────────────────────────────── */
-/* The container reuses the raw-text <pre> box, so reset the inherited
-   `white-space: pre-wrap` — otherwise every newline in the source would
-   double up with the block spacing the rendered elements already provide. */
+/* Source newlines must not survive into rendered Markdown, or they double up
+   with the block spacing the rendered elements already provide. The container
+   shares its frame with the raw-text <pre> but not its inline `pre-wrap` (an
+   inline style would beat this rule); the reset stays for inherited values. */
 [data-r='md'] {
   white-space: normal;
 }

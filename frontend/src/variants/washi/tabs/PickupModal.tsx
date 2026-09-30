@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { ShareSelectResponse } from '@/lib/api/share';
-import { downloadHref, isTextPreviewable } from '@/lib/preview';
+import { downloadHref, fetchTextPreview, previewKind } from '@/lib/preview';
 import type { WashiColors } from '../palettes';
 import { fmtSize } from '../utils';
 
@@ -32,23 +32,16 @@ export interface PickupModalProps {
 type Classified = 'image' | 'pdf' | 'video' | 'audio' | 'text' | 'other';
 
 /**
- * Classify by MIME for the media branches; text detection is delegated to the
- * shared `isTextPreviewable` helper, which also consults the filename. The
- * backend guesses content types with Python's `mimetypes`, which returns
- * `null` for `.log` / `.yaml` / `.env` and non-`text/*` strings for others,
- * so a MIME-only check silently drops most real-world text shares.
+ * Delegates to the shared `previewKind` helper, so this modal and the v2 pickup
+ * dialog agree on what is previewable (server-reported type, extension
+ * fallback, never-inline guards). Collection rooms reuse this modal with the
+ * uploader-declared type; the guards keep that safe too.
  */
 function classify(
   ct: string | null | undefined,
   name?: string | null,
 ): Classified {
-  const lc = (ct ?? '').split(';')[0]!.trim().toLowerCase();
-  if (lc.startsWith('image/')) return 'image';
-  if (lc === 'application/pdf') return 'pdf';
-  if (lc.startsWith('video/')) return 'video';
-  if (lc.startsWith('audio/')) return 'audio';
-  if (isTextPreviewable(ct, name)) return 'text';
-  return 'other';
+  return previewKind(ct, name) ?? 'other';
 }
 
 function extOf(name: string | null | undefined): string {
@@ -87,6 +80,9 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
   const [linkCopied, setLinkCopied] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [pdfLoaded, setPdfLoaded] = useState(false);
+  // Set when the browser cannot decode the media (e.g. HEIC outside Safari);
+  // the body then falls back to the "download it" card.
+  const [mediaFailed, setMediaFailed] = useState(false);
   const [textLoading, setTextLoading] = useState(false);
   const [textBody, setTextBody] = useState<string | null>(
     item.kind === 'text' ? item.text ?? '' : null,
@@ -111,27 +107,27 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
     if (item.kind !== 'file') return;
     if (!item.url) return;
     if (classify(item.content_type, item.name) !== 'text') return;
-    let cancelled = false;
+    const ac = new AbortController();
     setTextLoading(true);
-    fetch(item.url)
-      .then((r) => r.text())
-      .then((body) => {
-        if (!cancelled) setTextBody(body);
+    // Capped read (512 KB) so a huge log cannot lock up the tab; the download
+    // link below always carries the whole file.
+    fetchTextPreview(item.url, item.size, ac.signal)
+      .then((r) => {
+        if (!ac.signal.aborted) setTextBody(r.text);
       })
       .catch(() => {
-        if (!cancelled) setTextBody(null);
+        if (!ac.signal.aborted) setTextBody(null);
       })
       .finally(() => {
-        if (!cancelled) setTextLoading(false);
+        if (!ac.signal.aborted) setTextLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => ac.abort();
   }, [item]);
 
   const name = item.name ?? (item.kind === 'text' ? 'text.txt' : item.kind === 'multi' ? 'multi' : '—');
   const ext = extOf(item.name);
-  const cls = item.kind === 'file' ? classify(item.content_type, item.name) : item.kind === 'text' ? 'text' : 'other';
+  const classified = item.kind === 'file' ? classify(item.content_type, item.name) : item.kind === 'text' ? 'text' : 'other';
+  const cls = mediaFailed && classified !== 'text' ? 'other' : classified;
   const isImage = cls === 'image';
   const isText = item.kind === 'text' || cls === 'text';
   const isPdf = cls === 'pdf';
@@ -307,6 +303,7 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
                   src={item.url}
                   alt={name}
                   onLoad={() => setImageLoaded(true)}
+                  onError={() => setMediaFailed(true)}
                   style={{
                     display: imageLoaded ? 'block' : 'none',
                     margin: '0 auto',
@@ -380,10 +377,22 @@ export function PickupModal({ c, item, onClose, shareLinkPath }: PickupModalProp
               />
             </div>
           ) : isVideo && item.url ? (
-            <video src={item.url} controls style={{ width: '100%', maxHeight: 480, background: 'black' }} />
+            <video
+              src={item.url}
+              controls
+              preload="metadata"
+              onError={() => setMediaFailed(true)}
+              style={{ width: '100%', maxHeight: 480, background: 'black' }}
+            />
           ) : isAudio && item.url ? (
             <div style={{ padding: 32 }}>
-              <audio src={item.url} controls style={{ width: '100%' }} />
+              <audio
+                src={item.url}
+                controls
+                preload="metadata"
+                onError={() => setMediaFailed(true)}
+                style={{ width: '100%' }}
+              />
             </div>
           ) : isMulti ? (
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
