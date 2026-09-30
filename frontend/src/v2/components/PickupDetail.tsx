@@ -135,7 +135,9 @@ function FilePreview({file}:{file:{url:string|null;name:string|null;size:number|
   if(kind==='image')return <img src={url} alt={file.name||''} onError={fail} style={media}/>;
   if(kind==='video')return <video controls preload="metadata" src={url} onError={fail} style={media}/>;
   if(kind==='audio')return <div style={placeholder}><audio controls preload="metadata" src={url} onError={fail} style={{width:'90%'}}/></div>;
-  if(kind==='pdf')return <iframe src={url} title={file.name||'PDF'} style={{...media,height:'52vh'}}/>;
+  // Hide the thumbnail sidebar and fit the page to the sheet width; without
+  // this Chromium opens the viewer with a ~300px sidebar and clips the page.
+  if(kind==='pdf')return <iframe src={`${url}#navpanes=0&view=FitH`} title={file.name||'PDF'} style={{...media,height:'52vh'}}/>;
   // Text files (.md, .txt, .json, .log, .yaml, source code…): fetch the body
   // and reuse the text renderer.
   return <RemoteTextPreview url={url} size={file.size} name={file.name}/>;
@@ -228,7 +230,7 @@ function TextPreview({text,markdown,truncated=false,compact=false}:{text:string;
       const btn=document.createElement('button');
       btn.type='button';
       btn.dataset.yd='codecopy';
-      btn.setAttribute('aria-label',t('v2.detail.copyCode'));
+      btn.setAttribute('aria-label',t('v2.detail.copyCodeBlock'));
       btn.innerHTML=COPY_SVG;
       const onClick=(e:MouseEvent)=>{
         e.stopPropagation();
@@ -296,7 +298,7 @@ function legacyCopy(text:string):boolean{
     return false;
   }
 }
-function iconFor(ct:string|null){return ct?.startsWith('image/')?'i-img':ct?.startsWith('video/')?'i-vid':ct?.startsWith('audio/')?'i-file':'i-file';}
+function iconFor(ct:string|null){return ct?.startsWith('image/')?'i-img':ct?.startsWith('video/')?'i-vid':ct?.startsWith('audio/')?'i-audio':'i-file';}
 function fmt(n:number){if(n<1024)return`${n} B`;if(n<1024**2)return`${(n/1024).toFixed(1)} KB`;if(n<1024**3)return`${(n/1024**2).toFixed(1)} MB`;return`${(n/1024**3).toFixed(1)} GB`;}
 const backdrop:React.CSSProperties={position:'fixed',inset:0,zIndex:60,background:'rgba(4,6,10,.55)',display:'flex',alignItems:'center',justifyContent:'center',padding:24};
 /* Was 520px / 86vh, which left the preview cramped — especially for text and

@@ -931,7 +931,8 @@
       "note": "附言",
       "copyText": "复制文字",
       "preview": "预览",
-      "copied": "已复制"
+      "copied": "已复制",
+      "copyCodeBlock": "复制代码"
     },
     "pickupFailed": "取件失败",
     "header": {
