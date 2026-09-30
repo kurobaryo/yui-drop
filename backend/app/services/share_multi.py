@@ -189,8 +189,22 @@ async def init_multi_share(
     expire_style: str,
     ip: str | None,
     ua: str | None,
+    text: str | None = None,
 ) -> dict[str, Any]:
-    """Reserve a code + mint upload_token; create the parent FileCode row."""
+    """Reserve a code + mint upload_token; create the parent FileCode row.
+
+    ``text`` is an optional note stored on the parent row's ``text`` column.
+    A blank note is stored as NULL. Note that a multi parent always has
+    ``file_path`` NULL, so readers must check ``kind`` before treating a row
+    with ``text`` set as a text share.
+    """
+    note = text if text and text.strip() else None
+    if note is not None and len(note.encode("utf-8")) > settings.max_text_bytes:
+        raise ServiceError(
+            "text_too_large", code=4131, http_status=413,
+            detail={"max_bytes": settings.max_text_bytes},
+        )
+
     # Declared totals check first, before allocating a code.
     await assert_within_share_quota(
         db,
@@ -220,6 +234,7 @@ async def init_multi_share(
     row = FileCode(
         code=code,
         kind="multi",
+        text=note,
         expired_at=expired_at,
         expired_count=expired_count,
         finalized=False,
@@ -245,6 +260,7 @@ async def init_multi_share(
             "share_id": row.id,
             "declared_count": declared_file_count,
             "declared_total": declared_total_size,
+            "has_note": note is not None,
         },
     )
     await db.commit()

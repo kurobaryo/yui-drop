@@ -127,6 +127,23 @@ export const THEMES: ThemeDef[] = [
       { slug: 'teal', label: '青碧', swatch: '#0a8a8a' },
     ],
   },
+  {
+    // Also ships its own single-column home (screens/HomePorcelain.tsx),
+    // selected by slug in V2App.
+    slug: 'porcelain',
+    label: '瓷白',
+    blurb: '暖白底、细线与大留白，单栏极简首页',
+    breakpoint: 820,
+    supportsDark: true,
+    fontStack:
+      "-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans','Noto Sans CJK SC','Noto Sans SC',system-ui,sans-serif",
+    accents: [
+      { slug: 'sage', label: '鼠尾草', swatch: '#6f8a73' },
+      { slug: 'champagne', label: '香槟', swatch: '#b08d57' },
+      { slug: 'graphite', label: '石墨', swatch: '#3a3a3c' },
+      { slug: 'clay', label: '陶土', swatch: '#b07a62' },
+    ],
+  },
 ];
 
 /** The theme used when the server sends an unknown slug. */

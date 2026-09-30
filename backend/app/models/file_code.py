@@ -40,7 +40,9 @@ class FileCode(Base):
     suffix: Mapped[str | None] = mapped_column(String(32), nullable=True)
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    # File payload (file_path) OR text payload (text). Exactly one is non-null.
+    # File payload (file_path) OR text payload (text). For 'text'/'file' rows
+    # exactly one is non-null. A 'multi' parent has file_path NULL and may
+    # carry an optional note in ``text`` — see ``is_text_share``.
     size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     file_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -97,3 +99,14 @@ class FileCode(Base):
     __table_args__ = (
         Index("ix_filecodes_code_active", "code", "deleted_at"),
     )
+
+    @property
+    def is_text_share(self) -> bool:
+        """True for a pure text share.
+
+        Inferred from the payload columns rather than ``kind`` because rows
+        created before ``kind='text'`` was written still say ``'file'``. Multi
+        parents are excluded explicitly: they also have ``file_path`` NULL and
+        may hold a note in ``text``.
+        """
+        return self.kind != "multi" and self.text is not None and self.file_path is None

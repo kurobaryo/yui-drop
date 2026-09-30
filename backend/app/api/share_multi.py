@@ -91,6 +91,7 @@ async def share_multi_init(
             declared_total_size=body.declared_total_size,
             expire_value=body.expire_value,
             expire_style=body.expire_style,
+            text=body.text,
             ip=ip,
             ua=_ua(request),
         )

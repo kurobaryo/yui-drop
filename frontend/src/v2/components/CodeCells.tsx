@@ -95,6 +95,9 @@ export function CodeCells({
             <div
               key={i}
               data-r="cell"
+              // Lets a theme stylesheet restyle the active cell, whose ring is
+              // otherwise only expressed in the inline style below.
+              data-state={isActive ? 'active' : ch ? 'filled' : undefined}
               style={{
                 ...cellBase,
                 border: isActive
