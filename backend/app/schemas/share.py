@@ -98,6 +98,9 @@ class ShareMultiInitRequest(BaseModel):
     # has the upload gate off; the route checks the toggle and rejects
     # with 4003 when the gate is on and the token is missing/invalid.
     turnstile_token: str | None = None
+    # Optional note shown above the file list on pickup. Capped at
+    # ``settings.max_text_bytes`` (UTF-8) by the service, same as text shares.
+    text: str | None = None
 
 
 class ShareMultiInitResponse(BaseModel):

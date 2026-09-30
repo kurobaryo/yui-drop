@@ -467,8 +467,7 @@ async def admin_get_file_content(
     except ServiceError as e:
         raise _service_to_http(e) from e
 
-    is_text = row.text is not None and row.file_path is None
-    if not is_text:
+    if not row.is_text_share:
         raise HTTPException(status_code=404, detail="not_text_share")
 
     await record_access(

@@ -121,7 +121,7 @@ async def create_text_share(
         # text share is reported as kind="file" on the wire (harmless while
         # the only reader tested `kind == "multi"`, wrong once /api/v1
         # started surfacing it). Readers that need the old inference use
-        # `text is not None and file_path is None`.
+        # `FileCode.is_text_share`.
         kind="text",
         expired_at=expired_at,
         expired_count=expired_count,
@@ -414,7 +414,8 @@ async def resolve_share(
             "kind": "multi",
             "name": None,
             "size": None,
-            "text": None,
+            # Optional note attached at init time (None when absent).
+            "text": row.text,
             "url": None,
             "content_type": None,
             "force_download": False,
@@ -426,8 +427,7 @@ async def resolve_share(
             "files": files_out,
         }
 
-    is_text = row.text is not None and row.file_path is None
-    if is_text:
+    if row.is_text_share:
         await record_access(
             db,
             action=AccessLogAction.SHARE_RETRIEVE,

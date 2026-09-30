@@ -69,6 +69,8 @@ export function PickupDetail({item,onClose}:{item:ShareSelectResponse;onClose:()
 function Preview({item}:{item:ShareSelectResponse}){
   const {t}=useTranslation();
   if(item.kind==='text')return <TextPreview text={item.text||''}/>;
+  // A multi share may carry a note; it takes the preview slot above the file list.
+  if(item.kind==='multi'&&item.text)return <NotePreview text={item.text}/>;
   const url=item.url;const ct=item.content_type||'';
   if(url&&ct.startsWith('image/'))return <img src={url} alt={item.name||undefined} style={media}/>;
   if(url&&ct.startsWith('video/'))return <video controls src={url} style={media}/>;
@@ -81,6 +83,33 @@ function Preview({item}:{item:ShareSelectResponse}){
   if(url&&item.kind==='file'&&isTextPreviewable(item.content_type,item.name))
     return <RemoteTextPreview url={url} size={item.size} name={item.name}/>;
   return <div style={placeholder}><Icon name={iconFor(ct)} size={26}/><span style={{fontSize:13}}>{item.kind==='multi'?t('v2.detail.multiShare'):ct||t('v2.detail.downloadable')}</span></div>;
+}
+
+/**
+ * The note attached to a multi-file share. Same renderer as a text share, plus
+ * a copy button: unlike a text share there is no Download for the note itself.
+ */
+function NotePreview({text}:{text:string}){
+  const {t}=useTranslation();
+  const [copied,setCopied]=useState(false);
+  const copy=()=>{
+    const done=(ok:boolean)=>{
+      haptic(ok?'success':'error');
+      if(ok){setCopied(true);window.setTimeout(()=>setCopied(false),1400);}
+    };
+    if(navigator.clipboard?.writeText){
+      void navigator.clipboard.writeText(text).then(()=>done(true),()=>done(legacyCopy(text)));
+    }else{
+      done(legacyCopy(text));
+    }
+  };
+  return <div>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:8}}>
+      <span style={{fontSize:12,color:'var(--tx3)'}}>{t('v2.detail.note')}</span>
+      <button type="button" data-yd="quiet" onClick={copy} style={noteCopy}><Icon name="i-copy" size={13}/>{copied?t('v2.detail.copied'):t('v2.detail.copyText')}</button>
+    </div>
+    <TextPreview text={text} compact/>
+  </div>;
 }
 
 /**
@@ -114,9 +143,12 @@ function RemoteTextPreview({url,size,name}:{url:string;size:number|null;name:str
  * `forceMarkdown` is set for uploaded `.md` files: the extension is a stronger
  * signal than the heuristic, so a Markdown file whose body happens to contain
  * no block-level construct still gets the rendered/raw toggle.
+ *
+ * `compact` drops the minimum height for short notes that sit above a file list.
  */
-function TextPreview({text,forceMarkdown=false,truncated=false}:{text:string;forceMarkdown?:boolean;truncated?:boolean}){
+function TextPreview({text,forceMarkdown=false,truncated=false,compact=false}:{text:string;forceMarkdown?:boolean;truncated?:boolean;compact?:boolean}){
   const {t}=useTranslation();
+  const box=compact?preCompact:pre;
   const isMd=useMemo(()=>forceMarkdown||looksLikeMarkdown(text),[forceMarkdown,text]);
   const [raw,setRaw]=useState(false);
   const html=useMemo(()=>(isMd&&!raw?renderMarkdown(text):''),[isMd,raw,text]);
@@ -173,12 +205,12 @@ function TextPreview({text,forceMarkdown=false,truncated=false}:{text:string;for
 
   if(!isMd||raw)return <div style={{position:'relative'}}>
     {isMd&&<button type="button" data-yd="quiet" onClick={()=>{haptic();setRaw(false);}} style={toggle}>{t('v2.detail.rendered')}</button>}
-    <pre style={pre}>{text}</pre>
+    <pre style={box}>{text}</pre>
     {truncated&&<div style={truncNote}>{t('v2.detail.previewTruncated')}</div>}
   </div>;
   return <div style={{position:'relative'}}>
     <button type="button" data-yd="quiet" onClick={()=>{haptic();setRaw(true);}} style={toggle}>{t('v2.detail.raw')}</button>
-    <div ref={mdRef} data-r="md" style={pre} dangerouslySetInnerHTML={{__html:html}}/>
+    <div ref={mdRef} data-r="md" style={box} dangerouslySetInnerHTML={{__html:html}}/>
     {truncated&&<div style={truncNote}>{t('v2.detail.previewTruncated')}</div>}
   </div>;
 }
@@ -218,6 +250,8 @@ const media:React.CSSProperties={width:'100%',maxHeight:'40vh',objectFit:'contai
 /* Shared by the raw <pre> and the rendered Markdown container so toggling
    between them does not resize the dialog. */
 const pre:React.CSSProperties={minHeight:140,maxHeight:'40vh',overflow:'auto',margin:0,borderRadius:12,background:'var(--p1)',border:'1px solid var(--ln)',padding:14,whiteSpace:'pre-wrap',wordBreak:'break-word',fontFamily:'inherit',fontSize:13.5,lineHeight:1.7,color:'var(--tx1)'};
+const preCompact:React.CSSProperties={...pre,minHeight:0,maxHeight:'28vh'};
+const noteCopy:React.CSSProperties={display:'inline-flex',alignItems:'center',gap:5,fontSize:12,padding:'4px 9px',border:'1px solid var(--ln)',borderRadius:7,background:'transparent',color:'var(--tx2)',fontFamily:'inherit',cursor:'pointer'};
 const toggle:React.CSSProperties={position:'absolute',top:8,right:8,zIndex:1,fontSize:11.5,padding:'3px 9px',border:'1px solid var(--ln2)',borderRadius:7,background:'var(--pn)',color:'var(--tx2)',fontFamily:'inherit',cursor:'pointer'};
 /* Shown under a preview that hit the 512 KB read cap, so nobody assumes the
    truncated body is the whole file — the download always carries everything. */

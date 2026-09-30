@@ -82,6 +82,7 @@ export interface ShareSelectResponse {
   kind: 'text' | 'file' | 'multi';
   name: string | null;
   size: number | null;
+  /** Body of a text share, or the optional note on a multi share. */
   text: string | null;
   url: string | null;
   content_type: string | null;
@@ -122,6 +123,9 @@ export interface MultiInitRequest {
   expire_style: ExpireStyle;
   /** Turnstile token — same gating as the simple-upload path. */
   turnstile_token?: string | null;
+  /** Optional note shown above the file list on pickup (same byte cap as a
+   * text share). Returned as `text` by `shareSelect` for kind 'multi'. */
+  text?: string | null;
 }
 export interface MultiInitResponse {
   share_id: number;

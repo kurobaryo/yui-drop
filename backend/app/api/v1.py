@@ -370,8 +370,7 @@ def _row_to_list_item(row: FileCode) -> dict:
     """Project a ``FileCode`` row to the v1 list/detail wire shape."""
     base = settings.app_url.rstrip("/")
     # Text shares don't get a download URL (the body is in the resolve payload).
-    is_text = row.text is not None and row.file_path is None
-    url = None if is_text else f"{base}/api/share/download/{row.code}"
+    url = None if row.is_text_share else f"{base}/api/share/download/{row.code}"
     return {
         "code": row.code,
         "name": row.name,
