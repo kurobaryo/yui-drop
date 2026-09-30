@@ -525,7 +525,7 @@ async def admin_download_file(
         raise HTTPException(status_code=404, detail="no_binary_payload")
 
     try:
-        body, head = await open_download_stream(row.file_path)
+        body, head = await open_download_stream(row.file_path, wrapped_dek=row.wrapped_dek)
     except ServiceError as e:
         raise _service_to_http(e) from e
 
