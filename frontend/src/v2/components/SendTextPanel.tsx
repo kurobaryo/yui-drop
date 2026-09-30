@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError } from '@/lib/api';
+import { errorMessage } from '@/lib/errorMessage';
 import { shareText } from '@/lib/api/share';
 import { pushRecent } from '@/lib/recent';
 import { usePublicConfig } from '@/lib/hooks/usePublicConfig';
@@ -49,7 +49,7 @@ export function SendTextPanel() {
       setCode(res.code);
       turnstileRef.current?.reset();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : (e as Error)?.message;
+      const msg = errorMessage(e, t, t('v2.send.failedText'));
       haptic('error');
       setError(msg || t('v2.send.failedText'));
       toast.error(msg || t('v2.send.failedText'));

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 
 import { adminLogin, getAuthMethods } from '@/lib/api/admin';
-import { ApiError } from '@/lib/api';
+import { errorMessage } from '@/lib/errorMessage';
 import { useAdminStore } from '@/stores/admin';
 import { useThemeStore } from '@/stores/theme';
 import { Icon, IconSprite } from '@/v2/components/IconSprite';
@@ -26,7 +26,7 @@ export default function AdminLogin() {
   const [error,setError]=useState<string|null>(null);
 
   useEffect(()=>{const reason=searchParams.get('oidc_error');if(!reason)return;setError(t(`admin.oidc.errors.${reason}`,{defaultValue:reason}));const next=new URLSearchParams(searchParams);next.delete('oidc_error');setSearchParams(next,{replace:true});},[searchParams,setSearchParams,t]);
-  async function submit(e?:React.FormEvent){e?.preventDefault();if(submitting||!password)return;setSubmitting(true);setError(null);try{const res=await adminLogin(password);setToken(res.token,res.expires_at);navigate('/admin',{replace:true});}catch(err){setError(err instanceof ApiError?(err.message||t('admin.login.error')):t('admin.login.error'));}finally{setSubmitting(false);}}
+  async function submit(e?:React.FormEvent){e?.preventDefault();if(submitting||!password)return;setSubmitting(true);setError(null);try{const res=await adminLogin(password);setToken(res.token,res.expires_at);navigate('/admin',{replace:true});}catch(err){setError(errorMessage(err,t,t('admin.login.error')));}finally{setSubmitting(false);}}
 
   const methods=methodsQuery.data;
   const showPassword=methods?methods.password_enabled:true;

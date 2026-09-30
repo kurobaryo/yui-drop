@@ -117,18 +117,38 @@ function createClient(): AxiosInstance {
       return response;
     },
     (err: AxiosError) => {
-      // Try to surface envelope shape if the server returned one with a non-2xx.
-      const data = err.response?.data as Envelope<unknown> | undefined;
-      if (data && typeof data === 'object' && 'code' in data) {
-        // Auto-logout on auth failure.
-        if (data.code === 4011 || err.response?.status === 401) {
+      const status = err.response?.status ?? null;
+      const raw = err.response?.data as unknown;
+      // FastAPI wraps `HTTPException(detail=...)` as `{"detail": ...}`, so the
+      // envelope can sit one level down (`{"detail": {code, message}}`) or be
+      // a bare string (`{"detail": "invalid_password"}`). Only a handful of
+      // handlers return the envelope at the top level. Unwrap all three
+      // shapes; otherwise every 4xx surfaced as axios' generic
+      // "Request failed with status code N".
+      let data: Envelope<unknown> | undefined;
+      if (raw && typeof raw === 'object') {
+        const r = raw as Record<string, unknown>;
+        if ('code' in r) {
+          data = r as unknown as Envelope<unknown>;
+        } else if (r.detail && typeof r.detail === 'object' && 'code' in (r.detail as object)) {
+          data = r.detail as Envelope<unknown>;
+        } else if (typeof r.detail === 'string') {
+          data = { code: status ?? 0, message: r.detail, detail: null };
+        }
+      }
+      if (data) {
+        // Auto-logout when an admin call is rejected. Scoped to /admin so a
+        // collection member-token 401 does not wipe the admin session.
+        const url = err.config?.url ?? '';
+        if (url.startsWith('/admin') && !url.startsWith('/admin/login') &&
+            (data.code === 4011 || status === 401)) {
           useAdminStore.getState().clear();
         }
         throw new ApiError(
           data.code,
           data.message || err.message,
           data.detail,
-          err.response?.status ?? null,
+          status,
         );
       }
       // Network / timeout / non-envelope HTTP error.
