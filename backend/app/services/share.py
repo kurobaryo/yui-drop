@@ -505,7 +505,11 @@ async def open_download_stream(key: str, wrapped_dek: bytes | None = None):
         head = await storage.head(key)
     except FileNotFoundError as exc:
         raise NotFoundError("object_not_found") from exc
-    if wrapped_dek:
+    # Only backends that can write encrypted objects can hold them. A row may
+    # still carry a DEK the bytes were never encrypted with (multi-file shares
+    # created on S3 before the init-time gate checked the live backend); those
+    # objects are plaintext, so read them as-is instead of failing.
+    if wrapped_dek and hasattr(storage, "server_read_encrypted"):
         dek = unwrap_dek(wrapped_dek)
         body = await storage.server_read_encrypted(key, dek)  # type: ignore[attr-defined]
         # Plaintext size = on-disk size − fixed header (nonce + tag).
