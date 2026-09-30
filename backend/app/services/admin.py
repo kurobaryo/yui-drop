@@ -171,7 +171,7 @@ def _row_summary(row: FileCode, *, include_audit: bool = False) -> dict[str, Any
         "suffix": row.suffix,
         "name": row.name,
         "size": row.size,
-        "is_text": row.text is not None,
+        "is_text": row.is_text_share,
         "is_chunked": bool(row.is_chunked),
         "file_hash": row.file_hash,
         "expired_at": as_utc(row.expired_at).isoformat() if row.expired_at else None,

@@ -11,8 +11,12 @@ export interface ExpiryValue {
   count: number;
 }
 
-const DAY_PRESETS = [1, 3, 7, 14, 30];
-const COUNT_PRESETS = [1, 3, 5, 10, 50];
+/** Shared with the compact ExpiryMenu so both offer the same choices. */
+export const DAY_PRESETS = [1, 3, 7, 14, 30];
+export const COUNT_PRESETS = [1, 3, 5, 10, 50];
+/** Bounds for the custom inputs. */
+export const MAX_DAYS = 365;
+export const MAX_COUNT = 999;
 
 export interface ExpiryControlProps {
   value: ExpiryValue;
@@ -89,7 +93,7 @@ export function ExpiryControl({ value, onChange }: ExpiryControlProps) {
             <span style={{ fontSize: 11, color: 'var(--tx3)', whiteSpace: 'nowrap' }}>自定义</span>
             <input
               value={value.days}
-              onChange={(e) => onChange({ ...value, days: Math.max(1, Math.min(365, Number(e.target.value) || 1)) })}
+              onChange={(e) => onChange({ ...value, days: Math.max(1, Math.min(MAX_DAYS, Number(e.target.value) || 1)) })}
               inputMode="numeric"
               style={smallInput}
             />
@@ -101,7 +105,7 @@ export function ExpiryControl({ value, onChange }: ExpiryControlProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               value={value.count}
-              onChange={(e) => onChange({ ...value, count: Math.max(1, Math.min(999, Number(e.target.value) || 1)) })}
+              onChange={(e) => onChange({ ...value, count: Math.max(1, Math.min(MAX_COUNT, Number(e.target.value) || 1)) })}
               inputMode="numeric"
               style={{ ...smallInput, height: 54, padding: '0 12px', fontSize: 26, textAlign: 'center' }}
             />

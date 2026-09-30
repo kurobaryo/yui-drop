@@ -57,6 +57,17 @@ class TestShareMultiInitRequest:
         )
         assert req.turnstile_token is None
 
+    def test_accepts_optional_note(self) -> None:
+        req = ShareMultiInitRequest(
+            declared_file_count=1,
+            declared_total_size=0,
+            text="see attached",
+        )
+        assert req.text == "see attached"
+        assert ShareMultiInitRequest(
+            declared_file_count=1, declared_total_size=0
+        ).text is None
+
     def test_still_rejects_unknown_field(self) -> None:
         """extra='forbid' is intentional — only turnstile_token was missing."""
         from pydantic import ValidationError

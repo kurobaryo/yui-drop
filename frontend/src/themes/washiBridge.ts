@@ -82,6 +82,24 @@ const TEMPLATE_PALETTES: Record<string, TemplatePalette> = {
       stamp: '#0a84ff',
     },
   },
+  porcelain: {
+    light: {
+      paper: '#f7f6f2',
+      soft: '#ffffff',
+      ink: '#23231f',
+      sub: '#6f6d66',
+      accent: '#6f8a73',
+      stamp: '#6f8a73',
+    },
+    dark: {
+      paper: '#1b1a18',
+      soft: '#2b2a26',
+      ink: '#f0ede6',
+      sub: '#aba79e',
+      accent: '#8fa892',
+      stamp: '#8fa892',
+    },
+  },
 };
 
 /** Accent overrides per template — keyed by the accent slug. */
@@ -97,6 +115,12 @@ const ACCENTS: Record<string, Record<string, { light: string; dark: string }>> =
     sky: { light: '#3f7bb3', dark: '#4d8ac5' },
     graphite: { light: '#3a3a3c', dark: '#8e8e93' },
     teal: { light: '#0a8a8a', dark: '#30d5c8' },
+  },
+  porcelain: {
+    sage: { light: '#6f8a73', dark: '#8fa892' },
+    champagne: { light: '#b08d57', dark: '#c9a770' },
+    graphite: { light: '#3a3a3c', dark: '#a3a3a6' },
+    clay: { light: '#b07a62', dark: '#c99580' },
   },
 };
 
