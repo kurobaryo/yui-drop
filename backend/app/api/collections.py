@@ -47,6 +47,7 @@ from ..services import collection_sse
 from ..services import collections as svc
 from ..services import share as svc_share
 from ..services.common import ServiceError, record_access
+from ..services.inline_policy import OCTET_STREAM, file_response_headers
 
 import jwt
 
@@ -817,9 +818,10 @@ async def files_blob_stream(
     }
     if head.get("size") is not None:
         headers["content-length"] = str(head["size"])
-
-    media_type = head.get("content_type") or "application/octet-stream"
-    return StreamingResponse(body, media_type=media_type, headers=headers)
+    # Always an opaque attachment. The storage HEAD content type is whatever
+    # the uploader declared, so it is never echoed back.
+    headers.update(file_response_headers(OCTET_STREAM, inline=False))
+    return StreamingResponse(body, media_type=OCTET_STREAM, headers=headers)
 
 
 @router.delete("/{code}/files/{file_id}")

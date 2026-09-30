@@ -17,6 +17,7 @@ from ..schemas.share import (
 )
 from ..services.admin_turnstile import resolve_turnstile_config
 from ..services.common import ServiceError, record_access
+from ..services.inline_policy import OCTET_STREAM, file_response_headers
 from ..services.share import (
     authorize_download_token,
     create_simple_file_share,
@@ -215,7 +216,8 @@ async def share_download(
     headers["content-disposition"] = (
         f'attachment; filename="{_ascii}"; filename*=UTF-8\'\'{_q(display_name)}'
     )
-    return StreamingResponse(body, media_type="application/octet-stream", headers=headers)
+    headers.update(file_response_headers(OCTET_STREAM, inline=False))
+    return StreamingResponse(body, media_type=OCTET_STREAM, headers=headers)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -256,21 +258,18 @@ async def _stream_share_payload(
     except ServiceError as e:
         raise _service_to_http(e) from e
 
-    # Resolve a sensible content-type. Prefer the storage HEAD answer
-    # (S3 stores the upload-time content-type as object metadata) and
-    # fall back to the suffix-based guess we computed at resolve time.
-    ct: str = head.get("content_type") or target["content_type"]
-
-    # Some MIME types (svg, html, xml) become XSS vectors when rendered
-    # inline by browsers. For those we replay the FORCE_DOWNLOAD list and
-    # hand the bytes back as a generic attachment.
+    # The served type comes from the stored file name only (see
+    # services/inline_policy.py) — never from the storage HEAD answer, which
+    # on S3 is whatever the uploader declared. resolve_download_target has
+    # already applied the inline allowlist; anything outside it arrives
+    # with force_download set.
     force_dl: bool = bool(target["force_download"])
     # ``?dl=1`` is a client-side intent ("save this"), independent of the
-    # security-driven FORCE_DOWNLOAD_MIMES list. Either one is enough to
-    # switch us to attachment.
+    # security-driven allowlist. Either one is enough to switch us to
+    # attachment.
     as_attachment: bool = force_dl or force_attachment
     display_name: str = target["name"] or code
-    media_type = "application/octet-stream" if as_attachment else ct
+    media_type: str = OCTET_STREAM if as_attachment else target["content_type"]
 
     from urllib.parse import quote as _q
 
@@ -299,6 +298,9 @@ async def _stream_share_payload(
         # responses live on the same URL and differ only by the ``dl``
         # query parameter, which is already part of the cache key.
         "cache-control": "private, max-age=60",
+        # nosniff + sandboxed CSP + CORP/XFO. These are set explicitly so the
+        # global SecurityHeadersMiddleware (setdefault) leaves them alone.
+        **file_response_headers(media_type, inline=not as_attachment),
     }
     if head.get("size") is not None:
         headers["content-length"] = str(head["size"])
