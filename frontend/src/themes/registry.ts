@@ -135,6 +135,26 @@ export const TEMPLATES: TemplateDef[] = [
       secondaryButton: 'soft',
     },
   },
+  {
+    id: 'porcelain',
+    name: '瓷白',
+    description: '暖白 · 单栏极简首页',
+    preview: { c1: '#6f8a73', c2: '#f7f6f2', c3: '#23231f' },
+    accents: [
+      { id: 'sage', label: '鼠尾草', hex: '#6f8a73' },
+      { id: 'champagne', label: '香槟', hex: '#b08d57' },
+      { id: 'graphite', label: '石墨', hex: '#3a3a3c' },
+      { id: 'clay', label: '陶土', hex: '#b07a62' },
+    ],
+    defaultAccent: 'sage',
+    slots: {
+      dataDisplay: 'table',
+      formRow: 'label',
+      hero: 'stacked',
+      pasteAffordance: 'button',
+      secondaryButton: 'soft',
+    },
+  },
 ];
 
 export const DEFAULT_TEMPLATE = 'linear';

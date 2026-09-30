@@ -37,6 +37,12 @@ export interface RecentListProps {
   onOpen: (entry: RecentEntry) => void;
   onCopyCode: (entry: RecentEntry) => void;
   onCopyLink: (entry: RecentEntry) => void;
+  /**
+   * 'card' (default): the prototype's bordered card with inline copy buttons.
+   * 'quiet': borderless hairline rows with muted text and no inline copy
+   * buttons (the detail sheet has them), for the porcelain home.
+   */
+  variant?: 'card' | 'quiet';
 }
 
 const ICON_BY_KIND: Record<RecentEntry['kind'], string> = {
@@ -109,10 +115,11 @@ function isDead(e: RecentEntry): boolean {
 /** How many rows to show before the user asks for more. */
 const PAGE = 5;
 
-export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) {
+export function RecentList({ onOpen, onCopyCode, onCopyLink, variant = 'card' }: RecentListProps) {
   const { t, i18n } = useTranslation();
   const [items, setItems] = useState<RecentEntry[]>([]);
   const [shown, setShown] = useState(PAGE);
+  const quietMode = variant === 'quiet';
 
   const refresh = useCallback(() => {
     // Expired entries are pruned on read: the server has already deleted the
@@ -141,12 +148,22 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
   if (items.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 36 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx)' }}>{t('v2.recent.title')}</div>
-        <div style={{ fontSize: 12, color: 'var(--tx3)', marginRight: 'auto' }}>
-          {t('v2.recent.caption')}
+    <div style={{ marginTop: quietMode ? 44 : 36 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: quietMode ? 4 : 10 }}>
+        <div
+          style={
+            quietMode
+              ? { fontSize: 12, fontWeight: 500, color: 'var(--tx3)', marginRight: 'auto' }
+              : { fontSize: 13, fontWeight: 600, color: 'var(--tx)' }
+          }
+        >
+          {t('v2.recent.title')}
         </div>
+        {!quietMode && (
+          <div style={{ fontSize: 12, color: 'var(--tx3)', marginRight: 'auto' }}>
+            {t('v2.recent.caption')}
+          </div>
+        )}
         <button
           type="button"
           data-yd="quiet"
@@ -159,20 +176,25 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
             border: '1px solid transparent',
             borderRadius: 7,
             padding: '4px 8px',
+            ...(quietMode ? { fontSize: 11.5, color: 'var(--tx3)' } : null),
           }}
         >
-          <Icon name="i-trash" size={13} />
+          <Icon name="i-trash" size={quietMode ? 12 : 13} />
           {t('v2.recent.clear')}
         </button>
       </div>
 
       <div
-        style={{
-          border: '1px solid var(--ln)',
-          borderRadius: 12,
-          overflow: 'hidden',
-          background: 'var(--pn)',
-        }}
+        style={
+          quietMode
+            ? { borderTop: '1px solid var(--ln)' }
+            : {
+                border: '1px solid var(--ln)',
+                borderRadius: 12,
+                overflow: 'hidden',
+                background: 'var(--pn)',
+              }
+        }
       >
         {items.slice(0, shown).map((it, i) => (
           <div
@@ -182,8 +204,8 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 14,
-              padding: '12px 16px',
+              gap: quietMode ? 12 : 14,
+              padding: quietMode ? '11px 6px' : '12px 16px',
               borderTop: i === 0 ? 'none' : '1px solid var(--ln)',
               cursor: 'pointer',
               transition: 'background .14s',
@@ -191,20 +213,31 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
           >
             <Icon
               name={ICON_BY_KIND[it.kind] ?? 'i-file'}
-              size={18}
+              size={quietMode ? 16 : 18}
               style={{ color: 'var(--tx3)', flexShrink: 0 }}
             />
             <span
-              style={{
-                fontFamily: "'JetBrains Mono',monospace",
-                fontSize: 13,
-                fontWeight: 500,
-                color: 'var(--act)',
-                background: 'var(--acs)',
-                padding: '3px 8px',
-                borderRadius: 6,
-                flexShrink: 0,
-              }}
+              style={
+                quietMode
+                  ? {
+                      fontSize: 13,
+                      fontWeight: 500,
+                      fontVariantNumeric: 'tabular-nums',
+                      letterSpacing: '.04em',
+                      color: 'var(--tx2)',
+                      flexShrink: 0,
+                    }
+                  : {
+                      fontFamily: "'JetBrains Mono',monospace",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: 'var(--act)',
+                      background: 'var(--acs)',
+                      padding: '3px 8px',
+                      borderRadius: 6,
+                      flexShrink: 0,
+                    }
+              }
             >
               {it.code}
             </span>
@@ -212,11 +245,11 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
               style={{
                 flex: 1,
                 minWidth: 0,
-                fontSize: 14,
+                fontSize: quietMode ? 13.5 : 14,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                color: 'var(--tx1)',
+                color: quietMode ? 'var(--tx2)' : 'var(--tx1)',
               }}
             >
               {it.name || (it.kind === 'text' ? t('v2.recent.textShare') : it.code)}
@@ -224,7 +257,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
             <span
               data-r="rowmeta"
               style={{
-                fontFamily: "'JetBrains Mono',monospace",
+                fontFamily: quietMode ? 'inherit' : "'JetBrains Mono',monospace",
                 fontSize: 12,
                 color: 'var(--tx3)',
               }}
@@ -244,50 +277,54 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
             >
               {formatWhen(it.created_at, t, i18n.language)}
             </span>
-            <span
-              data-r="rowmeta"
-              style={{
-                fontSize: 12,
-                color: 'var(--tx3)',
-                minWidth: 56,
-                textAlign: 'right',
-              }}
-            >
-              {formatLeft(it, t)}
-            </span>
+            {!quietMode && (
+              <>
+                <span
+                  data-r="rowmeta"
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--tx3)',
+                    minWidth: 56,
+                    textAlign: 'right',
+                  }}
+                >
+                  {formatLeft(it, t)}
+                </span>
 
-            <button
-              type="button"
-              data-r="hide-sm"
-              data-yd="quiet"
-              style={quiet}
-              onClick={(e) => {
-                e.stopPropagation();
-                haptic('success');
-                onCopyCode(it);
-              }}
-            >
-              <Icon name="i-copy" size={13} />
-              {t('v2.recent.copyCode')}
-            </button>
-            <button
-              type="button"
-              data-r="hide-sm"
-              data-yd="quiet"
-              style={quiet}
-              onClick={(e) => {
-                e.stopPropagation();
-                haptic('success');
-                onCopyLink(it);
-              }}
-            >
-              <Icon name="i-link" size={13} />
-              {t('v2.recent.copyLink')}
-            </button>
+                <button
+                  type="button"
+                  data-r="hide-sm"
+                  data-yd="quiet"
+                  style={quiet}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptic('success');
+                    onCopyCode(it);
+                  }}
+                >
+                  <Icon name="i-copy" size={13} />
+                  {t('v2.recent.copyCode')}
+                </button>
+                <button
+                  type="button"
+                  data-r="hide-sm"
+                  data-yd="quiet"
+                  style={quiet}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptic('success');
+                    onCopyLink(it);
+                  }}
+                >
+                  <Icon name="i-link" size={13} />
+                  {t('v2.recent.copyLink')}
+                </button>
+              </>
+            )}
 
             <Icon
               name="i-chev"
-              size={15}
+              size={quietMode ? 14 : 15}
               style={{ color: 'var(--tx3)', flexShrink: 0 }}
             />
           </div>
@@ -303,7 +340,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink }: RecentListProps) 
             width: '100%',
             marginTop: 8,
             height: 38,
-            border: '1px solid var(--ln)',
+            border: quietMode ? '1px solid transparent' : '1px solid var(--ln)',
             borderRadius: 10,
             background: 'transparent',
             color: 'var(--tx2)',

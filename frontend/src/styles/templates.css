@@ -283,6 +283,111 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+ * TEMPLATE: porcelain — warm off-white, hairlines, generous whitespace.
+ * Mirrors v2/styles/themes/porcelain.css. Shape/density/type tokens not
+ * restated here inherit the :root (linear) defaults.
+ * ══════════════════════════════════════════════════════════════════════════ */
+:root[data-template="porcelain"] {
+  --bg: #f7f6f2;
+  --pn: #ffffff;
+  --p1: #f2f1ec;
+  --p2: #ffffff;
+
+  --ln: #e8e5dd;
+  --ln2: #d8d4ca;
+
+  --tx: #23231f;
+  --tx1: #2c2b27;
+  --tx2: #6f6d66;
+  --tx3: #938f86;
+
+  --ac: #6f8a73;
+  --acs: rgba(111, 138, 115, 0.13);
+  --act: #56705a;
+
+  --fill: #ecebe5;
+  --grab: #d8d4ca;
+
+  --ok: #3f7d53;
+  --warn: #a2701f;
+  --bad: #b4493a;
+
+  --sh: 0 1px 2px rgba(35, 33, 28, 0.05);
+  --shl: 0 24px 60px rgba(35, 33, 28, 0.16);
+
+  --rc: 18px;
+  --rs: 12px;
+  --ri: 8px;
+
+  --ff: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans', 'Noto Sans CJK SC', 'Noto Sans SC', system-ui, sans-serif;
+}
+
+/* Surfaces only: the dark accent triplet is set per accent slug below so a
+   custom accent (aliased further down) is never outranked. */
+:root[data-template="porcelain"][data-mode="dark"] {
+  --bg: #1b1a18;
+  --pn: #242320;
+  --p1: #2b2a26;
+  --p2: #2b2a26;
+
+  --ln: #353330;
+  --ln2: #46433e;
+
+  --tx: #f0ede6;
+  --tx1: #e3e0d8;
+  --tx2: #aba79e;
+  --tx3: #85817a;
+
+  --fill: #141311;
+  --grab: #4a4741;
+
+  --ok: #86b894;
+  --warn: #d9b068;
+  --bad: #e0907e;
+
+  --sh: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shl: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+/* Accents available inside the porcelain template. */
+:root[data-template="porcelain"][data-accent="champagne"] {
+  --ac: #b08d57;
+  --acs: rgba(176, 141, 87, 0.14);
+  --act: #8a6b3c;
+}
+:root[data-template="porcelain"][data-accent="graphite"] {
+  --ac: #3a3a3c;
+  --acs: rgba(58, 58, 60, 0.1);
+  --act: #2a2a2c;
+}
+:root[data-template="porcelain"][data-accent="clay"] {
+  --ac: #b07a62;
+  --acs: rgba(176, 122, 98, 0.14);
+  --act: #8d5c47;
+}
+:root[data-template="porcelain"][data-mode="dark"][data-accent="sage"] {
+  --ac: #8fa892;
+  --acs: rgba(143, 168, 146, 0.17);
+  --act: #adc3af;
+}
+:root[data-template="porcelain"][data-mode="dark"][data-accent="champagne"] {
+  --ac: #c9a770;
+  --acs: rgba(201, 167, 112, 0.17);
+  --act: #dcc08f;
+}
+:root[data-template="porcelain"][data-mode="dark"][data-accent="graphite"] {
+  --ac: #a3a3a6;
+  --acs: rgba(163, 163, 166, 0.18);
+  --act: #cfcfd2;
+}
+:root[data-template="porcelain"][data-mode="dark"][data-accent="clay"] {
+  --ac: #c99580;
+  --acs: rgba(201, 149, 128, 0.17);
+  --act: #ddb2a0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
  * CUSTOM ACCENT — template-independent.
  *
  * When the admin picks a custom colour we can't precompute the hover/soft
@@ -406,5 +511,47 @@
   --accent-h: 174;
   --accent-s: 64%;
   --accent-l: 51%;
+}
+
+/* porcelain accents (sage is the default) */
+:root[data-template="porcelain"] {
+  --accent-h: 129;
+  --accent-s: 11%;
+  --accent-l: 49%;
+}
+:root[data-template="porcelain"][data-accent="champagne"] {
+  --accent-h: 36;
+  --accent-s: 36%;
+  --accent-l: 52%;
+}
+:root[data-template="porcelain"][data-accent="graphite"] {
+  --accent-h: 240;
+  --accent-s: 2%;
+  --accent-l: 23%;
+}
+:root[data-template="porcelain"][data-accent="clay"] {
+  --accent-h: 18;
+  --accent-s: 33%;
+  --accent-l: 54%;
+}
+:root[data-template="porcelain"][data-mode="dark"] {
+  --accent-h: 127;
+  --accent-s: 13%;
+  --accent-l: 61%;
+}
+:root[data-template="porcelain"][data-mode="dark"][data-accent="champagne"] {
+  --accent-h: 37;
+  --accent-s: 45%;
+  --accent-l: 61%;
+}
+:root[data-template="porcelain"][data-mode="dark"][data-accent="graphite"] {
+  --accent-h: 240;
+  --accent-s: 2%;
+  --accent-l: 65%;
+}
+:root[data-template="porcelain"][data-mode="dark"][data-accent="clay"] {
+  --accent-h: 17;
+  --accent-s: 40%;
+  --accent-l: 65%;
 }
 
