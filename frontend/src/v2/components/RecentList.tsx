@@ -252,7 +252,7 @@ export function RecentList({ onOpen, onCopyCode, onCopyLink, variant = 'card' }:
                 color: quietMode ? 'var(--tx2)' : 'var(--tx1)',
               }}
             >
-              {it.name || (it.kind === 'text' ? t('v2.recent.textShare') : it.code)}
+              {it.name || (it.kind === 'text' ? t('v2.recent.textShare') : it.kind === 'multi' ? t('v2.detail.multiShare') : it.code)}
             </span>
             <span
               data-r="rowmeta"
