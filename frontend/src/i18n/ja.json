@@ -931,7 +931,8 @@
       "note": "メモ",
       "copyText": "テキストをコピー",
       "preview": "プレビュー",
-      "copied": "コピーしました"
+      "copied": "コピーしました",
+      "copyCodeBlock": "コードブロックをコピー"
     },
     "pickupFailed": "受け取りに失敗しました",
     "header": {
