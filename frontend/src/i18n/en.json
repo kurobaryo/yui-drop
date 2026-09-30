@@ -1010,5 +1010,24 @@
       "closed": "This collection is closed or expired"
     },
     "codeAria": "Pickup code"
+  },
+  "errors": {
+    "code_not_found": "No share with that code. Check the digits — it may also have been deleted.",
+    "code_expired": "This code has expired or reached its pickup limit.",
+    "share_expired": "This share has expired.",
+    "share_not_finalized": "This share is still uploading. Try again in a moment.",
+    "ip_banned": "Too many wrong codes. Please wait a while and try again.",
+    "invalid_password": "Wrong password.",
+    "password_login_disabled": "Password login is disabled. Use a passkey or SSO.",
+    "invalid_token": "Your admin session expired. Please sign in again.",
+    "missing_bearer": "Please sign in first.",
+    "rate_limited": "Too many requests. Please slow down and retry.",
+    "turnstile_failed": "Human verification failed. Please try again.",
+    "text_too_large": "The text is too long.",
+    "file_too_large": "The file is larger than the allowed limit.",
+    "file_too_large_for_simple_upload": "The file is larger than the allowed limit.",
+    "empty_file": "The file is empty.",
+    "network_error": "Network error. Check your connection and retry.",
+    "server_error": "Server error. Please try again shortly."
   }
 }

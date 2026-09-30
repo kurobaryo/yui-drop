@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError } from '@/lib/api';
+import { errorMessage } from '@/lib/errorMessage';
 import { pushRecent } from '@/lib/recent';
 import { uploadFile, uploadFiles, type StorageBackend } from '@/lib/uploader';
 import { usePublicConfig } from '@/lib/hooks/usePublicConfig';
@@ -78,7 +78,7 @@ export function SendFilePanel() {
       haptic('success');
       turnstileRef.current?.reset();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : (e as Error)?.message;
+      const msg = errorMessage(e, t, t('v2.send.failedUpload'));
       haptic('error');
       setError(msg || t('v2.send.failedUpload'));
       toast.error(msg || t('v2.send.failedUpload'));
