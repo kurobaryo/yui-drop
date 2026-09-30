@@ -930,6 +930,7 @@
       "previewTruncated": "预览已截断，下载可获取完整文件",
       "note": "附言",
       "copyText": "复制文字",
+      "preview": "预览",
       "copied": "已复制"
     },
     "pickupFailed": "取件失败",

@@ -19,8 +19,9 @@ that live in the backend are pinned here:
    and non-``text/*`` strings for ``.json`` / ``.py``, so the frontend's
    ``startsWith('text/')`` check dropped most real text shares. The tests below
    pin the *server side* of that contract — the content types actually emitted
-   for the common extensions — so a future change to ``_guess_content_type``
-   can't silently break the frontend allow-list that consumes them.
+   for the common extensions — so a future change to the served-type policy
+   (``services/inline_policy.py``) can't silently break the frontend
+   allow-list that consumes them.
 
 The frontend half of the fix lives in ``frontend/src/lib/preview.ts``.
 """
@@ -49,8 +50,10 @@ class TestDownloadDisposition:
         assert res.status_code == 200
         cd = res.headers["content-disposition"]
         assert cd.startswith("inline;"), cd
-        # The real content-type must survive so <img>/<iframe> can render it.
-        assert res.headers["content-type"].startswith("text/markdown")
+        # Text previews are always served as plain UTF-8 text (see
+        # services/inline_policy.py); the frontend picks the Markdown
+        # renderer from the file extension.
+        assert res.headers["content-type"] == "text/plain; charset=utf-8"
 
     async def test_dl_flag_forces_attachment(self, client) -> None:
         code = await _upload(client, "note.md", b"# Title\n")
@@ -93,7 +96,7 @@ class TestDownloadDisposition:
     async def test_forced_download_mime_stays_attachment_without_the_flag(
         self, client
     ) -> None:
-        """The XSS allow-list is independent of ?dl= and must not regress."""
+        """The inline allowlist is independent of ?dl= and must not regress."""
         code = await _upload(client, "page.html", b"<h1>hi</h1>")
         res = await client.get(f"/api/share/download/{code}")
         assert res.headers["content-disposition"].startswith("attachment;")
@@ -108,19 +111,32 @@ class TestDownloadDisposition:
 
 
 class TestSelectContentTypes:
-    """Pin the content types the frontend preview allow-list is built around."""
+    """Pin the content types the frontend preview allow-list is built around.
+
+    ``/select`` reports the type the proxy will actually serve. It used to be a
+    ``mimetypes`` guess, which differs between hosts (``.yaml`` resolved to
+    ``application/yaml`` on a developer machine with ``/etc/mime.types`` and to
+    ``None`` in the slim production image) and returns ``None`` for ``.log``.
+    The server-side allowlist in ``services/inline_policy.py`` is explicit, so
+    these values no longer depend on the environment.
+    """
 
     @pytest.mark.parametrize(
         ("filename", "expected_ct"),
         [
-            ("a.md", "text/markdown"),
-            ("a.txt", "text/plain"),
-            ("a.csv", "text/csv"),
-            ("a.json", "application/json"),
-            ("a.html", "text/html"),
+            ("a.md", "text/plain; charset=utf-8"),
+            ("a.txt", "text/plain; charset=utf-8"),
+            ("a.csv", "text/plain; charset=utf-8"),
+            ("a.json", "text/plain; charset=utf-8"),
+            ("a.log", "text/plain; charset=utf-8"),
+            ("a.env", "text/plain; charset=utf-8"),
+            ("a.yaml", "text/plain; charset=utf-8"),
+            ("a.yml", "text/plain; charset=utf-8"),
+            ("a.toml", "text/plain; charset=utf-8"),
+            ("a.html", "application/octet-stream"),
         ],
     )
-    async def test_known_extensions_report_their_mime(
+    async def test_known_extensions_report_the_served_type(
         self, client, filename: str, expected_ct: str
     ) -> None:
         code = await _upload(client, filename)
@@ -128,50 +144,14 @@ class TestSelectContentTypes:
         assert res.status_code == 200, res.text
         assert res.json()["detail"]["content_type"] == expected_ct
 
-    @pytest.mark.parametrize("filename", ["a.log", "a.env"])
-    async def test_unguessable_extensions_report_null(
+    @pytest.mark.parametrize("filename", ["a.log", "a.env", "a.yaml", "a.toml"])
+    async def test_text_config_files_are_never_force_download(
         self, client, filename: str
     ) -> None:
-        """These are exactly the files the MIME-only frontend check dropped.
-
-        ``mimetypes`` has no entry for them, so ``content_type`` comes back
-        ``None`` and the frontend must fall back to the extension allow-list in
-        ``lib/preview.ts``.
-        """
+        """Plain config files must stay previewable."""
         code = await _upload(client, filename)
         res = await client.post("/api/share/select", json={"code": code})
         assert res.status_code == 200, res.text
-        assert res.json()["detail"]["content_type"] is None
-
-    @pytest.mark.parametrize("filename", ["a.yaml", "a.yml", "a.toml"])
-    async def test_environment_dependent_extensions_are_not_relied_upon(
-        self, client, filename: str
-    ) -> None:
-        """``mimetypes`` answers differently depending on the host's mime.types.
-
-        Measured 2026-07-29 on identical CPython 3.12.13:
-
-            developer machine (has /etc/mime.types)  ``.yaml`` → application/yaml
-            production container (slim, no mime.types) ``.yaml`` → None
-
-        ``mimetypes.init()`` reads the system mime database at import, so the
-        same code returns different content types in dev and prod. This is the
-        core reason the frontend must never gate its text preview on the MIME
-        alone — ``lib/preview.ts`` treats a null/octet-stream MIME as "consult
-        the extension allow-list".
-
-        The assertion is deliberately loose: it pins the *contract* (never a
-        binary/undisplayable type) rather than a value that legitimately varies
-        by environment, so this test can't go red just because a base image
-        started shipping mime-support.
-        """
-        code = await _upload(client, filename)
-        res = await client.post("/api/share/select", json={"code": code})
-        assert res.status_code == 200, res.text
-        ct = res.json()["detail"]["content_type"]
-        assert ct is None or ct.startswith(("text/", "application/")), ct
-        # Whatever it resolves to, it must never be force-download: these are
-        # plain config files, and forcing an attachment would kill the preview.
         assert res.json()["detail"]["force_download"] is False
 
     async def test_select_hands_out_the_proxy_url(self, client) -> None:

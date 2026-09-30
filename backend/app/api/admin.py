@@ -74,6 +74,7 @@ from ..services.admin_uploads import (
 )
 from ..services.admin_webauthn import is_password_login_enabled
 from ..services.common import ServiceError, record_access
+from ..services.inline_policy import OCTET_STREAM, file_response_headers
 from ..services.share import open_download_stream
 from .deps import require_admin
 
@@ -555,7 +556,8 @@ async def admin_download_file(
     # Mark the response so the caller can tell it came through the
     # admin-preview path rather than the public retrieval one.
     headers["x-admin-preview"] = "1"
-    return StreamingResponse(body, media_type="application/octet-stream", headers=headers)
+    headers.update(file_response_headers(OCTET_STREAM, inline=False))
+    return StreamingResponse(body, media_type=OCTET_STREAM, headers=headers)
 
 
 # ────────────────────────────────────────────────────────────────────────────

@@ -931,6 +931,7 @@
       "previewTruncated": "Preview truncated — download for the full file",
       "note": "Note",
       "copyText": "Copy text",
+      "preview": "Preview",
       "copied": "Copied"
     },
     "pickupFailed": "Pickup failed",
