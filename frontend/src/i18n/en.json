@@ -1012,7 +1012,23 @@
       "opening": "Opening collection…",
       "closed": "This collection is closed or expired"
     },
-    "codeAria": "Pickup code"
+    "codeAria": "Pickup code",
+    "porcelain": {
+      "intro": "Share files and text for a limited time — pick up with a 6-digit code.",
+      "modeLabel": "Pick up or send",
+      "pickup": "Pick up",
+      "send": "Send",
+      "pickupHint": "Opens automatically at 6 digits",
+      "paste": "or paste a code",
+      "placeholder": "Write something, or drag / paste files here",
+      "dropHere": "Drop to add files",
+      "addFiles": "Add files",
+      "removeFile": "Remove {{name}}",
+      "expiresDays": "Expires in {{n}}d",
+      "expiresCount": "Max pickups: {{n}}",
+      "back": "Back",
+      "admin": "Admin"
+    }
   },
   "errors": {
     "code_not_found": "No share with that code. Check the digits — it may also have been deleted.",

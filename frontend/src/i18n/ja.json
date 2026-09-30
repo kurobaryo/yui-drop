@@ -1011,7 +1011,23 @@
       "opening": "収集ボックスを開いています…",
       "closed": "この収集ボックスは閉鎖または期限切れです"
     },
-    "codeAria": "受取コード"
+    "codeAria": "受取コード",
+    "porcelain": {
+      "intro": "ファイルやテキストを一時共有。6桁のコードで受け取れます。",
+      "modeLabel": "受け取り・送信",
+      "pickup": "受け取る",
+      "send": "送る",
+      "pickupHint": "6桁入力で自動的に開きます",
+      "paste": "貼り付けも可",
+      "placeholder": "テキストを入力、またはファイルをドラッグ／貼り付け",
+      "dropHere": "ドロップしてファイルを追加",
+      "addFiles": "ファイルを追加",
+      "removeFile": "{{name}} を削除",
+      "expiresDays": "{{n}}日で失効",
+      "expiresCount": "受取{{n}}回で失効",
+      "back": "戻る",
+      "admin": "管理"
+    }
   },
   "errors": {
     "code_not_found": "このコードの共有は見つかりません。数字を確認してください（削除された可能性もあります）。",

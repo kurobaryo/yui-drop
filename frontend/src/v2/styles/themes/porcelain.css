@@ -1,0 +1,326 @@
+/*
+ * v2 theme: Porcelain
+ *
+ * Warm off-white page, white panels, warm hairlines, near-black warm text.
+ * The accent is used sparingly — focus rings, the active code cell, the
+ * drag-over state and the logo dot. Primary buttons are solid text colour
+ * instead. Dark mode is warm charcoal, not blue-black.
+ *
+ * This theme also has its own home layout (screens/HomePorcelain.tsx); the
+ * `data-p` hooks it exposes are styled at the bottom of this file. Every
+ * other screen (pickup sheet, collection room, admin) is restyled through the
+ * shared tokens and the same `data-r` responsive hooks as the other themes.
+ *
+ * Token values are mirrored in styles/templates.css (admin + legacy bridge);
+ * keep the two in sync.
+ */
+
+[data-template='porcelain'] {
+  --bg: #f7f6f2;
+  --pn: #ffffff;
+  --p1: #f2f1ec;
+  --p2: #ffffff;
+  --ln: #e8e5dd;
+  --ln2: #d8d4ca;
+  --tx: #23231f;
+  --tx1: #2c2b27;
+  --tx2: #6f6d66;
+  --tx3: #938f86;
+  --ac: #6f8a73;
+  --acs: rgba(111, 138, 115, 0.13);
+  --act: #56705a;
+  --ok: #3f7d53;
+  --warn: #a2701f;
+  --bad: #b4493a;
+  --sh: 0 1px 2px rgba(35, 33, 28, 0.05);
+  --shl: 0 24px 60px rgba(35, 33, 28, 0.16);
+
+  /* Shape — soft but not pill-shaped; the composer card is the largest. */
+  --rc: 18px;
+  --rs: 12px;
+  --ri: 8px;
+  /* Segmented-control track: a shade below the page. */
+  --fill: #ecebe5;
+  --grab: #d8d4ca;
+  --chev: var(--tx3);
+
+  accent-color: var(--ac);
+}
+
+[data-template='porcelain'][data-accent='champagne'] {
+  --ac: #b08d57;
+  --acs: rgba(176, 141, 87, 0.14);
+  --act: #8a6b3c;
+}
+[data-template='porcelain'][data-accent='graphite'] {
+  --ac: #3a3a3c;
+  --acs: rgba(58, 58, 60, 0.1);
+  --act: #2a2a2c;
+}
+[data-template='porcelain'][data-accent='clay'] {
+  --ac: #b07a62;
+  --acs: rgba(176, 122, 98, 0.14);
+  --act: #8d5c47;
+}
+
+[data-template='porcelain'][data-mode='dark'] {
+  --bg: #1b1a18;
+  --pn: #242320;
+  --p1: #2b2a26;
+  --p2: #2b2a26;
+  --ln: #353330;
+  --ln2: #46433e;
+  --tx: #f0ede6;
+  --tx1: #e3e0d8;
+  --tx2: #aba79e;
+  --tx3: #85817a;
+  --ok: #86b894;
+  --warn: #d9b068;
+  --bad: #e0907e;
+  --sh: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shl: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --fill: #141311;
+  --grab: #4a4741;
+}
+
+/* Dark accent triplets are keyed on the accent slug (never `custom`), so a
+   custom accent — inline vars on <html>, or the templates.css alias on admin
+   pages — is not overridden by the dark block's higher specificity. */
+[data-template='porcelain'][data-mode='dark']:not([data-accent='custom']) {
+  --ac: #8fa892;
+  --acs: rgba(143, 168, 146, 0.17);
+  --act: #adc3af;
+}
+[data-template='porcelain'][data-mode='dark'][data-accent='champagne'] {
+  --ac: #c9a770;
+  --acs: rgba(201, 167, 112, 0.17);
+  --act: #dcc08f;
+}
+[data-template='porcelain'][data-mode='dark'][data-accent='graphite'] {
+  --ac: #a3a3a6;
+  --acs: rgba(163, 163, 166, 0.18);
+  --act: #cfcfd2;
+}
+[data-template='porcelain'][data-mode='dark'][data-accent='clay'] {
+  --ac: #c99580;
+  --acs: rgba(201, 149, 128, 0.17);
+  --act: #ddb2a0;
+}
+
+/* ── Global touches ─────────────────────────────────────────────────────── */
+/* Replace the UA's blue focus ring / selection with the accent. */
+[data-template='porcelain'] :focus-visible {
+  outline: 2px solid var(--ac);
+  outline-offset: 2px;
+}
+[data-template='porcelain'] ::selection {
+  background: color-mix(in srgb, var(--ac) 28%, transparent);
+}
+[data-template='porcelain'] [data-yd-root] {
+  -webkit-font-smoothing: antialiased;
+  caret-color: var(--ac);
+}
+
+/* Primary actions are solid text colour with a panel-coloured label rather
+   than an accent fill. Components set the accent fill inline, hence
+   !important. Every `data-yd="btn"` element is a primary action. */
+[data-template='porcelain'] [data-yd='btn'] {
+  background: var(--tx) !important;
+  color: var(--pn) !important;
+  box-shadow: none !important;
+}
+
+/* ── Interaction states ─────────────────────────────────────────────────── */
+[data-template='porcelain'] [data-yd='btn']:hover {
+  opacity: 0.86;
+}
+[data-template='porcelain'] [data-yd='icon-btn']:hover {
+  background: var(--p1);
+  color: var(--tx);
+}
+[data-template='porcelain'] [data-yd='row']:hover {
+  background: var(--p1);
+}
+[data-template='porcelain'] [data-yd='tab']:hover,
+[data-template='porcelain'] [data-yd='link']:hover {
+  color: var(--tx);
+}
+[data-template='porcelain'] [data-yd='quiet']:hover {
+  border-color: var(--ln2);
+  color: var(--tx);
+}
+[data-template='porcelain'] [data-yd='soft']:hover {
+  background: var(--ln);
+}
+[data-template='porcelain'] [data-yd='drop'] {
+  transition: border-color 0.16s, background 0.16s;
+}
+[data-template='porcelain'] [data-yd='drop']:hover {
+  border-color: var(--ac);
+  background: var(--acs);
+}
+
+/* ── Code cells ─────────────────────────────────────────────────────────── */
+/* CodeCells sets a monospace, bordered cell inline; porcelain wants a white
+   tile with an inset hairline and an inset accent ring on the active cell. */
+[data-template='porcelain'] [data-r='cells'] {
+  justify-content: center;
+  gap: 10px !important;
+}
+[data-template='porcelain'] [data-r='cell'] {
+  flex: 0 1 58px !important;
+  min-width: 0 !important;
+  max-width: 58px !important;
+  height: 70px !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: var(--pn) !important;
+  box-shadow: var(--sh), inset 0 0 0 1px var(--ln) !important;
+  font-family: inherit !important;
+  font-size: 30px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums;
+}
+[data-template='porcelain'] [data-r='cell'][data-state='active'] {
+  box-shadow: inset 0 0 0 2px var(--ac) !important;
+}
+
+/* ── Home (screens/HomePorcelain.tsx) ───────────────────────────────────── */
+[data-template='porcelain'] [data-p='panel'] [data-r='two-col'] {
+  /* The collection panel's two columns don't fit the 560px home panel. */
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 18px !important;
+  padding: 22px 20px !important;
+}
+[data-template='porcelain'] [data-p='panel'] [data-r='side'] {
+  border-left: none !important;
+  padding-left: 0 !important;
+  border-top: 1px solid var(--ln);
+  padding-top: 16px !important;
+}
+[data-template='porcelain'] [data-p='composer'] textarea::placeholder {
+  color: var(--tx3);
+}
+[data-template='porcelain'] [data-p='chip-x']:hover {
+  color: var(--tx);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+/* Structural collapse for the shared screens (pickup sheet, admin), at the
+   same breakpoint as Linear. */
+@media (max-width: 820px) {
+  [data-template='porcelain'] [data-r='two-col'] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  [data-template='porcelain'] [data-r='side'] {
+    border-left: none !important;
+    padding-left: 0 !important;
+    border-top: 1px solid var(--ln);
+    padding-top: 16px !important;
+  }
+  [data-template='porcelain'] [data-r='mob-only'] {
+    display: flex !important;
+  }
+  [data-template='porcelain'] [data-r='hide-sm'] {
+    display: none !important;
+  }
+  [data-template='porcelain'] [data-r='tabs'] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  [data-template='porcelain'] [data-r='tabs']::-webkit-scrollbar {
+    display: none;
+  }
+  [data-template='porcelain'] [data-r='go'] {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-top: 12px !important;
+    height: 50px !important;
+  }
+  [data-template='porcelain'] [data-r='coderow'] {
+    flex-wrap: wrap !important;
+  }
+  [data-template='porcelain'] [data-r='hero'] {
+    font-size: 29px !important;
+  }
+  [data-template='porcelain'] [data-r='pad'] {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  [data-template='porcelain'] [data-r='rowmeta'] {
+    display: none !important;
+  }
+  [data-template='porcelain'] [data-r='sheet'] {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    border-radius: 18px 18px 0 0 !important;
+    animation: ydSheet 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
+    height: auto;
+    max-height: 70vh;
+  }
+  [data-template='porcelain'] [data-r='grabber'] {
+    display: block !important;
+  }
+  [data-template='porcelain'] [data-r='backdrop'] {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  [data-template='porcelain'] [data-r='stats'] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  [data-template='porcelain'] [data-r='sidebar'] {
+    display: none !important;
+  }
+  [data-template='porcelain'] [data-r='mobnav'] {
+    display: grid !important;
+  }
+  [data-template='porcelain'] [data-r='adminmain'] {
+    padding-bottom: 80px !important;
+  }
+}
+
+/* Phone widths: tighter home chrome, smaller code cells, icon-only attach. */
+@media (max-width: 600px) {
+  [data-template='porcelain'] [data-p='header'] {
+    padding: 14px 16px !important;
+  }
+  [data-template='porcelain'] [data-p='footer'] {
+    padding: 18px 16px 22px !important;
+  }
+  [data-template='porcelain'] [data-p='main'] {
+    padding: 5vh 16px 32px !important;
+  }
+  [data-template='porcelain'] [data-p='title'] {
+    font-size: 26px !important;
+  }
+  [data-template='porcelain'] [data-p='sub'] {
+    font-size: 14px !important;
+  }
+  [data-template='porcelain'] [data-p='seg'] {
+    margin-top: 26px !important;
+  }
+  [data-template='porcelain'] [data-p='panel'] {
+    margin-top: 22px !important;
+  }
+  [data-template='porcelain'] [data-p='composer'] {
+    padding: 14px !important;
+  }
+  [data-template='porcelain'] [data-p='composer'] textarea {
+    min-height: 96px !important;
+  }
+  [data-template='porcelain'] [data-p='attach-label'] {
+    display: none;
+  }
+  [data-template='porcelain'] [data-r='cells'] {
+    gap: 7px !important;
+  }
+  [data-template='porcelain'] [data-r='cell'] {
+    flex-basis: 46px !important;
+    max-width: 46px !important;
+    height: 58px !important;
+    font-size: 24px !important;
+    border-radius: 12px !important;
+  }
+}

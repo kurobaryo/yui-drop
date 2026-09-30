@@ -22,7 +22,9 @@ import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/Turnst
 import { IconSprite } from './components/IconSprite';
 import { SiteFooter } from './components/SiteFooter';
 import { SiteHeader } from './components/SiteHeader';
+import { PorcelainFooter, PorcelainHeader } from './components/PorcelainChrome';
 import { Home } from './screens/Home';
+import { HomePorcelain } from './screens/HomePorcelain';
 import { NewCollection } from './screens/NewCollection';
 import { DocsV2 } from './screens/DocsV2';
 import { RoomV2 } from './screens/RoomV2';
@@ -61,6 +63,10 @@ export function V2App() {
   const brandName = useThemeStore((s) => s.brandName);
   const heroTitle = useThemeStore((s) => s.heroTitle);
   const heroSubtitle = useThemeStore((s) => s.heroSubtitle);
+  const lockMode = useThemeStore((s) => s.lockMode);
+  // Porcelain has its own home layout and chrome; every other screen and
+  // every other theme renders exactly as before.
+  const porcelain = template === 'porcelain';
 
   useApplyTheme({ theme: template, mode, accent, accentCustom });
 
@@ -147,6 +153,20 @@ export function V2App() {
     });
   }, []);
 
+  // Porcelain's 收集箱 view lives in history state rather than component
+  // state, so the browser back gesture closes it instead of leaving the site.
+  const collectionOpen =
+    (location.state as { view?: string } | null)?.view === 'collection';
+  const openCollection = useCallback(() => {
+    haptic();
+    if (!collectionOpen) navigate('/', { state: { view: 'collection' } });
+  }, [collectionOpen, navigate]);
+  const closeCollection = useCallback(() => {
+    // Pop the entry openCollection pushed; on a fresh load there is none.
+    if (location.key !== 'default') navigate(-1);
+    else navigate('/', { replace: true });
+  }, [location.key, navigate]);
+
   return (
     <div
       data-yd-root="1"
@@ -162,19 +182,44 @@ export function V2App() {
       }}
     >
       <IconSprite />
-      <SiteHeader
-        brandName={brandName}
-        dark={dark}
-        onToggleMode={toggleMode}
-        langLabel={LANGS[langIndex].label}
-        onCycleLang={cycleLang}
-      />
+      {porcelain ? (
+        <PorcelainHeader
+          brandName={brandName}
+          dark={dark}
+          onToggleMode={toggleMode}
+          lockMode={lockMode}
+          langLabel={LANGS[langIndex].label}
+          onCycleLang={cycleLang}
+          onOpenCollection={openCollection}
+        />
+      ) : (
+        <SiteHeader
+          brandName={brandName}
+          dark={dark}
+          onToggleMode={toggleMode}
+          langLabel={LANGS[langIndex].label}
+          onCycleLang={cycleLang}
+        />
+      )}
       {location.pathname.startsWith('/c/') ? (
         <RoomV2 />
       ) : location.pathname === '/collection/new' ? (
         <NewCollection />
       ) : location.pathname === '/docs' ? (
         <DocsV2 />
+      ) : porcelain ? (
+        <HomePorcelain
+          brandName={brandName}
+          heroSubtitle={heroSubtitle}
+          collectionOpen={collectionOpen}
+          onCloseCollection={closeCollection}
+          onSubmitCode={onSubmitCode}
+          onOpenRecent={onOpenRecent}
+          onCopyCode={(e) => copy(e.code)}
+          onCopyLink={(e) =>
+            copy(`${window.location.origin}/${e.kind === 'collection' ? 'c' : 's'}/${e.code}`)
+          }
+        />
       ) : (
         <Home
           heroTitle={heroTitle}
@@ -187,7 +232,7 @@ export function V2App() {
           }
         />
       )}
-      <SiteFooter />
+      {porcelain ? <PorcelainFooter /> : <SiteFooter />}
       {config.turnstileProtectPickup && config.turnstileSiteKey && (
         <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
           <TurnstileWidget ref={turnstileRef} mode="invisible-on-submit" siteKey={config.turnstileSiteKey} onVerify={() => {}} onExpire={() => {}} onError={() => {}} />
