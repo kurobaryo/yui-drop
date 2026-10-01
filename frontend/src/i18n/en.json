@@ -935,7 +935,10 @@
       "copied": "Copied",
       "copyCodeBlock": "Copy code block",
       "table": "Table",
-      "tableCut": "The table shows at most {{rows}} rows × {{cols}} columns — download for the full file"
+      "tableCut": "The table shows at most {{rows}} rows × {{cols}} columns — download for the full file",
+      "openNewTab": "Open in new tab",
+      "fullScreen": "Full screen",
+      "closeViewer": "Exit full screen"
     },
     "pickupFailed": "Pickup failed",
     "header": {

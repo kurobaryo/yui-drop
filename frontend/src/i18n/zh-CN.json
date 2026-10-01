@@ -934,7 +934,10 @@
       "copied": "已复制",
       "copyCodeBlock": "复制代码",
       "table": "表格",
-      "tableCut": "表格最多显示 {{rows}} 行 × {{cols}} 列，下载可获取完整文件"
+      "tableCut": "表格最多显示 {{rows}} 行 × {{cols}} 列，下载可获取完整文件",
+      "openNewTab": "在新标签页打开",
+      "fullScreen": "全屏查看",
+      "closeViewer": "退出全屏"
     },
     "pickupFailed": "取件失败",
     "header": {
