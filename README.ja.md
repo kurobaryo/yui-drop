@@ -1,14 +1,17 @@
 <div align="center">
 
-# Yui-Drop
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/cover-dark.png">
+  <img alt="Yui Drop：あるデバイスでファイルやテキストを送り、別のデバイスで 6 桁のコードを使って受け取る" src="./docs/images/cover-light.png" width="100%">
+</picture>
 
-### 6桁の暗証番号でファイルとテキストを共有するセルフホスト型ファイル宅配ロッカー
+# Yui Drop
 
-[中文 (デフォルト)](./README.md) · [English](./README.en.md) · 日本語 (このページ)
+**セルフホストできるファイル・テキスト共有ツール。リンクではなく 6 桁の受け取りコードを渡します。**
 
-[ライブデモ](https://drop.leod.me) · [クイックスタート](#quick-start)
+[中文](./README.md) · [English](./README.en.md) · 日本語
 
-![Yui-Drop ホーム — 受け取りビュー（ダークテーマ）](./docs/screenshots/home-pickup-dark.png)
+[クイックスタート](#クイックスタート) · [設定](#設定) · [セキュリティ](#セキュリティ) · [API](#api) · [デモ](https://drop.leod.me)
 
 </div>
 
@@ -16,269 +19,192 @@
 
 ## 概要
 
-Yui-Drop は、モダンでセルフホスト可能な「ファイル宅配ロッカー」です。ファイルを投函する（あるいはテキストを貼り付ける）と、6桁の暗証番号が発行されます。あとはその番号を相手に伝えるだけ。アカウント登録もリンク共有もメール送信も不要で、電話口で読み上げられるシンプルな数字ひとつで完結します。
+Yui Drop は、ファイルやテキストを相手に渡すための小さな Web アプリです。ファイルを入れる、テキストを書く、またはその両方を送ると、6 桁の受け取りコードが発行されます。相手はどのデバイスでもそのコードを入力するだけで、プレビューやダウンロードができます。アカウントもメールアドレスもリンクも不要で、コードは口頭で伝えられるほど短くなっています。
 
-[vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox) に着想を得た完全な書き直し版で、Linear 風の UI、モバイルファーストのレイアウト、モダンな Python / JS スタック（FastAPI + React 18）、より厳格なデフォルトのセキュリティ設定、そして Cloudflare R2 / S3 のマルチパート直接アップロードを軸に構築されています。API サーバーが大きなファイルに触れることはありません。
+共有には必ず期限があり、日数または受け取り回数で指定できます。Yui Drop は Docker コンテナ 1 つで動作し、メタデータは SQLite に、ファイルはローカルディスク（保存時暗号化）または任意の S3 互換ストレージ（Cloudflare R2 など）に保存します。
 
-Yui-Drop is a modern, self-hostable "file-codebox": drop a file (or paste a text snippet), get a short 6-digit pickup code, share the code, done. No accounts, no links, no email — just a number you can read out over the phone.
-
-It's a fresh rewrite inspired by [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox), built around a Linear-style UI, mobile-first layout, modern Python/JS stacks (FastAPI + React 18), tighter security defaults, and Cloudflare R2 / S3 multipart direct-upload so the API server never touches large files.
-
----
-
-<div align="center">
-
-🔒 **デフォルトで安全** — TLS 1.3、保存時 AES-256 暗号化（R2 SSE）、厳格な CSP、レート制限
-✨ **モダンなスタック** — React 18、FastAPI、SQLAlchemy 2.0、S3 マルチパート直接アップロード
-📦 **セルフホスト** — `docker compose up` 一発でスタック全体をデプロイ
-
-🔒 **Secure by design** — TLS 1.3, AES-256 at-rest (R2 SSE), strict CSP, rate-limited
-✨ **Modern stack** — React 18, FastAPI, SQLAlchemy 2.0, S3 multipart direct upload
-📦 **Self-hosted** — single `docker compose up` deploys the whole stack
-
-</div>
-
----
+[vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox) に着想を得た独立した実装で、コードは共有していません。
 
 ## 機能
 
-- 🔑 **6桁の暗証番号** — 短く、覚えやすく、口頭でも共有しやすい
-- 📁 **ファイルとテキスト** — 最大 10 GB のファイルをアップロード、あるいはテキストを貼り付け
-- 👁️ **ブラウザ内プレビュー** — 画像、PDF、動画、音声、テキスト、Markdown をその場で表示。ダウンロードは必要なときだけ
-- 🪣 **差し替え可能なストレージ** — ローカルファイルシステム、S3 / Cloudflare R2（マルチパート直接アップロード対応）、OneDrive、WebDAV
-- ⚡ **バケットへの直接アップロード** — 大きなファイルはブラウザからバケットへ直接ストリーミング。再開可能、パートの並列送信、失敗時の自動リトライに対応
-- 🎨 **5種類のアクセントカラー** + ライト / ダーク / システム連動モード。すべてデバイスごとに保存
-- 🌐 **3言語の UI** — English、简体中文、日本語。自動検出かつ手動で切り替え可能
-- 🛡️ **セキュリティ最優先** — 下記の [セキュリティ](#security) を参照
-- 🗑️ **ソフトデリート + 管理者用ゴミ箱** — 期限切れや管理者が削除した共有は、管理者がゴミ箱を空にするまで復元可能
-- 🔌 **プログラム向け API アクセス** — 管理者発行の Bearer キーで、スクリプトや他のアプリから `/api/v1/*` の安定した API（アップロード、リスト、参照）を利用できます。[公開ドキュメント](https://drop.leod.me/docs) または [`docs/API.md`](./docs/API.md) を参照。
+**送信**
+- 1 つの入力欄ですべて完結します。テキストの入力、スクリーンショットの貼り付け、ファイルのドラッグ、またはその組み合わせで送れます。ファイルと一緒に送ったテキストは、メッセージとしてファイル一覧の上に表示されます。
+- 1 ファイル最大 10 GB、1 回の共有で最大 200 ファイル（いずれも設定可能）。
+- S3 / R2 を使う場合、ファイルはブラウザからバケットへ直接マルチパートでアップロードされます。再開に対応しており、大きなファイルが API サーバーを経由することはありません。
+- 期限は時間（1 時間〜1 年）または受け取り回数で設定できます。
 
-## アーキテクチャ
+**受け取り**
+- 6 マスの数字入力で、最後の桁を入れると自動で開きます。コードの貼り付けにも対応し、共有ごとに直接開けるリンクもあります。
+- 画像、動画、音声、PDF、Markdown、CSV/TSV（表として表示）、JSON、ログ、ソースコードをブラウザ内でプレビューできます。各ファイルは新しいタブ、または全画面ビューアーで大きく表示できます。
+- ファイルは個別にも、まとめてもダウンロードできます。
 
-```
-┌──────────────┐      ┌──────────────┐      ┌──────────────────┐
-│   React SPA  │◄────►│   FastAPI    │◄────►│   SQLite / DB    │
-│  Vite + TS   │      │  Python 3.12 │      │ （メタデータのみ）│
-└──────┬───────┘      └──────┬───────┘      └──────────────────┘
-       │                     │
-       │  multipart 直接送信 │  presign / complete
-       └─────────────┐ ┌─────┘
-                     ▼ ▼
-              ┌──────────────────┐
-              │   オブジェクト   │
-              │   ストレージ     │
-              │  (R2 / S3 / FS)  │
-              └──────────────────┘
-```
+**コレクション**
+- 複数人で使う投函ルームです。ルームコードを知っている人なら誰でも参加し、ファイルのアップロードやメッセージの投稿ができます。作成者は専用の管理パスワードでルームを管理します。
 
-- **フロントエンド** — React 18、Vite、TypeScript、Tailwind、react-i18next、TanStack Query、Zustand、lucide-react
-- **バックエンド** — FastAPI、SQLAlchemy 2.0（async）、Alembic マイグレーション、Pydantic v2、structlog、slowapi
-- **ストレージ抽象化** — 単一の `StorageBackend` インターフェース。`.env` でバックエンドを切り替え可能
-- S3 / R2 利用時は **ファイルが API サーバーを通過しません** — ブラウザから presigned multipart URL 経由でバケットへ直接送信されます
+**外観**
+- 3 つのテーマ（Porcelain、Linear、Apple）を切り替えられ、それぞれ複数のアクセントカラーがあります。サイト名、タイトル、紹介文は管理画面から編集できます。
+- システムのライト / ダーク設定に追従し、手動でも切り替えられます。
+- 日本語、English、简体中文に対応し、ブラウザの言語から自動で選びます。
+- モバイルファーストの設計です。スマートフォンではボトムシートと大きなタップ領域を使い、対応環境では触覚フィードバックもあります。「視差効果を減らす」が有効な場合、アニメーションは自動で無効になります。
+
+**管理**
+- 共有の検索、プレビュー、ごみ箱、アクセスログ、ストレージ設定を備えた管理画面。
+- パスワード、パスキー（WebAuthn）、または独自の OIDC プロバイダーでサインインできます。
+- スクリプトや他のアプリ向けに、管理者が API キーを発行できます（`/api/v1/*`）。
 
 ## クイックスタート
 
-### ワンライナーインストール（推奨）
+### ワンライナーでインストール
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kurobaryo/yui-drop/main/scripts/install.sh | bash
 ```
 
-インストーラーは次の処理を行います：
-1. リポジトリを `./yui-drop` にクローン
-2. 強力なランダム値の `ADMIN_TOKEN` と `JWT_SECRET` を生成
-3. 初期 `.env` を書き出し（オブジェクトストレージを使う場合は後でバケット向けに編集します）
-4. `docker compose up -d --build` を実行
-5. 管理画面の URL と token を表示
-
-その後、ブラウザで <http://localhost:8000> を開いてください。デフォルトのストレージバックエンドはローカルファイルシステムなので、まず試してみるのに最適です。
+インストーラーは、リポジトリを `./yui-drop` にクローンし、`ADMIN_TOKEN`、`JWT_SECRET`、`SECRETS_KEY` を生成して初期 `.env` を作成します。その後 `docker compose up -d --build` を実行し、管理画面の URL を表示します。完了したら <http://localhost:8000> を開いてください。デフォルトではファイルをローカルディスクに保存します。
 
 ### 手動インストール
 
 ```bash
-# 1. クローン
 git clone https://github.com/kurobaryo/yui-drop.git
 cd yui-drop
-
-# 2. シークレットを生成し .env を作成
 cp .env.example .env
-# .env を編集 — 少なくとも ADMIN_TOKEN、JWT_SECRET、必要に応じて S3 / R2 の認証情報を設定
-
-# 3. 起動
+# ADMIN_TOKEN、JWT_SECRET、SECRETS_KEY を設定します（生成方法はファイル内に記載）。
+# 必要に応じて S3 / R2 の認証情報も設定します。
 docker compose up -d --build
-
-# 4. ブラウザで開く
-open http://localhost:8000
 ```
 
-### 開発環境（Dockerなし）
+データベースのマイグレーションはコンテナ起動時に自動で実行されます。
+
+### ローカル開発
 
 ```bash
-# バックエンド
+# バックエンド（Python 3.12）
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 
-# フロントエンド（別のターミナルで）
+# フロントエンド（別ターミナル、Node 22）
 cd frontend
 pnpm install
-pnpm dev   # → http://localhost:5173、/api を :8000 へプロキシ
+pnpm dev        # http://localhost:5173、/api は :8000 にプロキシ
 ```
+
+テスト：`cd backend && pytest`。型チェックとビルド：`cd frontend && pnpm exec tsc --noEmit && pnpm build`。
 
 ## 設定
 
-設定はすべて環境変数（`.env`）で行います。完全なリストは [`.env.example`](./.env.example) を参照してください。主な変数は以下のとおりです：
+設定はすべて `.env` の環境変数で行います。全項目とコメントは [`.env.example`](./.env.example) にあります。主な項目は次のとおりです。
 
-| 変数 | デフォルト | 用途 |
+| 変数 | 既定値 | 用途 |
 |---|---|---|
-| `ADMIN_TOKEN` | *ランダム* | 初期管理者パスワード（初回起動時にハッシュ化されます） |
-| `JWT_SECRET`  | *ランダム* | サーバー側 JWT 署名鍵 |
-| `STORAGE_BACKEND` | `local` | `local`、`s3`、`onedrive`、`webdav` |
-| `S3_ENDPOINT_URL` | *(空)* | 例：`https://<account>.r2.cloudflarestorage.com` |
-| `S3_BUCKET_NAME`  | *(空)* | アップロードファイルを保管するバケット |
-| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | *(空)* | R2 / S3 の認証情報 |
-| `RATE_LIMIT_UPLOAD_PER_MIN` | `5` | IP ごとのアップロードレート制限 |
-| `RATE_LIMIT_RETRIEVE_FAILS_PER_HOUR` | `20` | IP ごとの取得失敗回数上限（自動 BAN） |
-| `MAX_UPLOAD_BYTES` | `10737418240` | 単一ファイルサイズの上限（デフォルト 10 GiB） |
-| `STORAGE_QUOTA_BYTES` | *(無制限)* | すべての共有を合計したストレージ容量上限 |
-| `EXPIRE_SWEEPER_INTERVAL_MIN` | `10` | ソフトデリートの定期処理の実行間隔 |
-| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | *(空)* | 任意の Cloudflare Turnstile ボット対策 |
-| `ALLOWED_ORIGINS` | *(デプロイ先ホスト)* | CORS のホワイトリスト。本番環境では絶対に `*` にしないこと |
+| `ADMIN_TOKEN` | — | 初期管理パスワード（ハッシュ化して保存） |
+| `JWT_SECRET` | — | 管理セッションの署名鍵 |
+| `SECRETS_KEY` | — | ローカルディスク上のファイルとデータベース内の秘密情報を暗号化する 32 バイトの鍵。未設定だとアプリは起動しません。 |
+| `APP_URL` / `ALLOWED_ORIGINS` | `http://localhost:8000` | 公開 URL と CORS の許可リスト。本番環境で `*` は使わないでください。 |
+| `STORAGE_BACKEND` | `local` | `local` または `s3`（Cloudflare R2 を含む任意の S3 互換サービス） |
+| `S3_ENDPOINT_URL`、`S3_BUCKET_NAME`、`S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY` | — | `STORAGE_BACKEND=s3` のときのバケット認証情報 |
+| `MAX_FILE_BYTES` | `10737418240` | 1 ファイルの上限（10 GiB） |
+| `MAX_FILES_PER_SHARE` | `200` | 1 回の共有あたりのファイル数上限 |
+| `STORAGE_QUOTA_BYTES` | 無制限 | すべての共有の合計ストレージ容量 |
+| `RATE_LIMIT_UPLOAD_PER_MIN` / `_PER_HOUR` / `_PER_DAY` | `5` / `30` / `200` | IP ごとのアップロード回数制限 |
+| `RATE_LIMIT_RETRIEVE_FAILS_PER_HOUR` | `20` | IP ごとに許容するコード入力ミスの回数。超えると一時的にブロック |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | 任意の Cloudflare Turnstile ボット対策 |
 
-管理者が実行時に変更できる設定（ストレージ認証情報、レート制限、UI ラベルなど）は DB に保存され、`/admin/settings` から編集できます。機密性の高いシークレット（`ADMIN_TOKEN`、`JWT_SECRET`）は `.env` に残り、DB に書き戻されることはありません。
+テーマ、ストレージ、レート制限、サインイン方法、サイトの文言は、管理画面からいつでも変更できます。これらはデータベースに保存され、秘密情報は暗号化されます。`ADMIN_TOKEN`、`JWT_SECRET`、`SECRETS_KEY` は `.env` にのみ置かれます。
+
+本番構成、R2 バケットの CORS、リバースプロキシの注意点は [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) を参照してください。
 
 ## セキュリティ
 
-UI に表示される *「🔒 安全加密 · 匿名」* バッジの裏付けは次のとおりです。
+Yui Drop は日常的な手早い共有のためのツールで、エンドツーエンド暗号化では**ありません**。サーバーはアップロードされた内容を読み取れます。ゼロ知識の共有が必要な場合は、[Magic Wormhole](https://github.com/magic-wormhole/magic-wormhole) など専用のツールを使ってください。
 
-### 暗号化される対象
+**暗号化**
+- 通信中：すべて HTTPS。HTTPS で配信している場合は HSTS を送信します。
+- 保存時：ローカルディスク上のファイルは、共有ごとに個別の鍵を使って AES-256-GCM で暗号化され、その鍵は `SECRETS_KEY` で保護されます。S3 / R2 上のオブジェクトはプロバイダーの AES-256 サーバー側暗号化を使います。
+- 管理パスワードと API キーはハッシュのみを保存します。
 
-- **通信経路** — クライアント ↔ サーバー間の通信はすべて HTTPS（TLS 1.3）。Caddy / Nginx Proxy Manager と Let's Encrypt を組み合わせて配置することを推奨します。
-- **バケット内の保存時データ** — Cloudflare R2 および AWS S3 は、すべてのオブジェクトを AES-256 でサーバーサイド暗号化（SSE）します。クライアント側の作業は不要で、鍵はストレージプロバイダーが管理します。これは「ディスクが盗まれる」「物理メディアが押収される」といった脅威モデルをカバーします。
-- **管理者パスワード** — ソルト付きハッシュとして保存。生のトークンは `.env` にのみ存在します。
-- **JWT** — HS256 / RS256 で署名。シークレットは `.env` にあります。
+**アップロードされたファイルの安全な配信**
+- 各ファイルの `Content-Type` はサーバーが拡張子から決定し、アップロード側が申告した型は無視します。
+- ページ内で直接表示するのは画像、音声、動画、PDF、プレーンテキストのみです。HTML、SVG、XML、スクリプトなど、それ以外はすべてダウンロードとして配信します。
+- すべてのファイル応答に `X-Content-Type-Options: nosniff` とサンドボックス化された `Content-Security-Policy` を付けています。型を偽装したファイルでも、サイトのオリジンでスクリプトは実行できません。
+- Markdown は生の HTML を無効にしてレンダリングし、DOMPurify でサニタイズします。危険なスキームへのリンクはただのテキストになります。外部画像は自動で読み込まないため、共有を開いても第三者のサーバーに通信は発生しません。
 
-> Yui-Drop はエンドツーエンド暗号化を *行いません*。目的は日常的なファイルを手軽に共有することにあります — 電話口で読み上げられる暗証番号、それがコンセプトです。サーバー側ですら読めないという証明可能なゼロ知識性が必要であれば、別のツールを検討してください：[Send](https://send.vis.ee)、[Wormhole](https://wormhole.app)、[Magic-Wormhole](https://github.com/magic-wormhole/magic-wormhole)。
+**悪用対策**
+- 受け取りコードは推測しやすい並びを避けて生成します。同じ IP からの入力ミスが多すぎると一時的にブロックします。
+- IP ごとのアップロード制限、全体のストレージ容量制限、任意の Turnstile に対応しています。
+- マルチパートアップロードは完了時に実際のサイズを照合し、放棄されたアップロードは自動で片付けます。
+- 管理画面のログインには回数制限があり、パスキーや OIDC も使えます。
+- サイト全体に厳格な CSP、`frame-ancestors 'self'`、`Referrer-Policy`、`Permissions-Policy` を適用しています。クエリはすべてパラメータ化し、ファイル名はサニタイズしたうえで、保存パスはサーバー側で生成します。
 
-### 防御される脅威
+**ログと保持**
+- アクセスログには、悪用対応のため IP と User-Agent を記録します。IP の記録は管理画面でオフにできます。
+- 期限切れの共有はまずごみ箱に移ります。管理者は復元または完全削除ができます。
 
-| 脅威 | 防御策 |
-|---|---|
-| SQL インジェクション | 全面的に SQLAlchemy 2.0 のパラメータ化クエリを利用。SQL に文字列連結を行いません |
-| XSS（アップロードされた HTML / SVG） | SVG は強制ダウンロード（プレビューしない）。HTML ファイルも強制ダウンロード。テキスト / Markdown は `text/plain` として配信し、DOMPurify を通してレンダリング |
-| CSRF | 純粋な Bearer JWT のみ。Cookie 認証や暗黙的な認証情報は使用しません |
-| 暗証番号の総当たり攻撃 | IP ごとに 20 回失敗で 1 時間のソフト BAN。低エントロピーなパターン（`123456`、`111111` など）は生成時に回避 |
-| ストレージへのフラッディング | IP ごとのアップロード上限（5/分、30/時、200/日）、グローバルなストレージクォータ（管理者が設定可）、1 時間ごとに孤児となった multipart をクリーンアップ |
-| マルチパートでのサイズ偽装 | `complete` ステップで実オブジェクトを HEAD し、申告サイズと実サイズの差が 5% を超える場合は拒否 |
-| 管理画面への総当たり攻撃 | `/admin/login` に対し IP ごと 5 分あたり 10 回までの上限と指数バックオフ |
-| クリックジャッキング / フレーム埋め込み | `X-Frame-Options: DENY` および `Content-Security-Policy: frame-ancestors 'none'` |
-| MIME スニッフィング | `X-Content-Type-Options: nosniff` |
-| `Content-Disposition` へのヘッダーインジェクション | ファイル名をサニタイズし、RFC 5987 でエンコード |
-| オープンリダイレクト | ユーザー入力に由来するリダイレクト先は一切受け付けません |
-| パストラバーサル | ファイル名をサニタイズ（`..`、制御文字、Windows の予約名を排除）。ファイルパスはサーバー側の UUID から導出し、ユーザー入力を信頼しません |
+脆弱性を見つけた場合は、公開 issue ではなく [GitHub Security Advisories](https://github.com/kurobaryo/yui-drop/security/advisories/new) から非公開で報告してください。
 
-Cloudflare Turnstile によるボット対策も組み込まれていますが、**デフォルトでは無効**です。`.env` にサイトキーとシークレットを設定したうえで、管理画面から有効化してください。
-
-### ログと保持期間
-
-- **アクセスログにはクライアント IP と User-Agent が含まれます**。乱用調査のためで、管理者は `/admin/logs` から検索できます。
-- **ソフトデリート** — 期限切れや管理者によって削除された共有には `deleted_at` フラグが付くだけで、バケット上のオブジェクトは残ります。管理者はゴミ箱から復元するか、ハードデリート（バケット上のオブジェクトも削除）できます。
-- **自動定期処理** が `EXPIRE_SWEEPER_INTERVAL_MIN` 分ごとに実行され、期限切れの行をソフトデリートし、孤児になったマルチパートセッションを中止します。
-
-## リポジトリ構成
+## アーキテクチャ
 
 ```
-yui-drop/
-├── README.md              ← 中文（デフォルト）
-├── README.en.md           ← English
-├── README.ja.md           ← 日本語（本ファイル）
-├── LICENSE                ← MIT
-├── docker-compose.yml     ← ワンコマンドでデプロイ
-├── .env.example           ← 設定可能な全環境変数（コメント付き）
-├── scripts/
-│   ├── install.sh         ← ワンライナーインストールスクリプト
-│   └── ...                ← 運用補助
-├── backend/               ← Python · FastAPI · SQLAlchemy 2.0
-│   ├── pyproject.toml
-│   ├── Dockerfile
-│   ├── alembic.ini · alembic/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── api/           ← ルートモジュール
-│   │   ├── core/          ← 設定、セキュリティ、依存性
-│   │   ├── db/            ← session、base
-│   │   ├── models/        ← SQLAlchemy モデル
-│   │   ├── schemas/       ← Pydantic v2 DTO
-│   │   ├── services/      ← ビジネスロジック
-│   │   └── storage/       ← 各ストレージバックエンドの実装
-│   └── tests/
-├── frontend/              ← React 18 · Vite · TypeScript
-│   ├── package.json
-│   ├── Dockerfile
-│   ├── vite.config.ts · tailwind.config.ts · tsconfig.json
-│   ├── public/
-│   └── src/
-│       ├── main.tsx · App.tsx
-│       ├── routes/                ← ルートコンポーネント
-│       ├── components/ui/         ← Linear 風の原子コンポーネント
-│       ├── components/motion/     ← アニメーション演出
-│       ├── pages/                 ← ページレベルのコンポーネント
-│       ├── hooks/ · api/ · stores/
-│       ├── i18n/locales/{en,zh-CN,ja}.json
-│       └── styles/
-└── docs/
-    ├── ARCHITECTURE.md
-    ├── API.md             ← REST 仕様 + OpenAPI へのリンク
-    └── DEPLOYMENT.md
+ブラウザ（React SPA）──► FastAPI ──► SQLite（メタデータ）
+        │                   │
+        │  署名付き          │   ローカルディスク（暗号化）
+        └─ マルチパート ────►└── または S3 / R2 バケット
 ```
+
+- **フロントエンド**：React 18、TypeScript、Vite、Zustand、TanStack Query、react-i18next、markdown-it、DOMPurify
+- **バックエンド**：FastAPI、SQLAlchemy 2.0（async）、Alembic、Pydantic v2、cryptography
+- **ストレージ**：共通の `StorageBackend` インターフェースに、ローカル実装と S3 互換実装を用意しています。
+
+詳しくは [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) を参照してください。
 
 ## API
 
-Yui-Drop は 2 つの API サーフェスを提供します:
+Web アプリ自体が使う内部エンドポイントとは別に、スクリプトや他のアプリ向けの安定した REST API を `/api/v1` で提供しています。管理者が管理画面でキーを発行し、`upload` と `read` の権限やキーごとの容量制限を設定できます。
 
-**内部 API（フロントエンド ↔ バックエンド）** — `/api/share`、`/api/chunk`、`/api/presign`、`/api/admin`。SPA を動かすための API で、JWT ベースの管理者ログインを使います。完全な契約は [`docs/API.md`](./docs/API.md) を参照してください。
-
-**公開 v1 API（`/api/v1/*`）** — プログラム向けの Bearer トークン認証付き REST API。キーは管理者が発行し（セルフサインアップなし）、`upload` と `read` のいずれかまたは両方の scope を付与できます。各キーのクォータ（単一ファイル上限、1 日あたりの累積バイト数）は個別に設定可能です。3 種類のエンドポイントで一般的なユースケースを網羅します:
-
-- `POST /api/v1/upload` — シンプルアップロード（≤ 10 MiB）
-- `POST /api/v1/upload/init` → `sign-part` → `complete` — 大きなファイル向けの R2 multipart presigned URL フロー（Cloudflare 無料プランの 100 MB 受信制限を回避）
-- `GET /api/v1/shares` と `GET /api/v1/shares/{code}` — 現在のキーで作成された共有のリストと参照
-
-ほとんどのクライアントは次の 3 つの実装パスでカバーできます:
-- **curl + jq** — シェルでの一回限りのアップロード（約 30 行）
-- **Python** + `requests` + スレッドプール — スクリプトや自動化向け
-- **`@uppy/aws-s3-multipart`** — ブラウザ / Node クライアント向け。yui-drop の `/api/v1/upload/*` エンドポイントは Uppy の 4 つのライフサイクルメソッドに直接マップされます
-
-リファレンス実装は `scripts/` 配下にあります：
+- `POST /api/v1/upload`：小さなファイルを 1 リクエストでアップロード
+- `POST /api/v1/upload/init` → `sign-part` → `complete`：大きなファイルをバケットへ直接マルチパートでアップロード
+- `POST /api/v1/share/text`：テキスト共有を作成
+- `POST /api/v1/pickup`：受け取りコードで受け取り
+- `GET /api/v1/shares`、`GET /api/v1/shares/{code}`：そのキーで作成した共有の一覧と詳細
 
 ```bash
-# シンプルアップロード —— 小さなファイル、curl（jq はオプション）が必要
-YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.sh ./screenshot.png
-
-# Python —— シンプル + マルチパート両方対応、part の並行送信付き
-YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.py ./big-video.mp4 \
-    --expire-value 7 --expire-style day
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.sh ./report.pdf
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.py ./video.mp4 --expire-value 7 --expire-style day
 ```
 
-どちらも短縮 URL を stdout に出力します。完全なエンドポイントリファレンス、エラーコード、有効期限オプション、クォータの詳細は[公開ドキュメントページ](https://drop.leod.me/docs)（ブラウザの言語に追従、English / 简体中文 / 日本語に対応）を参照してください。
+詳細は [`docs/API.md`](./docs/API.md) と、各インスタンスの `/docs` ページにあります。
 
-OpenAPI 仕様は `GET /api/openapi.json` で提供され、内部 API の対話的な Swagger UI は `GET /api/_swagger` にあります（管理者のデバッグ用 —— 通常は上記の公開ドキュメントページの使用を推奨）。
+## 運用
+
+サーバー上の更新は `yuidrop` CLI で行います。
+
+```bash
+sudo ./scripts/install-yuidrop.sh   # 初回のみ
+yuidrop update                      # 取得、再ビルド、マイグレーション、ヘルスチェック
+yuidrop rollback                    # 1 つ前のバージョンに戻す
+```
+
+詳しくは [`scripts/README.md`](./scripts/README.md) を参照してください。
+
+## ディレクトリ構成
+
+```
+backend/    FastAPI アプリ（api/、services/、models/、storage/）、Alembic マイグレーション、テスト
+frontend/   React アプリ（v2/ が現行 UI、pages/admin/ が管理画面、i18n/ が翻訳）
+scripts/    インストーラー、yuidrop CLI、アップロードクライアント
+docs/       アーキテクチャ、デプロイ、API ドキュメントと画像
+```
 
 ## ロードマップ
 
-- [ ] 任意で有効化できるクライアントサイド暗号化（`?c=…&k=…` 形式）
-- [ ] 暗証番号の桁数のカスタマイズ（5〜8桁）
-- [ ] WebPush / メールによる有効期限通知
-- [ ] フォルダアップロード（自動 zip 化）
-- [ ] 共有ごとのパスワード保護
-- [ ] ClamAV スキャンフック
-
-## 謝辞
-
-[vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox) に着想を得ています — 「暗証番号で共有する」というアイデアを切り拓いた、元祖の匿名ファイル共有サービスです。Yui-Drop は、Linear 風の UI、モバイルファーストの体験、モダンな Python / JS スタック、より厳格なデフォルトのセキュリティ設定にフォーカスした、独立した書き直しです。アップストリームとソースコードは共有していません。
+- 任意のクライアント側暗号化
+- パスワード付き共有
+- 受け取りコードの桁数設定
+- フォルダーのアップロード
+- ウイルススキャン連携
 
 ## ライセンス
 
-MIT — [LICENSE](./LICENSE) を参照してください。
+[MIT](./LICENSE)

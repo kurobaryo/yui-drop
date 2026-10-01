@@ -6,7 +6,7 @@
 #
 # What it does:
 #   1. Clones (or updates) the repo into ./yui-drop
-#   2. Generates strong random ADMIN_TOKEN + JWT_SECRET
+#   2. Generates strong random ADMIN_TOKEN, JWT_SECRET and SECRETS_KEY
 #   3. Writes .env if missing
 #   4. Runs `docker compose up -d --build`
 #   5. Prints the admin URL + token
@@ -33,6 +33,9 @@ else
     gen_secret() { head -c 64 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 48; }
 fi
 
+# SECRETS_KEY must decode (base64url) to exactly 32 bytes.
+gen_secrets_key() { head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '\n'; }
+
 # ─── Clone / update ─────────────────────────────────────────────────────────
 if [ -d "$INSTALL_DIR/.git" ]; then
     info "Updating existing checkout at $INSTALL_DIR"
@@ -50,15 +53,19 @@ if [ ! -f .env ]; then
 
     ADMIN_TOKEN="$(gen_secret | head -c 32)"
     JWT_SECRET="$(gen_secret)"
+    # 32 random bytes, base64url-encoded: the format SECRETS_KEY requires.
+    SECRETS_KEY="$(gen_secrets_key)"
 
     # Portable sed -i (works on both GNU sed and BSD/macOS sed)
     sed -i.bak \
         -e "s|^ADMIN_TOKEN=.*|ADMIN_TOKEN=${ADMIN_TOKEN}|" \
         -e "s|^JWT_SECRET=.*|JWT_SECRET=${JWT_SECRET}|" \
+        -e "s|^SECRETS_KEY=.*|SECRETS_KEY=${SECRETS_KEY}|" \
         .env
     rm -f .env.bak
 
-    ok "Generated random ADMIN_TOKEN and JWT_SECRET in .env"
+    ok "Generated random ADMIN_TOKEN, JWT_SECRET and SECRETS_KEY in .env"
+    warn "Back up SECRETS_KEY: files stored on local disk cannot be decrypted without it."
     warn "If you plan to use Cloudflare R2 / S3, edit .env now and set STORAGE_BACKEND=s3 plus the S3_* keys."
     warn "Default storage backend is local FS — fine for trying out, persisted in the 'yui-drop-data' docker volume."
     echo
