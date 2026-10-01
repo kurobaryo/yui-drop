@@ -18,7 +18,7 @@ export default function AdminLogin() {
   const setToken = useAdminStore((s) => s.set);
   const [searchParams, setSearchParams] = useSearchParams();
   const effective = useThemeStore((s) => s.effective());
-  const setMode = useThemeStore((s) => s.setMode);
+  const toggleMode = useThemeStore((s) => s.toggleAppearance);
   const brand = useThemeStore((s) => s.brandName);
   const methodsQuery = useQuery({ queryKey: ['admin','auth','methods'], queryFn: getAuthMethods, refetchOnWindowFocus: true });
   const [password,setPassword]=useState('');
@@ -37,7 +37,7 @@ export default function AdminLogin() {
     <IconSprite />
     <div data-r="pad" style={{display:'flex',alignItems:'center',gap:10,padding:'14px 24px',borderBottom:'1px solid var(--ln)'}}>
       <button type="button" onClick={()=>navigate('/')} style={brandButton}><div style={logo}><Icon name="i-logo" size={17} style={{color:'#fff'}}/></div><div style={{display:'flex',flexDirection:'column',textAlign:'left'}}><div style={{fontSize:14.5,fontWeight:700,letterSpacing:'-.02em',lineHeight:1.2,color:'var(--tx)'}}>{brand||'Yui Drop'}</div><div style={{fontSize:9.5,fontWeight:500,letterSpacing:'.16em',lineHeight:1.3,color:'var(--tx3)'}}>管理后台</div></div></button>
-      <button type="button" data-yd="icon-btn" onClick={()=>setMode(effective==='dark'?'light':'dark')} style={iconButton}><Icon name={effective==='dark'?'i-moon':'i-sun'} size={15}/></button>
+      <button type="button" data-yd="icon-btn" onClick={toggleMode} style={iconButton}><Icon name={effective==='dark'?'i-moon':'i-sun'} size={15}/></button>
     </div>
     <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
       <div style={{width:360,maxWidth:'100%',background:'var(--pn)',border:'1px solid var(--ln)',borderRadius:14,padding:24,boxShadow:'var(--sh)'}}>

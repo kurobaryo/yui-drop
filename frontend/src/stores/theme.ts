@@ -22,9 +22,13 @@
  * NOTE: `applyToDOM` is also invoked inline at module load with the *locally
  * known* values so the first paint isn't unstyled; the server config lands a
  * moment later and re-applies. Keeping the pre-hydration attribute set means
- * no flash of an unthemed page.
+ * no flash of an unthemed page. "Locally known" includes the template and
+ * accent the server sent on the previous visit (`yui-drop:last-theme`), which
+ * the index.html pre-paint script applies too — otherwise a porcelain site
+ * showed Linear's colours until /api/config answered.
  */
 import { create } from 'zustand';
+import { syncThemeChrome } from '@/lib/themeChrome';
 import { DEFAULT_TEMPLATE, resolveTemplate } from '@/themes/registry';
 
 export type ThemeMode = 'light' | 'dark' | 'auto';
@@ -69,6 +73,12 @@ interface ThemeState {
 
   setTemplate: (t: string) => void;
   setMode: (m: ThemeMode) => void;
+  /**
+   * The visitor-facing light/dark toggle. Flips the effective appearance; when
+   * the result matches the system preference it stores `auto` instead, so the
+   * page goes back to following the OS rather than pinning a choice forever.
+   */
+  toggleAppearance: () => void;
   setAccent: (a: string, customHex?: string) => void;
   /** Apply the server's theme; visitor mode override wins unless locked. */
   hydrateFromServer: (t: ServerTheme) => void;
@@ -88,6 +98,27 @@ const MODE_KEY = 'yui-drop:theme';
  * an old visitor's saved accent must not override the admin's site accent.
  */
 const LEGACY_ACCENT_KEY = 'yui-drop:accent';
+/**
+ * `{template, accent}` from the last /api/config, so the next visit paints
+ * with the site's theme before the request returns. index.html reads the
+ * same key (with its own validation) before the bundle loads.
+ */
+const LAST_THEME_KEY = 'yui-drop:last-theme';
+
+function readLastTheme(): { template: string; accent: string } | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LAST_THEME_KEY) || 'null') as unknown;
+    if (!raw || typeof raw !== 'object') return null;
+    const { template, accent } = raw as Record<string, unknown>;
+    if (typeof template !== 'string' || typeof accent !== 'string') return null;
+    const tpl = resolveTemplate(template);
+    if (tpl.id !== template) return null;
+    const valid = accent === 'custom' || tpl.accents.some((a) => a.id === accent);
+    return { template: tpl.id, accent: valid ? accent : tpl.defaultAccent };
+  } catch {
+    return null;
+  }
+}
 
 function readMode(): ThemeMode {
   if (typeof localStorage === 'undefined') return 'auto';
@@ -98,7 +129,12 @@ function readMode(): ThemeMode {
 
 function resolveMode(mode: ThemeMode): 'light' | 'dark' {
   if (mode !== 'auto') return mode;
-  if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
+  return systemMode() ?? 'dark';
+}
+
+/** The OS appearance right now, or null when it can't be queried. */
+function systemMode(): 'light' | 'dark' | null {
+  if (typeof window === 'undefined' || !window.matchMedia) return null;
   return window.matchMedia('(prefers-color-scheme: light)').matches
     ? 'light'
     : 'dark';
@@ -160,11 +196,13 @@ function applyToDOM(
     root.style.removeProperty('--acs-custom');
     root.style.removeProperty('--act-custom');
   }
+  syncThemeChrome(resolveMode(mode));
 }
 
-const initialTemplate = DEFAULT_TEMPLATE;
+const lastTheme = typeof window !== 'undefined' ? readLastTheme() : null;
+const initialTemplate = lastTheme?.template ?? DEFAULT_TEMPLATE;
 const initialMode = readMode();
-const initialAccent = resolveTemplate(initialTemplate).defaultAccent;
+const initialAccent = lastTheme?.accent ?? resolveTemplate(initialTemplate).defaultAccent;
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
   template: initialTemplate,
@@ -199,6 +237,11 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     const { template, accent, accentCustom } = get();
     set({ mode: m });
     applyToDOM(template, m, accent, accentCustom);
+  },
+
+  toggleAppearance: () => {
+    const next = resolveMode(get().mode) === 'dark' ? 'light' : 'dark';
+    get().setMode(next === systemMode() ? 'auto' : next);
   },
 
   setAccent: (a, customHex) => {
@@ -254,6 +297,11 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       hydrated: true,
     });
     applyToDOM(tpl.id, mode, accent, t.accent_custom || '');
+    try {
+      localStorage.setItem(LAST_THEME_KEY, JSON.stringify({ template: tpl.id, accent }));
+    } catch {
+      /* ignore */
+    }
   },
 
   markHydrated: () => set({ hydrated: true }),
@@ -299,11 +347,12 @@ export function useSlots() {
 // Initial application + system preference listener for auto mode.
 if (typeof window !== 'undefined') {
   // Migrate a legacy accent only if it happens to be valid for the default
-  // template; otherwise ignore it (the server is authoritative anyway).
+  // template; otherwise ignore it (the server is authoritative anyway). The
+  // accent cached from the last server config takes precedence.
   let bootAccent = initialAccent;
   try {
     const legacy = localStorage.getItem(LEGACY_ACCENT_KEY);
-    if (legacy && resolveTemplate(initialTemplate).accents.some((a) => a.id === legacy)) {
+    if (!lastTheme && legacy && resolveTemplate(initialTemplate).accents.some((a) => a.id === legacy)) {
       bootAccent = legacy;
     }
   } catch {
