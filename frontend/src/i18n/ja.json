@@ -932,7 +932,9 @@
       "copyText": "テキストをコピー",
       "preview": "プレビュー",
       "copied": "コピーしました",
-      "copyCodeBlock": "コードブロックをコピー"
+      "copyCodeBlock": "コードブロックをコピー",
+      "table": "表",
+      "tableCut": "表は最大 {{rows}} 行 × {{cols}} 列まで表示します。全体はダウンロードしてください"
     },
     "pickupFailed": "受け取りに失敗しました",
     "header": {
