@@ -265,7 +265,7 @@ export function SendComposer({ active }: SendComposerProps) {
       {files.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
           {files.map((f, i) => (
-            <span key={fileKey(f)} style={chip}>
+            <span key={fileKey(f)} data-p="chip" style={chip}>
               <span title={f.name} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {f.name}
               </span>

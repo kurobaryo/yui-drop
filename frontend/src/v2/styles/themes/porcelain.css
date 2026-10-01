@@ -205,6 +205,53 @@
   color: var(--tx);
 }
 
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+/* Transform/opacity only, all switched off by the reduce block in base.css.
+   Fill mode `backwards` leaves no transform behind once an entrance ends
+   (a lingering transform would re-anchor position:fixed descendants). */
+
+/* First load: title, subtitle, segmented control and panel rise in 40ms
+   apart. <main> carries `data-intro` only until the visitor first changes
+   view, so later panel switches start without the stagger delay. */
+[data-template='porcelain'] [data-p='title'],
+[data-template='porcelain'] [data-p='sub'],
+[data-template='porcelain'] [data-p='seg'] {
+  animation: ydRise 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+/* A panel replays this whenever it is shown: going from display:none back to
+   visible restarts CSS animations, so tab switches animate without
+   remounting the panel (and losing the composer's state). */
+[data-template='porcelain'] [data-p='panel'] {
+  animation: ydEnter 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+[data-template='porcelain'] [data-p='main'][data-intro] [data-p='sub'] {
+  animation-delay: 40ms;
+}
+[data-template='porcelain'] [data-p='main'][data-intro] [data-p='seg'] {
+  animation-delay: 80ms;
+}
+[data-template='porcelain'] [data-p='main'][data-intro] [data-p='panel'] {
+  animation-name: ydRise;
+  animation-delay: 120ms;
+}
+
+/* 取件 | 寄出: one raised pill slides between the two equal-width options. */
+[data-template='porcelain'] [data-p='seg-thumb'] {
+  transition: transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* File chips in the composer scale in as they are added. */
+[data-template='porcelain'] [data-p='chip'] {
+  animation: ydChip 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+
+/* Light/dark toggle cross-fade (V2App → crossFade, View Transitions API). */
+[data-template='porcelain']::view-transition-old(root),
+[data-template='porcelain']::view-transition-new(root) {
+  animation-duration: 0.24s;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 /* Structural collapse for the shared screens (pickup sheet, admin), at the
    same breakpoint as Linear. */
@@ -259,6 +306,11 @@
     animation: ydSheet 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
     height: auto;
     max-height: 70vh;
+  }
+  /* Exit slides the sheet back down (see base.css); the extra selector parts
+     out-rank the !important entrance above. */
+  [data-template='porcelain'] [data-r='backdrop'][data-closing] [data-r='sheet'] {
+    animation: ydSheetOut 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
   }
   [data-template='porcelain'] [data-r='grabber'] {
     display: block !important;

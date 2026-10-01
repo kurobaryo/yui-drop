@@ -65,9 +65,18 @@ export function HomePorcelain({
   const showPickup = !collectionOpen && tab === 'pickup';
   const showSend = !collectionOpen && tab === 'send';
 
+  // The first-load stagger (porcelain.css, `data-intro`) belongs to the view
+  // the page opened on; once the visitor changes view it is dropped so the
+  // next panel enters without waiting out the stagger delay.
+  const view = collectionOpen ? 'collection' : tab;
+  const [introView] = useState(view);
+  const [intro, setIntro] = useState(true);
+  if (intro && view !== introView) setIntro(false);
+
   return (
     <main
       data-p="main"
+      data-intro={intro ? '' : undefined}
       style={{
         flex: 1,
         width: '100%',
@@ -116,6 +125,14 @@ export function HomePorcelain({
         </section>
       ) : (
         <div role="tablist" aria-label={t('v2.porcelain.modeLabel')} data-p="seg" style={seg}>
+          {/* The raised pill is one element that slides under the active
+              option (transition in porcelain.css); the columns are equal
+              width, so moving it by its own width lands on the other one. */}
+          <span
+            aria-hidden="true"
+            data-p="seg-thumb"
+            style={{ ...segThumb, transform: tab === 'send' ? 'translateX(100%)' : 'none' }}
+          />
           {(['pickup', 'send'] as const).map((id) => {
             const on = tab === id;
             return (
@@ -131,12 +148,8 @@ export function HomePorcelain({
                 }}
                 style={{
                   ...segButton,
-                  // --p2: white in light, a step above the panel in dark, so
-                  // the active pill reads as raised against the track.
-                  background: on ? 'var(--p2)' : 'transparent',
                   color: on ? 'var(--tx)' : 'var(--tx2)',
                   fontWeight: on ? 600 : 500,
-                  boxShadow: on ? '0 1px 3px rgba(0, 0, 0, 0.08)' : 'none',
                 }}
               >
                 {t(`v2.porcelain.${id}`)}
@@ -182,21 +195,41 @@ const card: CSSProperties = {
 };
 
 const seg: CSSProperties = {
-  display: 'inline-flex',
+  position: 'relative',
+  // Two equal columns (each as wide as the wider label) so the thumb can
+  // slide with a transform instead of animating its width.
+  display: 'inline-grid',
+  gridTemplateColumns: '1fr 1fr',
   marginTop: 36,
   padding: 4,
   borderRadius: 999,
   background: 'var(--fill)',
 };
 
+const segThumb: CSSProperties = {
+  position: 'absolute',
+  top: 4,
+  bottom: 4,
+  left: 4,
+  width: 'calc(50% - 4px)',
+  borderRadius: 999,
+  // --p2: white in light, a step above the panel in dark, so the active pill
+  // reads as raised against the track.
+  background: 'var(--p2)',
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+};
+
 const segButton: CSSProperties = {
+  // Positioned so the labels paint above the thumb.
+  position: 'relative',
   padding: '8px 26px',
   border: 0,
   borderRadius: 999,
+  background: 'transparent',
   fontFamily: 'inherit',
   fontSize: 14,
   cursor: 'pointer',
-  transition: 'background .15s, color .15s',
+  transition: 'color .15s',
 };
 
 const inlineLink: CSSProperties = {
