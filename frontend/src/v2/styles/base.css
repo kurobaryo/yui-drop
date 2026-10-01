@@ -53,6 +53,65 @@
     transform: none;
   }
 }
+/* Exits for the pickup sheet: backdrop, centred dialog, bottom sheet. */
+@keyframes ydFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes ydPopOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+@keyframes ydSheetOut {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+/* Entrances: a short rise for page sections (ydRise 4px, ydEnter 6px) and a
+   small scale-up for chips. */
+@keyframes ydRise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ydEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ydChip {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 /* Caret blink for the six-cell code input (the prototype shows a static bar;
    blinking makes the focused cell readable as a text field). */
 @keyframes ydCaret {
@@ -294,6 +353,50 @@
   border-radius: 8px;
 }
 
+/* ── CSV / TSV table preview (PickupDetail → TablePreview) ──────────────── */
+/* The frame (inline style) scrolls both ways; the table keeps its natural
+   width instead of squeezing columns to fit, and very long cells wrap at
+   24em (engines that ignore max-width on cells just scroll further). */
+[data-r='csv'] table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+[data-r='csv'] th,
+[data-r='csv'] td {
+  max-width: 24em;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--ln);
+  text-align: left;
+  vertical-align: top;
+  /* Quoted fields may hold line breaks; keep them. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+[data-r='csv'] th + th,
+[data-r='csv'] td + td {
+  border-left: 1px solid var(--ln);
+}
+/* First row stays visible while scrolling. */
+[data-r='csv'] th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--p1);
+  color: var(--tx2);
+  font-weight: 600;
+}
+/* Room for the 原文 toggle that overlaps the frame's top-right corner, so
+   the last header is readable once scrolled fully right. */
+[data-r='csv'] th:last-child {
+  padding-right: 64px;
+}
+[data-r='csv'] tbody tr:last-child td {
+  border-bottom: 0;
+}
+
 /* ── iOS: stop Safari zooming the page on focus ─────────────────────────── */
 /* Mobile Safari auto-zooms whenever a focused form control's font-size is
    below 16px, and does not zoom back out afterwards. Several v2 inputs are
@@ -341,6 +444,22 @@
 [data-yd='sheetup'] {
   animation: ydSheet 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
+/* Pickup sheet exit: PickupDetail sets `data-closing` on the backdrop, waits
+   for this to finish, then unmounts. The `[data-template]` prefix (always on
+   <html>) out-ranks the Apple entrance rules, which have the same selectors
+   and load later. On narrow screens each theme slides the bottom sheet down
+   instead (themes/*.css, next to their `ydSheet` entrance). */
+[data-template] [data-yd='backdrop'][data-closing] {
+  animation: ydFadeOut 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  pointer-events: none;
+}
+[data-template] [data-yd='backdrop'][data-closing] [data-yd='dialog'] {
+  animation: ydPopOut 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+/* Share code appearing after a send (CodeReadyV2). */
+[data-yd='codeready'] {
+  animation: ydPop 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
 
 /* The v2 root owns background/typography so the theme applies even before a
    screen renders. */
@@ -364,12 +483,22 @@
   margin: 0;
 }
 
-/* Respect reduced-motion: the prototype's animations are decorative. */
+/* Respect reduced-motion: the prototype's animations are decorative. The
+   pickup sheet's exit never starts here — PickupDetail closes at once. */
 @media (prefers-reduced-motion: reduce) {
   [data-yd='backdrop'],
   [data-yd='dialog'],
   [data-yd='sheetup'],
-  [data-r='sheet'] {
+  [data-r='sheet'],
+  [data-yd='codeready'],
+  [data-p='title'],
+  [data-p='sub'],
+  [data-p='seg'],
+  [data-p='panel'],
+  [data-p='chip'] {
     animation: none !important;
+  }
+  [data-p='seg-thumb'] {
+    transition: none !important;
   }
 }

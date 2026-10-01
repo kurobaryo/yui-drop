@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ShareMultiFile, ShareSelectResponse } from '@/lib/api/share';
+import { parseTable, sniffDelimiter } from '@/lib/csv';
 import { renderMarkdown } from '@/lib/markdown';
 import {
   bareMime,
@@ -9,11 +10,18 @@ import {
   fetchTextPreview,
   isMarkdownName,
   previewKind,
+  tableFlavor,
   triggerDownload,
   triggerTextDownload,
 } from '@/lib/preview';
-import { haptic } from '../haptics';
+import { haptic, reducedMotion } from '../haptics';
 import { Icon } from './IconSprite';
+
+/** Length of the close animation (`ydFadeOut` / `ydPopOut` / `ydSheetOut`). */
+const EXIT_MS=180;
+/** Table preview caps; the note under the table names them when hit. */
+const TABLE_MAX_ROWS=500;
+const TABLE_MAX_COLS=50;
 
 /** `auto` = Markdown heuristic (pasted text, notes); `force` = `.md` files; `off` = raw. */
 type MarkdownMode = 'auto' | 'force' | 'off';
@@ -68,10 +76,24 @@ export function PickupDetail({item,onClose}:{item:ShareSelectResponse;onClose:()
     files.forEach((f,i)=>{if(!f.url)return;window.setTimeout(()=>triggerDownload(f.url,f.name),i*120)});
   };
   const hasDownload=item.kind==='text'||files.length>0;
-  return <div data-yd="backdrop" data-r="backdrop" onClick={onClose} style={backdrop}>
+  // Every close path plays the exit (`data-closing`, see v2/styles/base.css)
+  // and unmounts once it has finished. Latched, so a second click during the
+  // exit does nothing; reduced motion closes at once.
+  const [closing,setClosing]=useState(false);
+  const closingRef=useRef(false);
+  const exitTimer=useRef<number>();
+  useEffect(()=>()=>window.clearTimeout(exitTimer.current),[]);
+  const requestClose=()=>{
+    if(closingRef.current)return;
+    closingRef.current=true;
+    if(reducedMotion()){onClose();return;}
+    setClosing(true);
+    exitTimer.current=window.setTimeout(onClose,EXIT_MS);
+  };
+  return <div data-yd="backdrop" data-r="backdrop" data-closing={closing?'':undefined} onClick={requestClose} style={backdrop}>
     <div data-yd="dialog" data-r="sheet" onClick={e=>e.stopPropagation()} style={sheet}>
       <div data-r="grabber" style={{display:'none',padding:'10px 0 4px'}}><div style={{width:36,height:5,borderRadius:999,background:'var(--grab)',margin:'0 auto'}}/></div>
-      <div style={{display:'flex',alignItems:'flex-start',gap:12,padding:'18px 20px 14px',borderBottom:'1px solid var(--ln)'}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:18,fontWeight:700,letterSpacing:'-.01em',color:'var(--tx)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name|| (item.kind==='text'?t('v2.recent.textShare'):item.code)}</div><div style={{fontSize:12,color:'var(--tx3)',marginTop:3}}>{meta}</div></div><button type="button" data-yd="icon-btn" onClick={onClose} style={close}><Icon name="i-x" size={15}/></button></div>
+      <div style={{display:'flex',alignItems:'flex-start',gap:12,padding:'18px 20px 14px',borderBottom:'1px solid var(--ln)'}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:18,fontWeight:700,letterSpacing:'-.01em',color:'var(--tx)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name|| (item.kind==='text'?t('v2.recent.textShare'):item.code)}</div><div style={{fontSize:12,color:'var(--tx3)',marginTop:3}}>{meta}</div></div><button type="button" data-yd="icon-btn" onClick={requestClose} style={close}><Icon name="i-x" size={15}/></button></div>
       <div style={{padding:'16px 20px 20px'}}>
         {item.kind==='multi'?<MultiPreview item={item} files={files} selected={selected} onShowNote={()=>select('note')}/>:<Preview item={item}/>}
         {files.length>0&&<div style={{marginTop:14,border:'1px solid var(--ln)',borderRadius:12,overflow:'hidden'}}>{files.map((f,i)=>{
@@ -140,7 +162,7 @@ function FilePreview({file}:{file:{url:string|null;name:string|null;size:number|
   if(kind==='pdf')return <iframe src={`${url}#navpanes=0&view=FitH`} title={file.name||'PDF'} style={{...media,height:'52vh'}}/>;
   // Text files (.md, .txt, .json, .log, .yaml, source code…): fetch the body
   // and reuse the text renderer.
-  return <RemoteTextPreview url={url} size={file.size} name={file.name}/>;
+  return <RemoteTextPreview url={url} size={file.size} name={file.name} contentType={file.content_type}/>;
 }
 
 /**
@@ -176,7 +198,7 @@ function NotePreview({text}:{text:string}){
  * Hits the plain (inline) proxy URL — no `?dl=1` — so previewing never counts
  * as an attachment download. Body size is capped inside `fetchTextPreview`.
  */
-function RemoteTextPreview({url,size,name}:{url:string;size:number|null;name:string|null}){
+function RemoteTextPreview({url,size,name,contentType}:{url:string;size:number|null;name:string|null;contentType:string|null}){
   const {t}=useTranslation();
   const [state,setState]=useState<{status:'loading'}|{status:'ok';text:string;truncated:boolean}|{status:'error'}>({status:'loading'});
   useEffect(()=>{
@@ -190,9 +212,48 @@ function RemoteTextPreview({url,size,name}:{url:string;size:number|null;name:str
 
   if(state.status==='loading')return <div style={placeholder}><span style={{fontSize:13}}>{t('v2.detail.loadingPreview')}</span></div>;
   if(state.status==='error')return <div style={placeholder}><Icon name="i-file" size={26}/><span style={{fontSize:13}}>{t('v2.detail.previewFailed')}</span></div>;
-  // Only Markdown files render as Markdown. CSV, JSON, source code and logs
-  // stay verbatim: the heuristic would misread a `# comment` or `| a | b |`.
+  // CSV / TSV get a table. Only Markdown files render as Markdown; JSON,
+  // source code and logs stay verbatim: the heuristic would misread a
+  // `# comment` or `| a | b |`.
+  const flavor=tableFlavor(contentType,name);
+  if(flavor)return <TablePreview text={state.text} delimiter={flavor==='tsv'?'\t':sniffDelimiter(state.text)} truncated={state.truncated}/>;
   return <TextPreview text={state.text} markdown={isMarkdownName(name)?'force':'off'} truncated={state.truncated}/>;
+}
+
+/**
+ * CSV / TSV as a table, with a toggle to the raw text like the Markdown one.
+ * Cells are plain React text nodes, so nothing in the file is ever parsed as
+ * HTML. Falls back to the raw `<pre>` when the text does not parse into at
+ * least two columns.
+ */
+function TablePreview({text,delimiter,truncated}:{text:string;delimiter:string;truncated:boolean}){
+  const {t}=useTranslation();
+  const [raw,setRaw]=useState(false);
+  const table=useMemo(()=>{
+    try{
+      const parsed=parseTable(text,delimiter,{maxRows:TABLE_MAX_ROWS,maxCols:TABLE_MAX_COLS});
+      return parsed.columns>=2?parsed:null;
+    }catch{
+      return null;
+    }
+  },[text,delimiter]);
+  if(!table)return <TextPreview text={text} markdown="off" truncated={truncated}/>;
+  if(raw)return <div style={{position:'relative'}}>
+    <button type="button" data-yd="quiet" onClick={()=>{haptic();setRaw(false);}} style={toggle}>{t('v2.detail.table')}</button>
+    <TextPreview text={text} markdown="off" truncated={truncated}/>
+  </div>;
+  const [head,...body]=table.rows;
+  return <div style={{position:'relative'}}>
+    <button type="button" data-yd="quiet" onClick={()=>{haptic();setRaw(true);}} style={toggle}>{t('v2.detail.raw')}</button>
+    <div data-r="csv" style={tableBox}>
+      <table>
+        <thead><tr>{head.map((c,i)=><th key={i}>{c}</th>)}</tr></thead>
+        <tbody>{body.map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{c}</td>)}</tr>)}</tbody>
+      </table>
+    </div>
+    {(table.rowsCut||table.colsCut)&&<div style={truncNote}>{t('v2.detail.tableCut',{rows:TABLE_MAX_ROWS,cols:TABLE_MAX_COLS})}</div>}
+    {truncated&&<div style={truncNote}>{t('v2.detail.previewTruncated')}</div>}
+  </div>;
 }
 
 /**
@@ -316,6 +377,11 @@ const textBox:React.CSSProperties={minHeight:140,maxHeight:'40vh',overflow:'auto
 const textBoxCompact:React.CSSProperties={...textBox,minHeight:0,maxHeight:'28vh'};
 /* Raw source only: keep its line breaks. */
 const rawText:React.CSSProperties={whiteSpace:'pre-wrap'};
+/* Scrolls both ways inside the sheet; cell styling is `[data-r='csv']` in
+   v2/styles/base.css. Panel fill so the --p1 header row stands out.
+   `isolation` keeps the sticky header's z-index inside the frame, so it can
+   never paint over the 原文 toggle. */
+const tableBox:React.CSSProperties={maxHeight:'40vh',overflow:'auto',isolation:'isolate',borderRadius:12,background:'var(--pn)',border:'1px solid var(--ln)',fontSize:12.5,lineHeight:1.5,color:'var(--tx)'};
 const caption:React.CSSProperties={display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:8,minHeight:26};
 const captionLabel:React.CSSProperties={fontSize:12,color:'var(--tx3)',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'};
 const row:React.CSSProperties={display:'flex',alignItems:'center',gap:10,fontSize:14,color:'var(--tx1)'};

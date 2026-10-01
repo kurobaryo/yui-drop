@@ -16,27 +16,57 @@
     />
     <title>Yui-Drop</title>
     <script>
-      // Restore the visitor's appearance choice before first paint to avoid a
-      // flash. Only light/dark is restored here: the *template* and *accent*
-      // are server-owned (admin setting) and arrive with /api/config a moment
-      // later, at which point the theme store re-applies all three attributes.
-      // The `data-template`/`data-accent` values in the <html> tag above are
-      // the built-in defaults and act as the pre-hydration fallback.
-      try {
-        const t = localStorage.getItem('yui-drop:theme');
+      (function () {
+        // Restore the visitor's appearance before first paint to avoid a flash.
+        // The *template* and *accent* are server-owned (admin setting) and
+        // arrive with /api/config a moment later, at which point the theme store
+        // re-applies all three attributes. Until then we use the ones the server
+        // sent on the previous visit, falling back to the built-in defaults in
+        // the <html> tag above.
         const root = document.documentElement;
-        let resolved = null;
-        if (t === 'light' || t === 'dark') {
-          resolved = t;
-        } else if (t === 'auto' || !t) {
-          const mql = window.matchMedia('(prefers-color-scheme: light)');
-          resolved = mql.matches ? 'light' : 'dark';
-        }
-        if (resolved) {
-          root.setAttribute('data-theme', resolved);
-          root.setAttribute('data-mode', resolved);
-        }
-      } catch (_) { /* localStorage may be unavailable */ }
+
+        // One-time reset: the old header toggle stored light/dark permanently,
+        // so those visitors never followed the system again. Clear that choice
+        // once; the current toggle stores `auto` when it matches the system.
+        try {
+          if (localStorage.getItem('yui-drop:mode-reset') !== '1') {
+            localStorage.removeItem('yui-drop:theme');
+            localStorage.setItem('yui-drop:mode-reset', '1');
+          }
+        } catch (_) { /* localStorage may be unavailable */ }
+
+        try {
+          const t = localStorage.getItem('yui-drop:theme');
+          let resolved = null;
+          if (t === 'light' || t === 'dark') {
+            resolved = t;
+          } else if (t === 'auto' || !t) {
+            const mql = window.matchMedia('(prefers-color-scheme: light)');
+            resolved = mql.matches ? 'light' : 'dark';
+          }
+          if (resolved) {
+            root.setAttribute('data-theme', resolved);
+            root.setAttribute('data-mode', resolved);
+            root.style.colorScheme = resolved;
+          }
+        } catch (_) { /* localStorage may be unavailable */ }
+
+        // Template + accent from the last /api/config (written by the theme
+        // store), so a porcelain site doesn't flash Linear's colours.
+        try {
+          const last = JSON.parse(localStorage.getItem('yui-drop:last-theme') || 'null');
+          if (
+            last &&
+            typeof last.template === 'string' &&
+            typeof last.accent === 'string' &&
+            /^(linear|apple|porcelain)$/.test(last.template) &&
+            /^[a-z0-9-]{1,24}$/.test(last.accent)
+          ) {
+            root.setAttribute('data-template', last.template);
+            root.setAttribute('data-accent', last.accent);
+          }
+        } catch (_) { /* unavailable storage or a corrupt entry */ }
+      })();
     </script>
   </head>
   <body>

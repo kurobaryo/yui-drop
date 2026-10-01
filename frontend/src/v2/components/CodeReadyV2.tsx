@@ -17,7 +17,8 @@ export function CodeReadyV2({ code, onReset }: CodeReadyV2Props) {
     void navigator.clipboard?.writeText(text).catch(() => {});
   };
   return (
-    <div style={{ padding: '34px 22px 30px', textAlign: 'center' }}>
+    // `data-yd="codeready"`: pops in when the code appears (v2/styles/base.css).
+    <div data-yd="codeready" style={{ padding: '34px 22px 30px', textAlign: 'center' }}>
       <div style={{ fontSize: 12, color: 'var(--tx3)', marginBottom: 12 }}>{t('v2.codeReady.title')}</div>
       <div
         style={{
