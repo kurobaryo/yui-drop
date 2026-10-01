@@ -595,7 +595,7 @@
   },
   "apiDocs": {
     "title": "drop API",
-    "subtitle": "Programmatic file uploads for drop.leod.me — get a short, shareable link from a single curl call.",
+    "subtitle": "Programmatic file uploads for this server — get a short, shareable link from a single curl call.",
     "contentsLabel": "Contents",
     "toc": {
       "intro": "Introduction",
@@ -747,10 +747,7 @@
     },
     "requestKey": {
       "heading": "Request a key",
-      "p1": "drop API does not currently offer self-service signup. To request a key for your scripts or to integrate yui-drop into your project, contact:",
-      "contactEmail": "Email:",
-      "contactGithub": "GitHub:",
-      "githubLink": "open an issue",
+      "p1": "API keys are issued by the administrator of this server; there is no self-service signup. Ask them for a key for your scripts or integration.",
       "p2": "Each key can be issued with an independent note, scopes, quotas, and expiry. The plaintext key is shown exactly once at issuance — save it immediately to your password manager."
     }
   },
