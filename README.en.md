@@ -1,294 +1,210 @@
 <div align="center">
 
-# Yui-Drop
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/cover-dark.png">
+  <img alt="Yui Drop: send files and text on one screen, pick them up on another with a 6-digit code" src="./docs/images/cover-light.png" width="100%">
+</picture>
 
-### Self-hosted file-codebox with a 6-digit pickup code
+# Yui Drop
 
-[中文 (default)](./README.md) · English · [日本語](./README.ja.md)
+**Self-hosted file and text sharing. Hand over a 6-digit code instead of a link.**
 
-[Live demo](https://drop.leod.me) · [Quick start](#quick-start)
+[中文](./README.md) · English · [日本語](./README.ja.md)
 
-![Yui-Drop home — pickup view (dark theme)](./docs/screenshots/home-pickup-dark.png)
-
-</div>
-
----
-
-## About
-
-Yui-Drop is a modern, self-hostable "file-codebox": drop a file (or paste a text snippet), get a short 6-digit pickup code, share the code, done. No accounts, no links, no email — just a number you can read out over the phone.
-
-It's a fresh rewrite inspired by [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox), built around a Linear-style UI, mobile-first layout, modern Python/JS stacks (FastAPI + React 18), tighter security defaults, and Cloudflare R2 / S3 multipart direct-upload so the API server never touches large files.
-
-Yui-Drop 是一个现代的、可自部署的「文件快递柜」：丢入文件（或粘贴文字片段），得到 6 位数字取件码，把码告诉别人即可。无需注册账号、无需链接、无需邮件 —— 只是一个可以电话口述的数字。
-
-灵感来自 [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox) 的全新独立重写，聚焦于 Linear 风格 UI、移动端优先布局、现代化的 Python/JS 技术栈（FastAPI + React 18）、更严格的默认安全配置，以及 Cloudflare R2 / S3 多分块浏览器直传 —— API 服务器永远不接触大文件。
-
----
-
-<div align="center">
-
-🔒 **Secure by design** — TLS 1.3, AES-256 at-rest (R2 SSE), strict CSP, rate-limited
-✨ **Modern stack** — React 18, FastAPI, SQLAlchemy 2.0, S3 multipart direct upload
-📦 **Self-hosted** — single `docker compose up` deploys the whole stack
-
-🔒 **默认安全** — 全链路 HTTPS (TLS 1.3)，存储侧 AES-256（R2 SSE），严格 CSP，速率限制
-✨ **现代化技术栈** — React 18、FastAPI、SQLAlchemy 2.0、S3 多分块浏览器直传
-📦 **自部署** — 单条 `docker compose up` 一键起服
+[Quick start](#quick-start) · [Configuration](#configuration) · [Security](#security) · [API](#api) · [Live demo](https://drop.leod.me)
 
 </div>
 
 ---
+
+## What it is
+
+Yui Drop is a small web app for handing files and text to someone else. You drop files, type a message, or both, and get a 6-digit pickup code back. The other person types the code on any device to preview or download what you sent. They don't need an account, an email address or a link — the code is short enough to read out loud.
+
+Everything expires: after a number of days, or after a number of pickups, whichever you choose. Yui Drop runs as a single Docker container. It keeps metadata in SQLite and stores files on local disk (encrypted at rest) or in any S3-compatible bucket such as Cloudflare R2.
+
+It is an independent rewrite inspired by [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox). No code is shared with that project.
 
 ## Features
 
-- 🔑 **6-digit pickup code** — short, memorable, easy to share verbally
-- 📁 **Files & text** — upload up to 10 GB, or paste a snippet
-- 👁️ **In-browser preview** — images, PDFs, video, audio, text, markdown render inline; only download when you have to
-- 🪣 **Pluggable storage** — local FS, S3 / Cloudflare R2 (with multipart direct upload), OneDrive, WebDAV
-- ⚡ **Direct-to-bucket upload** — large files stream straight from the browser to the bucket; resumable, parallel parts, auto-retry on failure
-- 🎨 **5 accent themes** + light / dark / system mode, all persisted per-device
-- 🌐 **Tri-lingual UI** — English, 简体中文, 日本語; auto-detect, user-overridable
-- 🛡️ **Security-first** — see [Security](#security) below
-- 🗑️ **Soft delete + admin recycle bin** — expired or admin-removed shares are recoverable until the admin empties the bin
-- 🔌 **Programmatic API access** — admin-issued Bearer keys give scripts and other apps a stable `/api/v1/*` surface (upload, list, inspect). See [the public docs page](https://drop.leod.me/docs) or [`docs/API.md`](./docs/API.md).
+**Sending**
+- One composer for everything: type text, paste screenshots, drag files in, or combine them. Text sent together with files arrives as a note above the file list.
+- Up to 10 GB per file and 200 files per share (both configurable).
+- Uploads to S3/R2 go straight from the browser to the bucket as resumable multipart uploads, so the API server never handles large files.
+- Expiry by time (1 hour to a year) or by pickup count.
 
-## Architecture
+**Picking up**
+- Six digit cells that open the share as soon as the last digit is typed. Pasting a code works too, and every share also has a direct link.
+- In-browser previews for images, video, audio, PDF, Markdown, CSV/TSV (as a table), JSON, logs and source code. Each file can open in a new tab or in a full-screen viewer.
+- Download a single file or all of them at once.
 
-```
-┌──────────────┐      ┌──────────────┐      ┌──────────────────┐
-│   React SPA  │◄────►│   FastAPI    │◄────►│   SQLite / DB    │
-│  Vite + TS   │      │  Python 3.12 │      │  (metadata only) │
-└──────┬───────┘      └──────┬───────┘      └──────────────────┘
-       │                     │
-       │  multipart-direct   │  presign / complete
-       └─────────────┐ ┌─────┘
-                     ▼ ▼
-              ┌──────────────────┐
-              │  Object Storage  │
-              │  (R2 / S3 / FS)  │
-              └──────────────────┘
-```
+**Collections**
+- Shared drop rooms: anyone with the room code can join, upload files and leave messages. The creator manages the room with its own admin password.
 
-- **Frontend** — React 18, Vite, TypeScript, Tailwind, react-i18next, TanStack Query, Zustand, lucide-react
-- **Backend** — FastAPI, SQLAlchemy 2.0 (async), Alembic migrations, Pydantic v2, structlog, slowapi
-- **Storage abstraction** — single `StorageBackend` interface; swap backends via `.env`
-- **Files do not pass through the API server** when using S3/R2 — browser → bucket directly via presigned multipart URLs
+**Look and feel**
+- Three switchable themes (Porcelain, Linear, Apple) with several accent colours each. The site name, title and intro text can be edited from the admin panel.
+- Follows the system light/dark setting, with a manual toggle.
+- English, 简体中文 and 日本語, detected from the browser.
+- Designed mobile-first: bottom sheets and large touch targets on phones, and haptic feedback where the platform supports it. Animations turn off when the system asks for reduced motion.
+
+**Administration**
+- Admin panel with share search, previews, a recycle bin, access logs and storage settings.
+- Sign in with a password, a passkey (WebAuthn), or your own OIDC provider.
+- Admin-issued API keys for scripts and other apps (`/api/v1/*`).
 
 ## Quick start
 
-### One-line install (recommended)
+### One-line install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kurobaryo/yui-drop/main/scripts/install.sh | bash
 ```
 
-The installer will:
-1. Clone the repo into `./yui-drop`
-2. Generate a strong random `ADMIN_TOKEN` and `JWT_SECRET`
-3. Write a starter `.env` (you'll edit it to point at your bucket if you want object storage)
-4. Run `docker compose up -d --build`
-5. Print the admin URL + token
-
-Then open <http://localhost:8000> in your browser. Default storage backend is local FS — perfect for trying it out.
+The installer clones the repository into `./yui-drop`, generates `ADMIN_TOKEN`, `JWT_SECRET` and `SECRETS_KEY`, writes a starter `.env`, runs `docker compose up -d --build` and prints the admin URL. Then open <http://localhost:8000>. Files are stored on local disk by default.
 
 ### Manual install
 
 ```bash
-# 1. Clone
 git clone https://github.com/kurobaryo/yui-drop.git
 cd yui-drop
-
-# 2. Generate secrets and write .env
 cp .env.example .env
-# edit .env — at minimum set ADMIN_TOKEN, JWT_SECRET, and (optionally) S3 / R2 credentials
-
-# 3. Run
+# Set ADMIN_TOKEN, JWT_SECRET and SECRETS_KEY (each file has generation hints),
+# and optionally your S3 / R2 credentials.
 docker compose up -d --build
-
-# 4. Open
-open http://localhost:8000
 ```
 
-### Development (without Docker)
+Database migrations run automatically when the container starts.
+
+### Local development
 
 ```bash
-# Backend
+# Backend (Python 3.12)
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 
-# Frontend (in another terminal)
+# Frontend, in another terminal (Node 22)
 cd frontend
 pnpm install
-pnpm dev   # → http://localhost:5173, proxies /api → :8000
+pnpm dev        # http://localhost:5173, proxies /api to :8000
 ```
+
+Tests: `cd backend && pytest`; type checks and build: `cd frontend && pnpm exec tsc --noEmit && pnpm build`.
 
 ## Configuration
 
-All config is via environment variables (`.env`). The full list lives in [`.env.example`](./.env.example). Key ones:
+All settings are environment variables in `.env`; [`.env.example`](./.env.example) lists every one with comments. The most important:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ADMIN_TOKEN` | *random* | Bootstrap admin password (hashed on first start) |
-| `JWT_SECRET`  | *random* | Server-side JWT signing key |
-| `STORAGE_BACKEND` | `local` | `local`, `s3`, `onedrive`, `webdav` |
-| `S3_ENDPOINT_URL` | *(empty)* | e.g. `https://<account>.r2.cloudflarestorage.com` |
-| `S3_BUCKET_NAME`  | *(empty)* | The bucket holding uploaded files |
-| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | *(empty)* | R2 / S3 credentials |
-| `RATE_LIMIT_UPLOAD_PER_MIN` | `5` | Per-IP upload rate limit |
-| `RATE_LIMIT_RETRIEVE_FAILS_PER_HOUR` | `20` | Per-IP failed-retrieve cap (auto-ban) |
-| `MAX_UPLOAD_BYTES` | `10737418240` | Single file size cap (default 10 GiB) |
-| `STORAGE_QUOTA_BYTES` | *(unlimited)* | Total storage quota across all shares |
-| `EXPIRE_SWEEPER_INTERVAL_MIN` | `10` | How often the soft-delete sweeper runs |
-| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | *(empty)* | Optional Cloudflare Turnstile bot protection |
-| `ALLOWED_ORIGINS` | *(deploy host)* | CORS whitelist; never set this to `*` in prod |
+| `ADMIN_TOKEN` | — | Initial admin password (stored hashed) |
+| `JWT_SECRET` | — | Signs admin sessions |
+| `SECRETS_KEY` | — | 32-byte key that encrypts files on local disk and secrets stored in the database. The app refuses to start without it. |
+| `APP_URL` / `ALLOWED_ORIGINS` | `http://localhost:8000` | Public URL and CORS allow-list. Never use `*` in production. |
+| `STORAGE_BACKEND` | `local` | `local` or `s3` (any S3-compatible service, including Cloudflare R2) |
+| `S3_ENDPOINT_URL`, `S3_BUCKET_NAME`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | — | Bucket credentials when `STORAGE_BACKEND=s3` |
+| `MAX_FILE_BYTES` | `10737418240` | Largest single file (10 GiB) |
+| `MAX_FILES_PER_SHARE` | `200` | Files in one share |
+| `STORAGE_QUOTA_BYTES` | unlimited | Total storage across all shares |
+| `RATE_LIMIT_UPLOAD_PER_MIN` / `_PER_HOUR` / `_PER_DAY` | `5` / `30` / `200` | Per-IP upload limits |
+| `RATE_LIMIT_RETRIEVE_FAILS_PER_HOUR` | `20` | Wrong codes allowed per IP before a temporary ban |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | Optional Cloudflare Turnstile bot check |
 
-Settings the admin can change at runtime (storage credentials, rate limits, UI labels, etc.) are stored in the DB and editable from `/admin/settings`. Sensitive secrets (`ADMIN_TOKEN`, `JWT_SECRET`) stay in `.env` and are never written back to the DB.
+Theme, storage backend, rate limits, sign-in methods and site text can also be changed at runtime from the admin panel. Those values are stored in the database, encrypted where they are secrets. `ADMIN_TOKEN`, `JWT_SECRET` and `SECRETS_KEY` only ever live in `.env`.
+
+For production topology, R2 bucket CORS and reverse-proxy notes, see [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
 ## Security
 
-The user-facing badge says *"🔒 安全加密 · 匿名"* — here's what backs it.
+Yui Drop is built for quick, everyday sharing. It is **not** end-to-end encrypted: the server can read what you upload. If you need zero-knowledge sharing, use a tool designed for it, such as [Magic Wormhole](https://github.com/magic-wormhole/magic-wormhole).
 
-### What's encrypted
+**Encryption**
+- In transit: HTTPS everywhere. HSTS is sent when served over HTTPS.
+- At rest: files on local disk are encrypted with AES-256-GCM using a separate key per share, wrapped by `SECRETS_KEY`. Objects in S3/R2 use the provider's AES-256 server-side encryption.
+- Admin password and API keys are stored only as hashes.
 
-- **In transit** — all client ↔ server traffic is HTTPS (TLS 1.3, recommend deploying behind Caddy / Nginx Proxy Manager with Let's Encrypt).
-- **At rest in the bucket** — Cloudflare R2 and AWS S3 transparently encrypt every object with AES-256 server-side (SSE). No client work needed; the storage provider's keys are managed by them. This covers the "stolen disk" / "physical media seized" threat model.
-- **Admin password** — stored as a salted hash; the raw token is only in `.env`.
-- **JWT** — HS256 / RS256 signed; secret in `.env`.
+**Serving uploaded files safely**
+- The server derives each file's `Content-Type` from its extension. Types declared by the uploader are ignored.
+- Only images, audio, video, PDF and plain text are shown inline. HTML, SVG, XML, scripts and everything else are always served as downloads.
+- Every file response carries `X-Content-Type-Options: nosniff` and a sandboxed `Content-Security-Policy`, so even a mislabelled file cannot run script on the site's origin.
+- Markdown is rendered with raw HTML disabled and sanitised with DOMPurify. Links to unsafe schemes become plain text, and remote images are never loaded automatically, so opening a share cannot ping a third-party server.
 
-> Yui-Drop does *not* do end-to-end encryption. The goal is fast, low-friction sharing for everyday files — a code you can speak over the phone. If you need provable zero-knowledge (server can't read your file), reach for a different tool: [Send](https://send.vis.ee), [Wormhole](https://wormhole.app), [Magic-Wormhole](https://github.com/magic-wormhole/magic-wormhole).
+**Abuse protection**
+- Pickup codes avoid easy patterns. Too many wrong codes from one IP trigger a temporary ban.
+- Per-IP upload limits, a global storage quota and optional Turnstile.
+- Multipart uploads are size-checked against the real object on completion, and abandoned sessions are cleaned up.
+- Rate-limited admin login, with optional passkeys or OIDC.
+- Strict site-wide CSP, `frame-ancestors 'self'`, `Referrer-Policy` and `Permissions-Policy`. All queries are parameterised. Filenames are sanitised and storage paths are generated server-side.
 
-### What's defended against
+**Logs and retention**
+- Access logs record IP and User-Agent for abuse handling. IP logging can be turned off in the admin panel.
+- Expired shares move to a recycle bin. The admin can restore them or delete them permanently.
 
-| Threat | Defense |
-|---|---|
-| SQL injection | SQLAlchemy 2.0 parameterized queries throughout; no string concat in SQL |
-| XSS (uploaded HTML / SVG) | SVG forced-download (not previewed); HTML files forced-download; text/markdown served as `text/plain` and rendered through DOMPurify |
-| CSRF | Pure Bearer-JWT, no cookie auth, no ambient credentials |
-| Brute-force pickup codes | Per-IP 20 failed retrievals → 1 h soft ban; codes generated avoiding low-entropy patterns (`123456`, `111111`, etc.) |
-| Storage flooding | Per-IP upload limits (5/min, 30/h, 200/day); global storage quota (admin-configurable); 1 h orphan-multipart cleaner |
-| Size lies in multipart | `complete` step HEADs the actual object and rejects if declared size ≠ real size > 5% |
-| Admin brute-force | Per-IP 10/5min cap on `/admin/login` with exponential delay |
-| Clickjacking / framing | `X-Frame-Options: DENY` + `Content-Security-Policy: frame-ancestors 'none'` |
-| MIME sniffing | `X-Content-Type-Options: nosniff` |
-| Header injection in `Content-Disposition` | Filenames sanitized + RFC 5987 encoded |
-| Open redirect | No user-supplied redirect targets anywhere |
-| Path traversal | Filenames sanitized (no `..`, no control chars, no Windows reserved names); file paths derived from server-side UUIDs, never trusted user input |
+Please report vulnerabilities privately through [GitHub security advisories](https://github.com/kurobaryo/yui-drop/security/advisories/new) rather than opening a public issue.
 
-Bot protection via Cloudflare Turnstile is shipped but **off by default** — toggle it on from the admin UI once you've configured the site key + secret in `.env`.
+## Architecture
 
-### Logging & retention
+```
+Browser (React SPA) ──► FastAPI ──► SQLite (metadata)
+        │                  │
+        │   presigned      │   local disk (encrypted)
+        └── multipart ────►└── or S3 / R2 bucket
+```
 
-- **Access logs include client IP and User-Agent** for abuse triage; admin can query them from `/admin/logs`.
-- **Soft delete** — expired or admin-removed shares are flagged `deleted_at` but the bucket object is kept. The admin can restore from the recycle bin or hard-delete (which removes the bucket object too).
-- **Automatic sweeper** runs every `EXPIRE_SWEEPER_INTERVAL_MIN` minutes; expired rows become soft-deleted, orphan multipart sessions are aborted.
+- **Frontend**: React 18, TypeScript, Vite, Zustand, TanStack Query, react-i18next, markdown-it and DOMPurify.
+- **Backend**: FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, cryptography.
+- **Storage**: one `StorageBackend` interface with local and S3-compatible implementations.
+
+More detail in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+
+## API
+
+Besides the internal endpoints the web app uses, Yui Drop offers a stable REST API at `/api/v1` for scripts and other apps. Admins issue keys from the panel, scoped to `upload` and/or `read`, with optional per-key quotas.
+
+- `POST /api/v1/upload`: single-request upload for small files
+- `POST /api/v1/upload/init`, then `sign-part` and `complete`: multipart upload straight to the bucket for large files
+- `POST /api/v1/share/text`: create a text share
+- `POST /api/v1/pickup`: resolve a pickup code
+- `GET /api/v1/shares`, `GET /api/v1/shares/{code}`: list and inspect shares created with the key
+
+```bash
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.sh ./report.pdf
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.py ./video.mp4 --expire-value 7 --expire-style day
+```
+
+The full reference is in [`docs/API.md`](./docs/API.md) and on every instance at `/docs`.
+
+## Operations
+
+The `yuidrop` CLI handles updates on a server:
+
+```bash
+sudo ./scripts/install-yuidrop.sh   # once
+yuidrop update                      # pull, rebuild, migrate, health check
+yuidrop rollback                    # back to the previous commit
+```
+
+See [`scripts/README.md`](./scripts/README.md).
 
 ## Repository layout
 
 ```
-yui-drop/
-├── README.md              ← 中文 (default)
-├── README.en.md           ← English (this file)
-├── README.ja.md           ← 日本語
-├── LICENSE                ← MIT
-├── docker-compose.yml     ← single-command deploy
-├── .env.example           ← all configurable env vars, with comments
-├── scripts/
-│   ├── install.sh         ← one-line install script
-│   └── ...                ← ops helpers
-├── backend/               ← Python · FastAPI · SQLAlchemy 2.0
-│   ├── pyproject.toml
-│   ├── Dockerfile
-│   ├── alembic.ini · alembic/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── api/           ← route modules
-│   │   ├── core/          ← config, security, deps
-│   │   ├── db/            ← session, base
-│   │   ├── models/        ← SQLAlchemy models
-│   │   ├── schemas/       ← Pydantic v2 DTOs
-│   │   ├── services/      ← business logic
-│   │   └── storage/       ← backend implementations
-│   └── tests/
-├── frontend/              ← React 18 · Vite · TypeScript
-│   ├── package.json
-│   ├── Dockerfile
-│   ├── vite.config.ts · tailwind.config.ts · tsconfig.json
-│   ├── public/
-│   └── src/
-│       ├── main.tsx · App.tsx
-│       ├── routes/                ← route components
-│       ├── components/ui/         ← Linear-style atoms
-│       ├── components/motion/     ← animated accents
-│       ├── pages/                 ← page-level components
-│       ├── hooks/ · api/ · stores/
-│       ├── i18n/locales/{en,zh-CN,ja}.json
-│       └── styles/
-└── docs/
-    ├── ARCHITECTURE.md
-    ├── API.md             ← REST contract + OpenAPI link
-    └── DEPLOYMENT.md
+backend/    FastAPI app (api/, services/, models/, storage/), Alembic migrations, tests
+frontend/   React app (v2/ is the current UI, pages/admin/ the admin panel, i18n/ translations)
+scripts/    installer, yuidrop CLI, upload clients
+docs/       architecture, deployment, API, images
 ```
-
-## API
-
-Yui-Drop ships two API surfaces:
-
-**Internal (frontend ↔ backend)** — `/api/share`, `/api/chunk`, `/api/presign`, `/api/admin`. These power the SPA and use a JWT-based admin login. See [`docs/API.md`](./docs/API.md) for the full contract.
-
-**Public v1 (`/api/v1/*`)** — A stable Bearer-token-authenticated REST surface for programmatic access. Keys are admin-issued (no self-service signup) and scoped to `upload` and/or `read`. Quotas (max file size, daily byte volume) are configurable per key. Three endpoints cover the common shape:
-
-- `POST /api/v1/upload` — simple file upload (≤ 10 MiB)
-- `POST /api/v1/upload/init` → `sign-part` → `complete` — R2 multipart presigned URL flow for large files (bypasses Cloudflare's 100 MB free-plan ingress limit)
-- `GET /api/v1/shares` and `GET /api/v1/shares/{code}` — list and inspect shares created with the current key
-
-Three implementation paths cover most clients:
-- **curl + jq** for one-off shell uploads (~30 lines)
-- **Python** with `requests` and a thread pool for scripts and automation
-- **`@uppy/aws-s3-multipart`** for browser/Node clients — yui-drop's `/api/v1/upload/*` endpoints map directly onto Uppy's four lifecycle hooks
-
-Reference implementations live under `scripts/`:
-
-```bash
-# Simple upload — small files, requires curl + (optional) jq
-YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.sh ./screenshot.png
-
-# Python — handles both simple + multipart, concurrent parts
-YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.py ./big-video.mp4 \
-    --expire-value 7 --expire-style day
-```
-
-Both print the short URL on stdout. See the [live docs page](https://drop.leod.me/docs) (rendered in English / 简体中文 / 日本語 — follows your browser language) for the full endpoint reference, error codes, expiry options, and quota details.
-
-The OpenAPI spec is served at `GET /api/openapi.json`; an interactive Swagger UI for the internal endpoints is at `GET /api/_swagger` (admin debugging only — the public docs page above is the recommended reference).
 
 ## Roadmap
 
-- [ ] Optional client-side encryption toggle (`?c=…&k=…` style)
-- [ ] Custom pickup-code length (5–8 digits)
-- [ ] WebPush / email expiry notifications
-- [ ] Folder upload (auto-zip)
-- [ ] Per-share password protection
-- [ ] ClamAV scan hook
-
-## Acknowledgements
-
-Inspired by [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox) — the original anonymous file-sharing service that pioneered the "share by code" idea. Yui-Drop is an independent rewrite focused on a Linear-style UI, mobile-first experience, modern Python/JS stacks, and tighter security defaults. No source code is shared with upstream.
-
-## Operations
-
-For self-hosters, the `yuidrop` CLI wraps the deploy / status / rollback dance:
-
-```bash
-sudo ./scripts/install-yuidrop.sh   # one-time install on the server
-yuidrop update                      # git pull + rebuild + migrate + health check
-```
-
-See [`scripts/README.md`](./scripts/README.md) for the full command reference, requirements, configuration (`/etc/yuidrop.conf`), and troubleshooting.
+- Optional client-side encryption
+- Password-protected shares
+- Configurable pickup-code length
+- Folder upload
+- Virus-scan hook
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+[MIT](./LICENSE)

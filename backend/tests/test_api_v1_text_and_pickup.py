@@ -1,7 +1,8 @@
 """Integration tests for POST /api/v1/share/text and POST /api/v1/pickup.
 
-These two endpoints back a client app's 寄文字 (send text)
-and 取件 (pickup) flows. Both are proxied server-side, which is why pickup
+These two endpoints let an authenticated client (for example another web app
+that embeds Yui-Drop) send text and pick up shares. Such clients usually call
+them from their own server, which is why pickup
 failure-tracking is keyed on the API key rather than the caller IP — see
 ``resolve_share(fail_key=...)``.
 """

@@ -1,5 +1,5 @@
 /**
- * /docs — Public API documentation for drop.leod.me.
+ * /docs — Public API documentation for this instance.
  *
  * Rendered in the washi style so it feels like a sibling page of the home
  * uploader. Sticky-left TOC + scrollable content on desktop, single column
@@ -83,6 +83,9 @@ const HASH_FOR_TOC: Record<(typeof TOC_IDS)[number], string> = {
 const ENVELOPE_EXAMPLE = '{ "code": 2000, "message": "ok", "detail": { ... } }';
 const AUTH_HEADER_EXAMPLE = "Authorization: Bearer yd_<8char_id>_<32char_secret>";
 
+/** Examples use the address this page is served from, so every instance documents itself. */
+const ORIGIN = typeof window !== "undefined" ? window.location.origin : "https://drop.example.com";
+
 const UPLOAD_RESPONSE = [
   "{",
   '  "code": 2000,',
@@ -93,14 +96,14 @@ const UPLOAD_RESPONSE = [
   '    "size": 12,',
   '    "expired_at": "2026-05-28T00:00:00+00:00",',
   '    "expired_count": -1,',
-  '    "url": "https://drop.leod.me/api/share/download/abc12345",',
-  '    "short_url": "https://drop.leod.me/s/abc12345"',
+  `    "url": "${ORIGIN}/api/share/download/abc12345",`,
+  `    "short_url": "${ORIGIN}/s/abc12345"`,
   "  }",
   "}",
 ].join("\n");
 
 const UPLOAD_CURL = [
-  "curl -X POST https://drop.leod.me/api/v1/upload \\",
+  `curl -X POST ${ORIGIN}/api/v1/upload \\`,
   '  -H "Authorization: Bearer yd_xxxxxxxx_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" \\',
   '  -F "file=@./hello.txt" \\',
   '  -F "expire_value=1" \\',
@@ -121,7 +124,7 @@ const MULTIPART_INIT_RESPONSE = [
 ].join("\n");
 
 const MULTIPART_INIT_CURL = [
-  "curl -X POST https://drop.leod.me/api/v1/upload/init \\",
+  `curl -X POST ${ORIGIN}/api/v1/upload/init \\`,
   '  -H "Authorization: Bearer yd_..." \\',
   '  -H "Content-Type: application/json" \\',
   '  -d \'{"file_name":"big.bin","file_size":62914560,"expire_value":1,"expire_style":"day"}\'',
@@ -140,7 +143,7 @@ const SIGN_PART_RESPONSE = [
 ].join("\n");
 
 const SIGN_PART_CURL = [
-  "curl -X POST https://drop.leod.me/api/v1/upload/8f3a2c.../sign-part \\",
+  `curl -X POST ${ORIGIN}/api/v1/upload/8f3a2c.../sign-part \\`,
   '  -H "Authorization: Bearer yd_..." \\',
   '  -H "Content-Type: application/json" \\',
   '  -d \'{"part_number": 1}\'',
@@ -155,14 +158,14 @@ const COMPLETE_RESPONSE = [
   '    "size": 62914560,',
   '    "expired_at": "2026-05-28T00:00:00+00:00",',
   '    "expired_count": -1,',
-  '    "url": "https://drop.leod.me/api/share/download/abc12345",',
-  '    "short_url": "https://drop.leod.me/s/abc12345"',
+  `    "url": "${ORIGIN}/api/share/download/abc12345",`,
+  `    "short_url": "${ORIGIN}/s/abc12345"`,
   "  }",
   "}",
 ].join("\n");
 
 const COMPLETE_CURL = [
-  "curl -X POST https://drop.leod.me/api/v1/upload/8f3a2c.../complete \\",
+  `curl -X POST ${ORIGIN}/api/v1/upload/8f3a2c.../complete \\`,
   '  -H "Authorization: Bearer yd_..." \\',
   '  -H "Content-Type: application/json" \\',
   '  -d \'{"parts": [{"part_number": 1, "etag": "abc"}, ...]}\'',
@@ -176,7 +179,7 @@ const ABORT_RESPONSE = [
 ].join("\n");
 
 const ABORT_CURL = [
-  "curl -X DELETE https://drop.leod.me/api/v1/upload/8f3a2c... \\",
+  `curl -X DELETE ${ORIGIN}/api/v1/upload/8f3a2c... \\`,
   '  -H "Authorization: Bearer yd_..."',
 ].join("\n");
 
@@ -195,8 +198,8 @@ const LIST_RESPONSE = [
   '        "expired_count": -1,',
   '        "used_count": 0,',
   '        "created_at": "2026-05-27T01:23:45+00:00",',
-  '        "url": "https://drop.leod.me/api/share/download/abc12345",',
-  '        "short_url": "https://drop.leod.me/s/abc12345"',
+  `        "url": "${ORIGIN}/api/share/download/abc12345",`,
+  `        "short_url": "${ORIGIN}/s/abc12345"`,
   "      }",
   "    ]",
   "  }",
@@ -204,7 +207,7 @@ const LIST_RESPONSE = [
 ].join("\n");
 
 const LIST_CURL = [
-  "curl https://drop.leod.me/api/v1/shares?limit=10 \\",
+  `curl ${ORIGIN}/api/v1/shares?limit=10 \\`,
   '  -H "Authorization: Bearer yd_..."',
 ].join("\n");
 
@@ -216,14 +219,10 @@ const GET_RESPONSE = [
 ].join("\n");
 
 const GET_CURL = [
-  "curl https://drop.leod.me/api/v1/shares/abc12345 \\",
+  `curl ${ORIGIN}/api/v1/shares/abc12345 \\`,
   '  -H "Authorization: Bearer yd_..."',
 ].join("\n");
 
-const CONTACT_EMAIL = "contact@example.com";
-const CONTACT_GITHUB_URL = "https://github.com/kurobaryo/yui-drop/issues";
-const CONTACT_GITHUB_HANDLE = "kurobaryo";
-const CONTACT_DISPLAY_NAME = "Leeeo.D";
 
 export default function ApiDocs() {
   const { t } = useTranslation();
@@ -401,7 +400,7 @@ export default function ApiDocs() {
               <ul style={ulStyle(c)}>
                 <li>
                   <strong>{t("apiDocs.intro.baseUrlLabel")}</strong>{" "}
-                  <code style={inlineCode(c)}>https://drop.leod.me/api/v1</code>
+                  <code style={inlineCode(c)}>{ORIGIN}/api/v1</code>
                 </li>
                 <li>
                   <strong>{t("apiDocs.intro.envelopeLabel")}</strong>{" "}
@@ -618,19 +617,6 @@ export default function ApiDocs() {
             <section id="request-key" style={sectionStyle(c)}>
               <h2 style={h2Style(c)}>{t("apiDocs.requestKey.heading")}</h2>
               <p style={pStyle(c)}>{t("apiDocs.requestKey.p1")}</p>
-              <ul style={ulStyle(c)}>
-                <li>
-                  📮 {t("apiDocs.requestKey.contactEmail")}{" "}
-                  <a href={"mailto:" + CONTACT_EMAIL} style={linkStyle(c)}>{CONTACT_EMAIL}</a>
-                </li>
-                <li>
-                  💬 {t("apiDocs.requestKey.contactGithub")}{" "}
-                  <a href={CONTACT_GITHUB_URL} style={linkStyle(c)} target="_blank" rel="noreferrer">
-                    {t("apiDocs.requestKey.githubLink")}
-                  </a>{" "}
-                  (<code style={inlineCode(c)}>@{CONTACT_GITHUB_HANDLE}</code> · {CONTACT_DISPLAY_NAME})
-                </li>
-              </ul>
               <p style={{ ...pStyle(c), fontSize: 12.5, color: c.sub }}>{t("apiDocs.requestKey.p2")}</p>
             </section>
 

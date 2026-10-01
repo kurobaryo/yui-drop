@@ -594,7 +594,7 @@
   },
   "apiDocs": {
     "title": "drop API",
-    "subtitle": "drop.leod.me 的程序化上传接口 —— 用一条 curl 就能拿到可分享的短链接。",
+    "subtitle": "本服务器的程序化上传接口 —— 用一条 curl 就能拿到可分享的短链接。",
     "contentsLabel": "目录",
     "toc": {
       "intro": "介绍",
@@ -746,10 +746,7 @@
     },
     "requestKey": {
       "heading": "申请 key",
-      "p1": "drop API 目前不开放自助注册。如需获取一把 key 用于脚本或将 yui-drop 接入你的项目,请联系:",
-      "contactEmail": "邮箱:",
-      "contactGithub": "GitHub:",
-      "githubLink": "提一个 issue",
+      "p1": "API key 由本服务器的管理员签发，不开放自助注册。如需用于脚本或集成，请联系管理员申请。",
       "p2": "每把 key 可独立设置备注、scope、配额与过期时间。明文 key 仅在签发时显示一次,请立即保存到密码管理器中。"
     }
   },

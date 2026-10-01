@@ -11,10 +11,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SPEC = Path("design/v2-spec")
-OUT = Path(
-    "frontend/src/v2/components/IconSprite.tsx"
-)
+# Directory holding the exported design prototype sprites.
+SPEC = Path(__file__).resolve().parents[2] / "design" / "v2-spec"
+OUT = Path(__file__).resolve().parents[1] / "src" / "v2" / "components" / "IconSprite.tsx"
 
 groups: dict[str, str] = {}
 for tag in ("linear", "apple"):

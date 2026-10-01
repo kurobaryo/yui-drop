@@ -1,6 +1,6 @@
 # API reference
 
-> The live OpenAPI spec is served at `/api/openapi.json` and an interactive Swagger UI at `/api/_swagger`. The public-facing v1 API has a dedicated documentation page at [`/docs`](https://drop.leod.me/docs). This doc is the high-level contract for client implementations and reviewers.
+> The live OpenAPI spec is served at `/api/openapi.json` and an interactive Swagger UI at `/api/_swagger`. The public-facing v1 API has a dedicated documentation page at `/docs` on every instance. This doc is the high-level contract for client implementations and reviewers.
 
 All non-binary responses use the envelope `{ "code": 0, "message": "ok", "detail": ... }` where `code != 0` indicates an application-level error. Authentication is `Authorization: Bearer <jwt>` (admin endpoints only).
 
