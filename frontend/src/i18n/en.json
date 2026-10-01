@@ -933,7 +933,9 @@
       "copyText": "Copy text",
       "preview": "Preview",
       "copied": "Copied",
-      "copyCodeBlock": "Copy code block"
+      "copyCodeBlock": "Copy code block",
+      "table": "Table",
+      "tableCut": "The table shows at most {{rows}} rows × {{cols}} columns — download for the full file"
     },
     "pickupFailed": "Pickup failed",
     "header": {
