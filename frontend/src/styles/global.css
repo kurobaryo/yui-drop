@@ -196,4 +196,12 @@ button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+  /* View-transition pseudo-elements are not matched by `*`. Kept as its own
+     rule: browsers without the API drop the whole rule they appear in. The
+     JS side (v2/motion.ts) already skips the transition under reduce. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

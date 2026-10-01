@@ -12,8 +12,11 @@ import {
   triggerDownload,
   triggerTextDownload,
 } from '@/lib/preview';
-import { haptic } from '../haptics';
+import { haptic, reducedMotion } from '../haptics';
 import { Icon } from './IconSprite';
+
+/** Length of the close animation (`ydFadeOut` / `ydPopOut` / `ydSheetOut`). */
+const EXIT_MS=180;
 
 /** `auto` = Markdown heuristic (pasted text, notes); `force` = `.md` files; `off` = raw. */
 type MarkdownMode = 'auto' | 'force' | 'off';
@@ -68,10 +71,24 @@ export function PickupDetail({item,onClose}:{item:ShareSelectResponse;onClose:()
     files.forEach((f,i)=>{if(!f.url)return;window.setTimeout(()=>triggerDownload(f.url,f.name),i*120)});
   };
   const hasDownload=item.kind==='text'||files.length>0;
-  return <div data-yd="backdrop" data-r="backdrop" onClick={onClose} style={backdrop}>
+  // Every close path plays the exit (`data-closing`, see v2/styles/base.css)
+  // and unmounts once it has finished. Latched, so a second click during the
+  // exit does nothing; reduced motion closes at once.
+  const [closing,setClosing]=useState(false);
+  const closingRef=useRef(false);
+  const exitTimer=useRef<number>();
+  useEffect(()=>()=>window.clearTimeout(exitTimer.current),[]);
+  const requestClose=()=>{
+    if(closingRef.current)return;
+    closingRef.current=true;
+    if(reducedMotion()){onClose();return;}
+    setClosing(true);
+    exitTimer.current=window.setTimeout(onClose,EXIT_MS);
+  };
+  return <div data-yd="backdrop" data-r="backdrop" data-closing={closing?'':undefined} onClick={requestClose} style={backdrop}>
     <div data-yd="dialog" data-r="sheet" onClick={e=>e.stopPropagation()} style={sheet}>
       <div data-r="grabber" style={{display:'none',padding:'10px 0 4px'}}><div style={{width:36,height:5,borderRadius:999,background:'var(--grab)',margin:'0 auto'}}/></div>
-      <div style={{display:'flex',alignItems:'flex-start',gap:12,padding:'18px 20px 14px',borderBottom:'1px solid var(--ln)'}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:18,fontWeight:700,letterSpacing:'-.01em',color:'var(--tx)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name|| (item.kind==='text'?t('v2.recent.textShare'):item.code)}</div><div style={{fontSize:12,color:'var(--tx3)',marginTop:3}}>{meta}</div></div><button type="button" data-yd="icon-btn" onClick={onClose} style={close}><Icon name="i-x" size={15}/></button></div>
+      <div style={{display:'flex',alignItems:'flex-start',gap:12,padding:'18px 20px 14px',borderBottom:'1px solid var(--ln)'}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:18,fontWeight:700,letterSpacing:'-.01em',color:'var(--tx)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name|| (item.kind==='text'?t('v2.recent.textShare'):item.code)}</div><div style={{fontSize:12,color:'var(--tx3)',marginTop:3}}>{meta}</div></div><button type="button" data-yd="icon-btn" onClick={requestClose} style={close}><Icon name="i-x" size={15}/></button></div>
       <div style={{padding:'16px 20px 20px'}}>
         {item.kind==='multi'?<MultiPreview item={item} files={files} selected={selected} onShowNote={()=>select('note')}/>:<Preview item={item}/>}
         {files.length>0&&<div style={{marginTop:14,border:'1px solid var(--ln)',borderRadius:12,overflow:'hidden'}}>{files.map((f,i)=>{

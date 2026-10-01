@@ -53,6 +53,65 @@
     transform: none;
   }
 }
+/* Exits for the pickup sheet: backdrop, centred dialog, bottom sheet. */
+@keyframes ydFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes ydPopOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+@keyframes ydSheetOut {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+/* Entrances: a short rise for page sections (ydRise 4px, ydEnter 6px) and a
+   small scale-up for chips. */
+@keyframes ydRise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ydEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ydChip {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 /* Caret blink for the six-cell code input (the prototype shows a static bar;
    blinking makes the focused cell readable as a text field). */
 @keyframes ydCaret {
@@ -341,6 +400,22 @@
 [data-yd='sheetup'] {
   animation: ydSheet 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
+/* Pickup sheet exit: PickupDetail sets `data-closing` on the backdrop, waits
+   for this to finish, then unmounts. The `[data-template]` prefix (always on
+   <html>) out-ranks the Apple entrance rules, which have the same selectors
+   and load later. On narrow screens each theme slides the bottom sheet down
+   instead (themes/*.css, next to their `ydSheet` entrance). */
+[data-template] [data-yd='backdrop'][data-closing] {
+  animation: ydFadeOut 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  pointer-events: none;
+}
+[data-template] [data-yd='backdrop'][data-closing] [data-yd='dialog'] {
+  animation: ydPopOut 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+/* Share code appearing after a send (CodeReadyV2). */
+[data-yd='codeready'] {
+  animation: ydPop 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
 
 /* The v2 root owns background/typography so the theme applies even before a
    screen renders. */
@@ -364,12 +439,22 @@
   margin: 0;
 }
 
-/* Respect reduced-motion: the prototype's animations are decorative. */
+/* Respect reduced-motion: the prototype's animations are decorative. The
+   pickup sheet's exit never starts here — PickupDetail closes at once. */
 @media (prefers-reduced-motion: reduce) {
   [data-yd='backdrop'],
   [data-yd='dialog'],
   [data-yd='sheetup'],
-  [data-r='sheet'] {
+  [data-r='sheet'],
+  [data-yd='codeready'],
+  [data-p='title'],
+  [data-p='sub'],
+  [data-p='seg'],
+  [data-p='panel'],
+  [data-p='chip'] {
     animation: none !important;
+  }
+  [data-p='seg-thumb'] {
+    transition: none !important;
   }
 }

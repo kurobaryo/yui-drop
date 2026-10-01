@@ -226,6 +226,11 @@
     height: auto;
     max-height: 70vh;
   }
+  /* Exit slides the sheet back down (see base.css); the extra selector parts
+     out-rank the !important entrance above. */
+  [data-template='apple'] [data-r='backdrop'][data-closing] [data-r='sheet'] {
+    animation: ydSheetOut 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
+  }
   [data-template='apple'] [data-r='grabber'] {
     display: block !important;
   }
