@@ -133,6 +133,28 @@
     transform: scale(0.98);
   }
 }
+/* Popover menus: grow and rise 4px out of the trigger's corner (the
+   transform-origin), and sink back into it on close. */
+@keyframes ydMenu {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ydMenuOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+}
 /* Caret blink for the six-cell code input (the prototype shows a static bar;
    blinking makes the focused cell readable as a text field). */
 @keyframes ydCaret {
@@ -513,6 +535,23 @@
   animation: ydViewOut 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both;
   pointer-events: none;
 }
+/* Popover menus (ExpiryMenu), right-anchored under their trigger. Reopening
+   during the exit swaps the animation back, which restarts the entrance. */
+[data-yd='menu'] {
+  transform-origin: top right;
+  animation: ydMenu 0.16s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+[data-yd='menu'][data-closing] {
+  animation: ydMenuOut 0.12s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  pointer-events: none;
+}
+/* The ▾ on a menu trigger turns over while the menu is open. */
+[data-yd='menu-caret'] {
+  transition: transform 0.16s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+[data-yd='menu-caret'][data-open] {
+  transform: rotate(180deg);
+}
 
 /* The v2 root owns background/typography so the theme applies even before a
    screen renders. */
@@ -537,8 +576,8 @@
 }
 
 /* Respect reduced-motion: the prototype's animations are decorative. The
-   exits of the pickup sheet and the preview viewer never start here — their
-   components close at once. */
+   exits of the pickup sheet, the preview viewer and the expiry menu never
+   start here — their components close at once. */
 @media (prefers-reduced-motion: reduce) {
   [data-yd='backdrop'],
   [data-yd='dialog'],
@@ -546,6 +585,7 @@
   [data-r='sheet'],
   [data-yd='codeready'],
   [data-yd='viewer'],
+  [data-yd='menu'],
   [data-p='title'],
   [data-p='sub'],
   [data-p='seg'],
@@ -553,7 +593,8 @@
   [data-p='chip'] {
     animation: none !important;
   }
-  [data-p='seg-thumb'] {
+  [data-p='seg-thumb'],
+  [data-yd='menu-caret'] {
     transition: none !important;
   }
 }
