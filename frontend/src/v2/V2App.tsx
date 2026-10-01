@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 
 import { normalizeLang } from '@/i18n/normalize';
 import { haptic } from './haptics';
+import { crossFade } from './motion';
 import { useThemeStore } from '@/stores/theme';
 import type { RecentEntry } from '@/lib/recent';
 import { pushRecent } from '@/lib/recent';
@@ -57,7 +58,7 @@ export function V2App() {
   // the visitor's own preference. Both live in the shared store already.
   const template = useThemeStore((s) => s.template);
   const mode = useThemeStore((s) => s.mode) as Mode;
-  const setMode = useThemeStore((s) => s.setMode);
+  const toggleAppearance = useThemeStore((s) => s.toggleAppearance);
   const accent = useThemeStore((s) => s.accent);
   const accentCustom = useThemeStore((s) => s.accentCustom);
   const brandName = useThemeStore((s) => s.brandName);
@@ -71,16 +72,17 @@ export function V2App() {
   useApplyTheme({ theme: template, mode, accent, accentCustom });
 
   // Track the resolved appearance so the header shows the right glyph, and
-  // keep it live while `mode === 'auto'`.
-  const [dark, setDark] = useState(() => resolveMode(mode) === 'dark');
+  // keep it live while `mode === 'auto'`. Derived during render (not set from
+  // an effect) so a cross-faded toggle already snapshots the new glyph.
+  const [systemDark, setSystemDark] = useState(() => resolveMode('auto') === 'dark');
   useEffect(() => {
-    setDark(resolveMode(mode) === 'dark');
-    if (mode !== 'auto' || typeof window === 'undefined' || !window.matchMedia) return;
+    if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = () => setDark(mq.matches);
+    const onChange = () => setSystemDark(mq.matches);
     mq.addEventListener?.('change', onChange);
     return () => mq.removeEventListener?.('change', onChange);
-  }, [mode]);
+  }, []);
+  const dark = mode === 'auto' ? systemDark : mode === 'dark';
 
   // Language is owned by i18next (it persists to localStorage and drives every
   // `t()` call); the chip label is derived from it rather than tracked
@@ -97,9 +99,12 @@ export function V2App() {
     void i18nInstance.changeLanguage(next.code);
   }, [i18nInstance, langIndex]);
 
+  // Lands on `auto` when the new appearance matches the system (see the
+  // store). Porcelain cross-fades the switch; other themes keep the swap.
   const toggleMode = useCallback(() => {
-    setMode(dark ? 'light' : 'dark');
-  }, [dark, setMode]);
+    if (porcelain) crossFade(toggleAppearance);
+    else toggleAppearance();
+  }, [porcelain, toggleAppearance]);
 
   const fontStack = useMemo(() => getTheme(template).fontStack, [template]);
 
@@ -238,7 +243,9 @@ export function V2App() {
           <TurnstileWidget ref={turnstileRef} mode="invisible-on-submit" siteKey={config.turnstileSiteKey} onVerify={() => {}} onExpire={() => {}} onError={() => {}} />
         </div>
       )}
-      {pickup && <PickupDetail item={pickup} onClose={() => {
+      {/* Keyed so a share opened during the previous one's exit animation
+          gets a fresh sheet instead of inheriting the pending close. */}
+      {pickup && <PickupDetail key={pickup.code} item={pickup} onClose={() => {
         setPickup(null);
         if (/^\/(?:s|v|m)\//.test(location.pathname) || new URLSearchParams(location.search).has('code')) navigate('/', { replace: true });
       }} />}

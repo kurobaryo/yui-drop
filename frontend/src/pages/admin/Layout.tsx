@@ -29,14 +29,13 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const valid = useAdminStore((s) => s.isValid());
   const clear = useAdminStore((s) => s.clear);
-  const setMode = useThemeStore((s) => s.setMode);
+  const toggleMode = useThemeStore((s) => s.toggleAppearance);
   const effective = useThemeStore((s) => s.effective());
   const brand = useThemeStore((s) => s.brandName);
   const [moreOpen, setMoreOpen] = useState(false);
 
   if (!valid) return <Navigate to="/admin/login" replace />;
   const logout = () => { clear(); navigate('/admin/login', { replace: true }); };
-  const toggleMode = () => setMode(effective === 'dark' ? 'light' : 'dark');
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--tx1)', fontFamily: 'var(--yd-font, system-ui,sans-serif)' }}>

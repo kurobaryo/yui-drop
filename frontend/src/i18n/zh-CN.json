@@ -932,7 +932,9 @@
       "copyText": "复制文字",
       "preview": "预览",
       "copied": "已复制",
-      "copyCodeBlock": "复制代码"
+      "copyCodeBlock": "复制代码",
+      "table": "表格",
+      "tableCut": "表格最多显示 {{rows}} 行 × {{cols}} 列，下载可获取完整文件"
     },
     "pickupFailed": "取件失败",
     "header": {

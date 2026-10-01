@@ -155,6 +155,25 @@ export function isMarkdownName(name: string | null | undefined): boolean {
 }
 
 /**
+ * Should this text file preview as a table? `tsv` is always tab-separated;
+ * `csv` files get their delimiter sniffed (`,` `;` or tab). The server
+ * reports `text/plain` for every text preview, so the extension decides in
+ * practice; the CSV/TSV MIME types are honoured when they do show up.
+ */
+export function tableFlavor(
+  contentType: string | null | undefined,
+  name: string | null | undefined,
+): 'csv' | 'tsv' | null {
+  const ext = extensionOf(name);
+  if (ext === 'tsv') return 'tsv';
+  if (ext === 'csv') return 'csv';
+  const mime = bareMime(contentType);
+  if (mime === 'text/tab-separated-values') return 'tsv';
+  if (mime === 'text/csv') return 'csv';
+  return null;
+}
+
+/**
  * Append `?dl=1` so the backend answers with `Content-Disposition: attachment`.
  *
  * Without this a "Download" link just navigates to an inline response and the

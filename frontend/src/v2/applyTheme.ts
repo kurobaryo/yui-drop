@@ -12,6 +12,7 @@
  */
 import { useEffect } from 'react';
 
+import { syncThemeChrome } from '@/lib/themeChrome';
 import { DEFAULT_THEME, getTheme, resolveAccent } from './themes';
 
 export type Mode = 'light' | 'dark' | 'auto';
@@ -102,6 +103,8 @@ export function applyTheme(t: AppliedTheme): void {
   // the root element, which the CSS also targets, but setting it here keeps
   // the value colocated with the theme definition).
   root.style.setProperty('--yd-font', getTheme(theme).fontStack);
+
+  syncThemeChrome(resolved);
 }
 
 /**
