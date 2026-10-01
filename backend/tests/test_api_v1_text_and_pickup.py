@@ -1,7 +1,8 @@
 """Integration tests for POST /api/v1/share/text and POST /api/v1/pickup.
 
-These two endpoints back the Yui dashboard Drop module's 寄文字 (send text)
-and 取件 (pickup) flows. Both are proxied server-side, which is why pickup
+These two endpoints let an authenticated client (for example another web app
+that embeds Yui-Drop) send text and pick up shares. Such clients usually call
+them from their own server, which is why pickup
 failure-tracking is keyed on the API key rather than the caller IP — see
 ``resolve_share(fail_key=...)``.
 """
@@ -27,13 +28,13 @@ async def test_text_share_happy_path(client):
     res = await client.post(
         "/api/v1/share/text",
         headers=key_headers(plaintext),
-        json={"text": "hello from yui", "expire_value": 1, "expire_style": "day"},
+        json={"text": "hello from a client", "expire_value": 1, "expire_style": "day"},
     )
     assert res.status_code == 200, res.text
     detail = res.json()["detail"]
     code = detail["code"]
     assert 5 <= len(code) <= 8
-    assert detail["size"] == len(b"hello from yui")
+    assert detail["size"] == len(b"hello from a client")
     # Text shares carry no download URL — the body rides in the pickup payload.
     assert detail["url"] is None
     assert detail["short_url"].endswith(f"/s/{code}")
@@ -137,7 +138,7 @@ async def test_text_share_rejects_empty_and_unknown_fields(client):
     extra = await client.post(
         "/api/v1/share/text",
         headers=key_headers(plaintext),
-        json={"text": "ok", "client": "yui-dashboard"},
+        json={"text": "ok", "client": "example-app"},
     )
     assert extra.status_code == 422, extra.text
 
@@ -333,6 +334,6 @@ async def test_pickup_rejects_unknown_fields(client):
     res = await client.post(
         "/api/v1/pickup",
         headers=key_headers(plaintext),
-        json={"code": "123456", "client": "yui-dashboard"},
+        json={"code": "123456", "client": "example-app"},
     )
     assert res.status_code == 422, res.text

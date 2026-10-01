@@ -1,96 +1,66 @@
 <div align="center">
 
-# Yui-Drop
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/cover-dark.png">
+  <img alt="Yui Drop：在一台设备上寄出文件和文字，另一台设备凭 6 位取件码取件" src="./docs/images/cover-light.png" width="100%">
+</picture>
 
-### 6 位数字取件码的可自部署文件快递柜
+# Yui Drop
 
-中文 (默认) · [English](./README.en.md) · [日本語](./README.ja.md)
+**可自部署的文件与文字分享工具。给对方一个 6 位取件码，而不是一串链接。**
 
-[在线 Demo](https://drop.leod.me) · [快速开始](#快速开始)
+中文 · [English](./README.en.md) · [日本語](./README.ja.md)
 
-![Yui-Drop 首页 — 取件视图（深色主题）](./docs/screenshots/home-pickup-dark.png)
-
-</div>
-
----
-
-## 关于
-
-Yui-Drop 是一个现代的、可自部署的「文件快递柜」：丢入文件（或粘贴文字片段），得到 6 位数字取件码，把码告诉别人即可。无需注册账号、无需链接、无需邮件 —— 只是一个可以电话口述的数字。
-
-灵感来自 [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox) 的全新独立重写，聚焦于 Linear 风格 UI、移动端优先布局、现代化的 Python/JS 技术栈（FastAPI + React 18）、更严格的默认安全配置，以及 Cloudflare R2 / S3 多分块浏览器直传 —— API 服务器永远不接触大文件。
-
-Yui-Drop is a modern, self-hostable "file-codebox": drop a file (or paste a text snippet), get a short 6-digit pickup code, share the code, done. No accounts, no links, no email — just a number you can read out over the phone.
-
-A fresh rewrite inspired by [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox), built around a Linear-style UI, mobile-first layout, modern Python/JS stacks (FastAPI + React 18), tighter security defaults, and Cloudflare R2 / S3 multipart direct-upload so the API server never touches large files.
-
----
-
-<div align="center">
-
-🔒 **默认安全** — 全链路 HTTPS (TLS 1.3)，存储侧 AES-256（R2 SSE），严格 CSP，速率限制
-✨ **现代化技术栈** — React 18、FastAPI、SQLAlchemy 2.0、S3 多分块浏览器直传
-📦 **自部署** — 单条 `docker compose up` 一键起服
-
-🔒 **Secure by design** — TLS 1.3, AES-256 at-rest (R2 SSE), strict CSP, rate-limited
-✨ **Modern stack** — React 18, FastAPI, SQLAlchemy 2.0, S3 multipart direct upload
-📦 **Self-hosted** — single `docker compose up` deploys the whole stack
+[快速开始](#快速开始) · [配置](#配置) · [安全](#安全) · [API](#api) · [在线演示](https://drop.leod.me)
 
 </div>
 
 ---
 
-## 功能特性
+## 简介
 
-- 🔑 **6 位数字取件码** — 短、好记、可口述
-- 📁 **文件与文字** — 最大 10 GB 文件，或粘贴文字片段
-- 👁️ **浏览器内嵌预览** — 图片、PDF、视频、音频、文本、Markdown 直接在网页里看，不强制下载
-- 🪣 **可插拔存储** — 本地、S3/Cloudflare R2（支持分块直传）、OneDrive、WebDAV
-- ⚡ **分块直传对象存储** — 大文件从浏览器直接传到 bucket，支持断点续传、并发分块、自动重试
-- 🎨 **5 种主题色** + 亮 / 暗 / 跟随系统三种显示模式，本地持久化
-- 🌐 **三语 UI** — English / 简体中文 / 日本語，自动识别、可手动切换
-- 🛡️ **安全第一** — 详见下方 [安全](#安全)
-- 🗑️ **软删除 + 后台回收站** — 过期或管理员删除的分享会先进回收站，可恢复或手动硬删
-- 🔌 **程序化 API 调用** — 由 admin 后台签发的 Bearer key 让脚本和其他应用拥有稳定的 `/api/v1/*` 接口（上传、列表、查询）。参见[在线文档](https://drop.leod.me/docs)或 [`docs/API.md`](./docs/API.md)。
+Yui Drop 是一个用来把文件和文字交给别人的小型网页应用。放入文件、写一段文字，或两者一起寄出，就会得到一个 6 位取件码。对方在任意设备上输入取件码，就能预览或下载。不需要注册账号、邮箱或链接，取件码短到可以直接念给对方听。
 
-## 架构
+所有分享都会过期，可以按天数，也可以按取件次数。Yui Drop 打包成一个 Docker 容器运行，元数据存在 SQLite 里，文件存放在本地磁盘（静态加密）或任意 S3 兼容存储（例如 Cloudflare R2）。
 
-```
-┌──────────────┐      ┌──────────────┐      ┌──────────────────┐
-│   React SPA  │◄────►│   FastAPI    │◄────►│   SQLite / DB    │
-│  Vite + TS   │      │  Python 3.12 │      │   (仅存元数据)   │
-└──────┬───────┘      └──────┬───────┘      └──────────────────┘
-       │                     │
-       │ multipart 直传      │ presign / complete
-       └─────────────┐ ┌─────┘
-                     ▼ ▼
-              ┌──────────────────┐
-              │     对象存储     │
-              │  R2 / S3 / 本地  │
-              └──────────────────┘
-```
+本项目受 [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox) 启发，是独立重写的实现，没有共用任何代码。
 
-- **前端** — React 18、Vite、TypeScript、Tailwind、react-i18next、TanStack Query、Zustand、lucide-react
-- **后端** — FastAPI、SQLAlchemy 2.0（async）、Alembic 迁移、Pydantic v2、structlog、slowapi
-- **存储抽象** — 单一 `StorageBackend` 接口，通过 `.env` 切换后端
-- 使用 S3/R2 时**文件不经过 API 服务器** — 浏览器通过 presigned multipart URL 直传 bucket
+## 功能
+
+**寄出**
+- 一个输入框完成所有操作：写文字、粘贴截图、拖入文件，或一起寄出。和文件一起寄出的文字会作为附言，显示在文件列表上方。
+- 单个文件最大 10 GB，一次最多 200 个文件（都可以配置）。
+- 使用 S3 / R2 时，文件从浏览器直接分块上传到存储桶，支持断点续传，大文件不经过 API 服务器。
+- 可以按时间过期（1 小时到 1 年），也可以按取件次数过期。
+
+**取件**
+- 6 格数字输入，输满自动打开；也可以粘贴取件码，每个分享另有一个直达链接。
+- 浏览器内预览图片、视频、音频、PDF、Markdown、CSV/TSV（显示为表格）、JSON、日志和源代码。每个文件都可以在新标签页打开，或用全屏查看器放大查看。
+- 可以单独下载某个文件，也可以全部下载。
+
+**收集箱**
+- 多人共享的投递房间：知道房间号的人都能加入、上传文件、留言。创建者用独立的管理密码管理房间。
+
+**外观**
+- 三套可切换的主题（瓷白、Linear、Apple），每套有多种强调色。站点名称、标题和介绍可以在后台修改。
+- 跟随系统自动切换深浅色，也可以手动切换。
+- 支持简体中文、English、日本語，按浏览器语言自动选择。
+- 移动端优先：手机上使用底部弹出面板和大尺寸点击区域，平台支持时提供触感反馈。系统开启「减弱动态效果」时自动关闭动画。
+
+**管理**
+- 后台支持分享搜索、预览、回收站、访问日志和存储设置。
+- 登录方式：密码、通行密钥（WebAuthn），或接入自己的 OIDC 身份提供方。
+- 由管理员签发 API Key，供脚本和其他应用调用（`/api/v1/*`）。
 
 ## 快速开始
 
-### 一行命令安装（推荐）
+### 一行命令安装
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kurobaryo/yui-drop/main/scripts/install.sh | bash
 ```
 
-安装脚本会：
-1. 把仓库 clone 到 `./yui-drop`
-2. 生成随机的强 `ADMIN_TOKEN` 和 `JWT_SECRET`
-3. 写一份初始 `.env`（之后你可以编辑它配置对象存储）
-4. 运行 `docker compose up -d --build`
-5. 打印管理员 URL 和 token
-
-然后打开 <http://localhost:8000>。默认用本地文件系统存储 —— 直接就能跑，先试用再决定要不要配 R2。
+安装脚本会把仓库克隆到 `./yui-drop`，生成 `ADMIN_TOKEN`、`JWT_SECRET` 和 `SECRETS_KEY`，写好初始 `.env`，执行 `docker compose up -d --build`，最后打印后台地址。之后打开 <http://localhost:8000> 即可。默认把文件存放在本地磁盘。
 
 ### 手动安装
 
@@ -98,179 +68,143 @@ curl -fsSL https://raw.githubusercontent.com/kurobaryo/yui-drop/main/scripts/ins
 git clone https://github.com/kurobaryo/yui-drop.git
 cd yui-drop
 cp .env.example .env
-# 编辑 .env —— 至少设置 ADMIN_TOKEN、JWT_SECRET，以及（可选）S3 / R2 凭据
+# 设置 ADMIN_TOKEN、JWT_SECRET 和 SECRETS_KEY（文件里有生成方法），
+# 需要时再填 S3 / R2 凭据。
 docker compose up -d --build
-open http://localhost:8000
 ```
 
-### 本地开发（不用 Docker）
+容器启动时会自动执行数据库迁移。
+
+### 本地开发
 
 ```bash
-# 后端
+# 后端（Python 3.12）
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 
-# 前端（另开终端）
+# 前端，另开一个终端（Node 22）
 cd frontend
 pnpm install
-pnpm dev   # → http://localhost:5173, /api 代理到 :8000
+pnpm dev        # http://localhost:5173，/api 代理到 :8000
 ```
+
+测试：`cd backend && pytest`；类型检查与构建：`cd frontend && pnpm exec tsc --noEmit && pnpm build`。
 
 ## 配置
 
-所有配置都通过环境变量（`.env`）。完整列表见 [`.env.example`](./.env.example)。关键变量：
+所有配置都是 `.env` 里的环境变量，完整列表和注释见 [`.env.example`](./.env.example)。最重要的几项：
 
 | 变量 | 默认值 | 用途 |
 |---|---|---|
-| `ADMIN_TOKEN` | *随机* | 引导期的管理员密码（首次启动后会被 hash 化） |
-| `JWT_SECRET`  | *随机* | 服务端 JWT 签名密钥 |
-| `STORAGE_BACKEND` | `local` | `local`、`s3`、`onedrive`、`webdav` |
-| `S3_ENDPOINT_URL` | *(空)* | 例如 `https://<account>.r2.cloudflarestorage.com` |
-| `S3_BUCKET_NAME`  | *(空)* | 存放上传文件的 bucket |
-| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | *(空)* | R2 / S3 凭据 |
-| `RATE_LIMIT_UPLOAD_PER_MIN` | `5` | 单 IP 每分钟上传次数上限 |
-| `RATE_LIMIT_RETRIEVE_FAILS_PER_HOUR` | `20` | 单 IP 每小时取件失败上限（超过自动封禁）|
-| `MAX_UPLOAD_BYTES` | `10737418240` | 单文件大小上限（默认 10 GiB）|
-| `STORAGE_QUOTA_BYTES` | *(无限)* | 全局存储总配额 |
-| `EXPIRE_SWEEPER_INTERVAL_MIN` | `10` | 软删除清理任务运行间隔 |
-| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | *(空)* | 可选的 Cloudflare Turnstile 反爬虫 |
-| `ALLOWED_ORIGINS` | *(部署域名)* | CORS 白名单；生产环境**绝不**设为 `*` |
+| `ADMIN_TOKEN` | — | 初始管理密码（以哈希形式保存） |
+| `JWT_SECRET` | — | 后台会话签名密钥 |
+| `SECRETS_KEY` | — | 32 字节密钥，用于加密本地磁盘上的文件和数据库中的敏感配置。未设置时应用拒绝启动。 |
+| `APP_URL` / `ALLOWED_ORIGINS` | `http://localhost:8000` | 对外地址和 CORS 白名单。生产环境不要用 `*`。 |
+| `STORAGE_BACKEND` | `local` | `local` 或 `s3`（任意 S3 兼容服务，包括 Cloudflare R2） |
+| `S3_ENDPOINT_URL`、`S3_BUCKET_NAME`、`S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY` | — | `STORAGE_BACKEND=s3` 时的存储桶凭据 |
+| `MAX_FILE_BYTES` | `10737418240` | 单个文件上限（10 GiB） |
+| `MAX_FILES_PER_SHARE` | `200` | 每个分享的文件数上限 |
+| `STORAGE_QUOTA_BYTES` | 不限 | 所有分享的总存储配额 |
+| `RATE_LIMIT_UPLOAD_PER_MIN` / `_PER_HOUR` / `_PER_DAY` | `5` / `30` / `200` | 每个 IP 的上传频率限制 |
+| `RATE_LIMIT_RETRIEVE_FAILS_PER_HOUR` | `20` | 每个 IP 允许输错取件码的次数，超过后暂时封禁 |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | 可选的 Cloudflare Turnstile 人机验证 |
 
-管理员可在运行时修改的设置（存储凭据、速率限制、UI 文案等）保存在数据库里，可从 `/admin/settings` 编辑。敏感密钥（`ADMIN_TOKEN`、`JWT_SECRET`）只保留在 `.env`，不会被写回数据库。
+主题、存储方式、频率限制、登录方式和站点文案也可以在后台随时修改。这些设置保存在数据库里，其中的敏感项会加密保存。`ADMIN_TOKEN`、`JWT_SECRET` 和 `SECRETS_KEY` 只存在于 `.env`。
+
+生产部署拓扑、R2 存储桶 CORS 和反向代理的注意事项见 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)。
 
 ## 安全
 
-UI 上的「🔒 安全加密 · 匿名」徽章背后的实际能力：
+Yui Drop 面向日常的快速分享，**不是**端到端加密：服务器能读取你上传的内容。如果需要零知识分享，请使用专门的工具，例如 [Magic Wormhole](https://github.com/magic-wormhole/magic-wormhole)。
 
-### 哪些是加密的
+**加密**
+- 传输中：全程 HTTPS；通过 HTTPS 访问时会发送 HSTS。
+- 静态存储：本地磁盘上的文件使用 AES-256-GCM 加密，每个分享一把独立密钥，由 `SECRETS_KEY` 包裹保护；S3 / R2 中的对象使用服务商的 AES-256 服务端加密。
+- 管理密码和 API Key 只保存哈希值。
 
-- **传输** —— 客户端 ↔ 服务器全程 HTTPS（TLS 1.3，建议部署在 Caddy / Nginx Proxy Manager + Let's Encrypt 后面）
-- **存储** —— Cloudflare R2 和 AWS S3 默认对每个对象用 AES-256 服务端加密（SSE），覆盖「硬盘被偷 / 物理介质被扣押」威胁模型
-- **管理员密码** —— 加盐 hash 存储；原始 token 仅在 `.env`
-- **JWT** —— HS256 / RS256 签名；secret 在 `.env`
+**安全地提供上传的文件**
+- 每个文件的 `Content-Type` 由服务器根据扩展名判断，忽略上传者声明的类型。
+- 只有图片、音频、视频、PDF 和纯文本会在页面里直接显示；HTML、SVG、XML、脚本及其他所有类型一律只能下载。
+- 每个文件响应都带有 `X-Content-Type-Options: nosniff` 和沙箱化的 `Content-Security-Policy`，即使文件类型被伪装，也无法在本站域名下执行脚本。
+- Markdown 渲染时禁用原始 HTML，并经过 DOMPurify 清洗。指向不安全协议的链接只显示为文字；外部图片不会自动加载，打开分享不会向第三方服务器发出请求。
 
-> Yui-Drop **不做端到端加密**。我们的目标是日常文件的快速分享 —— 一个可以口述的取件码。如果你需要零知识保证（服务器无法读取文件），用 [Send](https://send.vis.ee) 或 [Wormhole](https://wormhole.app) 这类工具。
+**防滥用**
+- 取件码会避开容易猜的组合；同一 IP 输错次数过多会被暂时封禁。
+- 按 IP 限制上传频率，可设置全局存储配额，可选 Turnstile 人机验证。
+- 分块上传完成时会核对实际文件大小，被放弃的上传会自动清理。
+- 后台登录限频，可选通行密钥或 OIDC 登录。
+- 全站使用严格的 CSP、`frame-ancestors 'self'`、`Referrer-Policy` 和 `Permissions-Policy`；所有数据库查询参数化；文件名经过清洗，存储路径由服务器生成。
 
-### 防御了哪些威胁
+**日志与保留**
+- 访问日志记录 IP 和 User-Agent，用于处理滥用。可以在后台关闭 IP 记录。
+- 过期的分享先进入回收站，管理员可以恢复或彻底删除。
 
-| 威胁 | 防御 |
-|---|---|
-| SQL 注入 | SQLAlchemy 2.0 参数化查询，不拼字符串 |
-| XSS（上传的 HTML / SVG） | SVG 强制下载（不内嵌预览），HTML 文件强制下载，文本/Markdown 用 `text/plain` 返回并经过 DOMPurify |
-| CSRF | 纯 Bearer JWT，无 cookie 会话，无环境凭据 |
-| 暴力枚举取件码 | 单 IP 失败 20 次 → 软封 1 小时；生成的取件码避开低熵序列（`123456`、`111111` 等）|
-| 存储被刷爆 | 单 IP 限速 5/分、30/时、200/天；全局存储配额（后台可配）；1 小时清理孤儿 multipart |
-| Multipart 大小造假 | `complete` 阶段 HEAD 真实对象，与声明大小偏差 >5% 直接拒收 |
-| 管理员爆破 | 单 IP 5 分钟 ≤10 次登录尝试 + 指数退避 |
-| 点击劫持 / 嵌入 | `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'` |
-| MIME 嗅探 | `X-Content-Type-Options: nosniff` |
-| `Content-Disposition` 头注入 | 文件名清洗 + RFC 5987 编码 |
-| 开放重定向 | 所有路由都不接收用户提供的跳转目标 |
-| 路径穿越 | 文件名清洗（`..` / 控制字符 / Windows 保留名）；存储路径基于服务端 UUID，不信任用户输入 |
+发现安全问题请通过 [GitHub Security Advisories](https://github.com/kurobaryo/yui-drop/security/advisories/new) 私下报告，不要公开提 issue。
 
-可选的 Cloudflare Turnstile 反爬虫已经接入但**默认关闭** —— 在 `.env` 填好 site key 和 secret 后从后台开关。
-
-### 日志与保留
-
-- **访问日志记录客户端 IP 和 User-Agent** 用于滥用追溯，管理员可在 `/admin/logs` 查询
-- **软删除** —— 过期或被管理员删除的分享只是打上 `deleted_at` 标记，bucket 中的对象仍保留。管理员可以从回收站恢复或硬删（同时删除 bucket 对象）
-- **自动清理任务** 每 `EXPIRE_SWEEPER_INTERVAL_MIN` 分钟运行一次，将过期记录软删，同时 abort 超时的 multipart session
-
-## 仓库结构
+## 架构
 
 ```
-yui-drop/
-├── README.md              ← 本文件，中文（默认）
-├── README.en.md           ← English
-├── README.ja.md           ← 日本語
-├── LICENSE                ← MIT
-├── docker-compose.yml     ← 一键部署
-├── .env.example           ← 所有可配置环境变量（带注释）
-├── scripts/
-│   ├── install.sh         ← 一行命令安装脚本
-│   └── ...                ← 运维辅助
-├── backend/               ← Python · FastAPI · SQLAlchemy 2.0
-│   ├── pyproject.toml
-│   ├── Dockerfile
-│   ├── alembic.ini · alembic/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── api/           ← 路由模块
-│   │   ├── core/          ← 配置、安全、依赖
-│   │   ├── db/            ← session、base
-│   │   ├── models/        ← SQLAlchemy 模型
-│   │   ├── schemas/       ← Pydantic v2 DTO
-│   │   ├── services/      ← 业务逻辑
-│   │   └── storage/       ← 各存储后端实现
-│   └── tests/
-├── frontend/              ← React 18 · Vite · TypeScript
-│   ├── package.json
-│   ├── Dockerfile
-│   ├── vite.config.ts · tailwind.config.ts · tsconfig.json
-│   ├── public/
-│   └── src/
-│       ├── main.tsx · App.tsx
-│       ├── routes/                ← 路由组件
-│       ├── components/ui/         ← Linear 风格原子组件
-│       ├── components/motion/     ← 动效组件
-│       ├── pages/                 ← 页面级组件
-│       ├── hooks/ · api/ · stores/
-│       ├── i18n/locales/{en,zh-CN,ja}.json
-│       └── styles/
-└── docs/
-    ├── ARCHITECTURE.md
-    ├── API.md             ← REST 契约 + OpenAPI 链接
-    └── DEPLOYMENT.md
+浏览器（React 单页应用）──► FastAPI ──► SQLite（元数据）
+        │                     │
+        │   预签名分块上传     │   本地磁盘（加密）
+        └────────────────────►└── 或 S3 / R2 存储桶
 ```
+
+- **前端**：React 18、TypeScript、Vite、Zustand、TanStack Query、react-i18next、markdown-it、DOMPurify
+- **后端**：FastAPI、SQLAlchemy 2.0（async）、Alembic、Pydantic v2、cryptography
+- **存储**：统一的 `StorageBackend` 接口，提供本地和 S3 兼容两种实现
+
+详见 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)。
 
 ## API
 
-Yui-Drop 提供两套 API 接口：
+除了网页本身使用的内部接口，Yui Drop 还在 `/api/v1` 提供一套稳定的 REST API，供脚本和其他应用调用。管理员在后台签发 API Key，可限定 `upload` 和 / 或 `read` 权限，并可为每个 Key 单独设置配额。
 
-**内部接口（前端 ↔ 后端）** — `/api/share`、`/api/chunk`、`/api/presign`、`/api/admin`。这些接口驱动 SPA，使用基于 JWT 的 admin 登录。完整契约见 [`docs/API.md`](./docs/API.md)。
-
-**公开 v1 接口（`/api/v1/*`）** — 一套使用 Bearer token 鉴权的稳定 REST 接口，用于程序化访问。Key 由 admin 后台签发（不开放自助注册），并按需绑定 `upload` 和/或 `read` scope。每把 key 的配额（单文件上限、日累计字节）可独立配置。三类端点覆盖常用场景：
-
-- `POST /api/v1/upload` —— 简单上传（≤ 10 MiB）
-- `POST /api/v1/upload/init` → `sign-part` → `complete` —— R2 multipart presigned URL 协议，用于大文件上传（绕过 Cloudflare 免费版 100 MB 入站限制）
-- `GET /api/v1/shares` 与 `GET /api/v1/shares/{code}` —— 列出与查询当前 key 创建的分享
-
-三种实现方式覆盖绝大多数客户端：
-- **curl + jq** —— 适合一次性 shell 上传（约 30 行）
-- **Python** + `requests` + 线程池 —— 适合脚本与自动化
-- **`@uppy/aws-s3-multipart`** —— 适合浏览器 / Node 客户端：yui-drop 的 `/api/v1/upload/*` 端点直接对应 Uppy 的四个生命周期方法
-
-仓库 `scripts/` 下有可直接使用的参考实现：
+- `POST /api/v1/upload`：小文件单次上传
+- `POST /api/v1/upload/init` → `sign-part` → `complete`：大文件直传存储桶的分块上传
+- `POST /api/v1/share/text`：创建文字分享
+- `POST /api/v1/pickup`：用取件码取件
+- `GET /api/v1/shares`、`GET /api/v1/shares/{code}`：列出和查看该 Key 创建的分享
 
 ```bash
-# 简单上传 —— 小文件，依赖 curl（jq 可选）
-YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.sh ./screenshot.png
-
-# Python —— 兼顾简单上传与分片上传，支持并发 part
-YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.py ./big-video.mp4 \
-    --expire-value 7 --expire-style day
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.sh ./report.pdf
+YUI_DROP_API_KEY=yd_... ./scripts/yui-drop-upload.py ./video.mp4 --expire-value 7 --expire-style day
 ```
 
-两者都会把短链接打印到 stdout。完整端点说明、错误码、过期选项与配额详情见[在线文档页](https://drop.leod.me/docs)（自动跟随浏览器语言，支持 English / 简体中文 / 日本語）。
+完整说明见 [`docs/API.md`](./docs/API.md)，每个实例的 `/docs` 页面也有。
 
-OpenAPI 规范由 `GET /api/openapi.json` 提供；内部接口的交互式 Swagger UI 在 `GET /api/_swagger`（仅供 admin 调试 —— 推荐使用上方的公开文档页面）。
+## 运维
 
-## Roadmap
+`yuidrop` 命令行工具负责服务器上的更新：
 
-- [ ] 可选的客户端加密开关（`?c=…&k=…` 形式）
-- [ ] 自定义取件码长度（5–8 位）
-- [ ] WebPush / 邮件过期通知
-- [ ] 文件夹上传（自动 zip）
-- [ ] 单分享密码保护
-- [ ] ClamAV 病毒扫描钩子
+```bash
+sudo ./scripts/install-yuidrop.sh   # 只需执行一次
+yuidrop update                      # 拉取代码、重建、迁移、健康检查
+yuidrop rollback                    # 回退到上一个版本
+```
 
-## 致谢
+详见 [`scripts/README.md`](./scripts/README.md)。
 
-灵感来自 [vastsa/FileCodeBox](https://github.com/vastsa/FileCodeBox) —— 最早的「按码分享」匿名文件分享服务。Yui-Drop 是独立重写版本，专注于 Linear 风格 UI、移动优先体验、现代化的 Python/JS 技术栈和更严格的默认安全配置，未共享任何源代码。
+## 目录结构
 
-## License
+```
+backend/    FastAPI 应用（api/、services/、models/、storage/）、Alembic 迁移、测试
+frontend/   React 应用（v2/ 为当前界面，pages/admin/ 为后台，i18n/ 为翻译）
+scripts/    安装脚本、yuidrop 命令行工具、上传客户端
+docs/       架构、部署、API 文档和图片
+```
 
-MIT —— 见 [LICENSE](./LICENSE)。
+## 路线图
+
+- 可选的客户端加密
+- 带密码保护的分享
+- 可配置的取件码长度
+- 文件夹上传
+- 病毒扫描接入点
+
+## 许可证
+
+[MIT](./LICENSE)

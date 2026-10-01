@@ -26,11 +26,11 @@ This doc covers production deployment. For local dev, see the [Quick start](../R
 
 ## Cloudflare-proxied (orange cloud) HTTPS
 
-1. Point your domain (e.g. `drop.leod.me`) at the host's IP via Cloudflare (proxy "orange").
+1. Point your domain (e.g. `drop.example.com`) at the host's IP via Cloudflare (proxy "orange").
 2. On the host install [Nginx Proxy Manager](https://nginxproxymanager.com/) or Caddy.
 3. Issue a Let's Encrypt cert using **DNS-01** challenge (HTTP-01 fails behind Cloudflare's proxy — see `cloudflare-proxy-with-le-via-npm` skill for setup details).
 4. Proxy the hostname → `http://yui-drop:8000`.
-5. In `.env` set `APP_URL=https://drop.leod.me` and `ALLOWED_ORIGINS=https://drop.leod.me`. Restart.
+5. In `.env` set `APP_URL=https://drop.example.com` and `ALLOWED_ORIGINS=https://drop.example.com`. Restart.
 
 ## Configuring Cloudflare R2
 
@@ -47,13 +47,13 @@ This doc covers production deployment. For local dev, see the [Quick start](../R
    S3_REGION_NAME=auto
    ```
 
-4. (Optional) Attach a custom domain to the bucket (e.g. `cdn.drop.leod.me`) and set `S3_PUBLIC_HOSTNAME=cdn.drop.leod.me` so download links use that domain instead of the R2 raw endpoint.
+4. (Optional) Attach a custom domain to the bucket (e.g. `cdn.drop.example.com`) and set `S3_PUBLIC_HOSTNAME=cdn.drop.example.com` so download links use that domain instead of the R2 raw endpoint.
 5. Configure CORS on the bucket so the browser can `PUT` parts directly:
 
    ```json
    [
      {
-       "AllowedOrigins": ["https://drop.leod.me"],
+       "AllowedOrigins": ["https://drop.example.com"],
        "AllowedMethods": ["PUT", "GET", "HEAD"],
        "AllowedHeaders": ["*"],
        "ExposeHeaders": ["ETag"],
@@ -104,7 +104,23 @@ Migrations run automatically on container startup (Alembic `upgrade head`).
 ## Operational notes
 
 - **CORS**: in production, set `ALLOWED_ORIGINS` to your exact deploy URL. Never `*`.
-- **Trusted proxies**: the container runs Uvicorn with `--proxy-headers --forwarded-allow-ips=*`. If you put it behind a CDN, configure `X-Forwarded-For` so per-IP rate limiting sees the real client.
+- **Client IP and trusted proxies**: rate limits, pickup-code bans and access logs use the client IP, read from `CF-Connecting-IP`, then `X-Forwarded-For`, then `X-Real-IP`. The app trusts these headers, so **the reverse proxy must overwrite them**, and when you sit behind Cloudflare it must only accept them from Cloudflare's edge ranges. Otherwise anyone who reaches the origin directly can spoof their IP and dodge the limits. An nginx example:
+
+  ```nginx
+  # one line per range from https://www.cloudflare.com/ips-v4 and /ips-v6
+  set_real_ip_from 173.245.48.0/20;
+  # ...
+  real_ip_header CF-Connecting-IP;
+
+  location / {
+      proxy_pass http://127.0.0.1:8000;
+      proxy_set_header CF-Connecting-IP $remote_addr;
+      proxy_set_header X-Forwarded-For  $remote_addr;
+      proxy_set_header X-Real-IP        $remote_addr;
+  }
+  ```
+
+  Better still, firewall the origin so only Cloudflare can reach ports 80/443.
 - **Disable directory listing**: not applicable; the API only serves files for a valid `code+key`.
 - **Health probe**: `GET /api/health` → 200 OK.
 
