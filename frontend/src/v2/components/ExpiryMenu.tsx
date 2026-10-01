@@ -8,10 +8,15 @@
  * The popover is positioned against the nearest positioned ancestor (the
  * composer's action bar), not the trigger, so it can right-align with the
  * card and stay on screen at phone widths.
+ *
+ * Every close path plays the exit animation (`data-closing`, see
+ * v2/styles/base.css) and the popover unmounts once it has finished; reopening
+ * during the exit simply turns it around. Reduced motion skips the exit.
  */
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { reducedMotion } from '../haptics';
 import {
   COUNT_PRESETS,
   DAY_PRESETS,
@@ -27,19 +32,43 @@ export interface ExpiryMenuProps {
   disabled?: boolean;
 }
 
+/** Length of the close animation (`ydMenuOut`). */
+const EXIT_MS = 120;
+
 export function ExpiryMenu({ value, onChange, disabled }: ExpiryMenuProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  // `leaving`: closed, but still mounted while the exit animation runs.
+  const [phase, setPhase] = useState<'closed' | 'open' | 'leaving'>('closed');
+  const open = phase === 'open';
   const rootRef = useRef<HTMLDivElement>(null);
+  const exitTimer = useRef<number>();
+  useEffect(() => () => window.clearTimeout(exitTimer.current), []);
+
+  const show = useCallback(() => {
+    window.clearTimeout(exitTimer.current);
+    setPhase('open');
+  }, []);
+  // The guarded updaters make a close while closed a no-op, and stop a late
+  // timer from unmounting a popover that was reopened in the meantime.
+  const close = useCallback(() => {
+    window.clearTimeout(exitTimer.current);
+    const instant = reducedMotion();
+    setPhase((p) => (instant ? 'closed' : p === 'open' ? 'leaving' : p));
+    if (instant) return;
+    exitTimer.current = window.setTimeout(
+      () => setPhase((p) => (p === 'leaving' ? 'closed' : p)),
+      EXIT_MS,
+    );
+  }, []);
 
   // Close on an outside press or Escape.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(e.target as Node)) close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') close();
     };
     document.addEventListener('pointerdown', onDown);
     document.addEventListener('keydown', onKey);
@@ -47,11 +76,11 @@ export function ExpiryMenu({ value, onChange, disabled }: ExpiryMenuProps) {
       document.removeEventListener('pointerdown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, close]);
 
   useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
+    if (disabled) close();
+  }, [disabled, close]);
 
   const label =
     value.mode === 'date'
@@ -62,7 +91,7 @@ export function ExpiryMenu({ value, onChange, disabled }: ExpiryMenuProps) {
   const current = isDate ? value.days : value.count;
   const pick = (n: number) => {
     onChange(isDate ? { ...value, days: n } : { ...value, count: n });
-    setOpen(false);
+    close();
   };
   const setCustom = (raw: string) => {
     const max = isDate ? MAX_DAYS : MAX_COUNT;
@@ -77,15 +106,28 @@ export function ExpiryMenu({ value, onChange, disabled }: ExpiryMenuProps) {
         aria-haspopup="dialog"
         aria-expanded={open}
         disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? close() : show())}
         style={{ ...trigger, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1 }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-        <span aria-hidden="true" style={{ fontSize: 9, opacity: 0.7 }}>▾</span>
+        <span
+          aria-hidden="true"
+          data-yd="menu-caret"
+          data-open={open ? '' : undefined}
+          style={{ fontSize: 9, lineHeight: 1, opacity: 0.7 }}
+        >
+          ▾
+        </span>
       </button>
 
-      {open && (
-        <div role="dialog" aria-label={t('v2.expiry.title')} style={popover}>
+      {phase !== 'closed' && (
+        <div
+          role="dialog"
+          aria-label={t('v2.expiry.title')}
+          data-yd="menu"
+          data-closing={phase === 'leaving' ? '' : undefined}
+          style={popover}
+        >
           <div style={segTrack}>
             {(['date', 'count'] as ExpiryMode[]).map((mode) => {
               const on = value.mode === mode;
