@@ -112,6 +112,27 @@
     transform: none;
   }
 }
+/* Full-screen preview viewer: a slight zoom in, and back out on close. */
+@keyframes ydView {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ydViewOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
 /* Caret blink for the six-cell code input (the prototype shows a static bar;
    blinking makes the focused cell readable as a text field). */
 @keyframes ydCaret {
@@ -190,6 +211,28 @@
     width: 44px;
     height: 44px;
     transform: translate(-50%, -50%);
+  }
+}
+/* The pickup preview's caption tools and the viewer's top bar (open in new
+   tab, full screen, download, close) are 30px icon buttons too. They get a
+   36px hit area everywhere and the 44px one on narrow screens, where the
+   wider gap keeps neighbouring hit areas from overlapping. */
+[data-r='preview-tools'] [data-yd='icon-btn']::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  transform: translate(-50%, -50%);
+}
+@media (max-width: 860px) {
+  [data-r='preview-tools'] {
+    gap: 16px !important;
+  }
+  [data-r='preview-tools'] [data-yd='icon-btn']::after {
+    width: 44px;
+    height: 44px;
   }
 }
 [data-r='mobnav'] {
@@ -460,6 +503,16 @@
 [data-yd='codeready'] {
   animation: ydPop 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
 }
+/* Full-screen preview viewer (PickupDetail). Same pattern as the sheet: the
+   component sets `data-closing` and unmounts when the exit has finished.
+   `backwards`, so no transform lingers once the entrance is over. */
+[data-yd='viewer'] {
+  animation: ydView 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+[data-yd='viewer'][data-closing] {
+  animation: ydViewOut 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  pointer-events: none;
+}
 
 /* The v2 root owns background/typography so the theme applies even before a
    screen renders. */
@@ -484,13 +537,15 @@
 }
 
 /* Respect reduced-motion: the prototype's animations are decorative. The
-   pickup sheet's exit never starts here — PickupDetail closes at once. */
+   exits of the pickup sheet and the preview viewer never start here — their
+   components close at once. */
 @media (prefers-reduced-motion: reduce) {
   [data-yd='backdrop'],
   [data-yd='dialog'],
   [data-yd='sheetup'],
   [data-r='sheet'],
   [data-yd='codeready'],
+  [data-yd='viewer'],
   [data-p='title'],
   [data-p='sub'],
   [data-p='seg'],

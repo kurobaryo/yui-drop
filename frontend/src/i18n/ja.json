@@ -934,7 +934,10 @@
       "copied": "コピーしました",
       "copyCodeBlock": "コードブロックをコピー",
       "table": "表",
-      "tableCut": "表は最大 {{rows}} 行 × {{cols}} 列まで表示します。全体はダウンロードしてください"
+      "tableCut": "表は最大 {{rows}} 行 × {{cols}} 列まで表示します。全体はダウンロードしてください",
+      "openNewTab": "新しいタブで開く",
+      "fullScreen": "全画面表示",
+      "closeViewer": "全画面表示を終了"
     },
     "pickupFailed": "受け取りに失敗しました",
     "header": {
