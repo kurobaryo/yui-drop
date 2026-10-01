@@ -11,7 +11,10 @@ const ENDPOINTS = [
   { method: 'DELETE', path: '/api/v1/upload/{id}', descKey: 'v2.docs.cancelUpload', color: '#c2402f' },
 ];
 
-const CURL = `curl -X POST https://drop.example.com/api/v1/upload \\
+/** The example targets the address this page is served from. */
+const ORIGIN = typeof window !== 'undefined' ? window.location.origin : 'https://drop.example.com';
+
+const CURL = `curl -X POST ${ORIGIN}/api/v1/upload \\
   -H "Authorization: Bearer ***" \\
   -F "file=@./screenshot.png" \\
   -F "expire_value=7" -F "expire_style=day"`;
