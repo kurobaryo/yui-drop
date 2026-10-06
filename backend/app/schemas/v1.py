@@ -177,8 +177,14 @@ class V1ShareListItem(BaseModel):
     expired_count: int
     used_count: int
     created_at: str
+    # Single-file shares: absolute download URL with a fresh signed token.
+    # Text and multi shares: null.
     url: str | None
     short_url: str
+    # kind == "multi" only.
+    file_count: int | None = None
+    total_size: int | None = None
+    has_note: bool | None = None
 
 
 class V1ShareListResponse(BaseModel):
@@ -190,3 +196,87 @@ class V1ShareListResponse(BaseModel):
 
 # Single-share detail is the same shape as a list item.
 V1ShareDetailResponse = V1ShareListItem
+
+
+# ── Multi-file share ────────────────────────────────────────────────────────
+#
+# ``share_id`` / ``file_id`` travel as strings matching ``^[A-Za-z0-9_-]+$``.
+
+
+class V1MultiCreateRequest(BaseModel):
+    """Reserve a code for a multi-file share (files follow, then finalize)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    declared_file_count: int = Field(..., ge=1)
+    declared_total_size: int = Field(..., ge=1)
+    expire_value: int = Field(default=1, ge=1)
+    expire_style: ExpireStyle = "day"
+    # Optional note shown with the files on pickup. At most MAX_TEXT_BYTES of
+    # UTF-8 (checked by the service); whitespace-only is stored as no note.
+    text: str | None = None
+
+
+class V1MultiCreateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    share_id: str
+    code: str
+    expired_at: str | None
+    expired_count: int
+
+
+class V1MultiFileRequest(BaseModel):
+    """Declare one file of a multi-file share."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(..., min_length=1, max_length=512)
+    size: int = Field(..., ge=1)
+    content_type: str | None = Field(default=None, max_length=255)
+
+
+class V1MultiFileResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    file_id: str
+    upload_id: str
+    part_size: int
+    parts_total: int
+    expires_at: str
+
+
+class V1MultiPartResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    part_number: int
+    etag: str | None
+
+
+class V1MultiCompletePart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    part_number: int = Field(..., ge=1, le=10000)
+    # ``null`` when the part upload returned none (non-S3 backends).
+    etag: str | None = None
+
+
+class V1MultiFileCompleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    parts: list[V1MultiCompletePart] = Field(..., min_length=1, max_length=10000)
+
+
+class V1MultiFileCompleteResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    file_id: str
+    name: str
+    size: int
+
+
+class V1MultiAbortResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    share_id: str
+    aborted: bool = True

@@ -82,13 +82,17 @@ class Settings(BaseSettings):
     rate_limit_download_per_min: int = 60
     rate_limit_download_signed_per_min: int = 600
     max_upload_bytes: int = 10 * 1024 * 1024 * 1024  # 10 GiB (legacy alias)
-    # Per-file cap for the new multi-file share flow. Independent of
+    # Per-file cap for the multi-file share flow. Independent of
     # ``max_upload_bytes`` so legacy single-file APIs keep their existing
-    # behaviour even if operators tune one and not the other.
+    # behaviour even if operators tune one and not the other; the effective
+    # multi-file cap (and the one advertised by /api/config/upload as
+    # ``max_file_bytes``) is the smaller of the two.
     max_file_bytes: int = Field(default=10 * 1024 * 1024 * 1024, alias="MAX_FILE_BYTES")
-    # Sum-of-files cap for one multi-file share. Default 50 GiB.
+    # Sum-of-files cap for one multi-file share. This is the default of the
+    # admin-tunable ``share.multi_total_max_bytes`` — the one total cap both
+    # enforced on upload and advertised by /api/config/upload. Default 10 GiB.
     max_share_total_bytes: int = Field(
-        default=53687091200, alias="MAX_SHARE_TOTAL_BYTES"
+        default=10 * 1024 * 1024 * 1024, alias="MAX_SHARE_TOTAL_BYTES"
     )
     # File-count cap for one multi-file share.
     max_files_per_share: int = Field(default=200, alias="MAX_FILES_PER_SHARE")

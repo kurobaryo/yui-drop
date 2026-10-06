@@ -8,6 +8,9 @@ Runs as a background task spawned from ``app.main`` lifespan. One pass does:
   (``last_pickup_at`` older than ``DOWNLOAD_TOKEN_TTL_MIN``).
 * Abort orphan multipart sessions past their ``expires_at`` and remove their
   DB rows.
+* Discard /api/v1 multi-file shares not finalized within
+  ``V1_MULTIPART_SESSION_TTL_MIN`` (uploads aborted, objects deleted, code
+  released).
 
 Soft-deletes leave rows in the DB so the admin recycle-bin / restore flow
 works. Bucket objects survive soft delete; only ``hard`` admin actions or
@@ -33,6 +36,12 @@ from ..storage import get_storage
 logger = get_logger(__name__)
 
 
+def _is_open_v1_multi(row: FileCode) -> bool:
+    """A /api/v1 multi share still being uploaded. Its expiry is only
+    provisional (re-based at finalize); the upload-session reaper owns it."""
+    return row.kind == "multi" and not row.finalized and row.created_by_key_id is not None
+
+
 async def sweep_once(
     db_factory: async_sessionmaker[Any] | None = None,
 ) -> dict[str, int]:
@@ -54,6 +63,8 @@ async def sweep_once(
             FileCode.expired_at.is_not(None),
         )
         for row in (await db.execute(q)).scalars():
+            if _is_open_v1_multi(row):
+                continue
             exp = as_utc(row.expired_at)
             if exp is not None and exp <= now:
                 row.deleted_at = now
@@ -94,6 +105,11 @@ async def sweep_once(
             aborted += 1
 
         await db.commit()
+
+        # Reap /api/v1 multi shares abandoned mid-upload (commits per share).
+        from .v1_multi import reap_expired_open_shares
+
+        aborted += await reap_expired_open_shares(db, now=now)
 
     return {"soft_deleted": soft_deleted, "orphans_aborted": aborted}
 

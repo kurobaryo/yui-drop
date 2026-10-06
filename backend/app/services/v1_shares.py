@@ -73,9 +73,18 @@ async def revoke_share(
     ip: str | None,
     ua: str | None,
 ) -> dict[str, Any]:
-    """``DELETE /api/v1/shares/{code}``."""
+    """``DELETE /api/v1/shares/{code}``.
+
+    A multi share still being uploaded has nothing worth keeping, so it is
+    discarded outright, exactly like ``DELETE /api/v1/share/multi/{id}``.
+    """
     row = await load_owned_live_share(db, code=code, api_key_id=api_key_id)
-    await soft_revoke(db, row, ip=ip, ua=ua)
+    if row.kind == "multi" and not row.finalized:
+        from .v1_multi import discard_open_share
+
+        await discard_open_share(db, row, ip=ip, ua=ua, event="share.revoke.unfinalized")
+    else:
+        await soft_revoke(db, row, ip=ip, ua=ua)
     return {"code": code, "deleted": True}
 
 

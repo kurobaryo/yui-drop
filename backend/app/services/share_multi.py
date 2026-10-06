@@ -19,7 +19,9 @@ but with a separate ``scope='share_multi_upload'`` claim. It encodes the
 
 Quota enforcement runs three layers:
     - MAX_FILE_BYTES         — per individual file size
-    - MAX_SHARE_TOTAL_BYTES  — sum across all files in one share
+    - share total cap        — sum across all files in one share
+                               (``share.multi_total_max_bytes``, defaulting
+                               to MAX_SHARE_TOTAL_BYTES)
     - MAX_FILES_PER_SHARE    — count cap (prevents 100k tiny files)
 
 All three are read from settings (env + DB settings_kv overlay) at request
@@ -101,6 +103,20 @@ def verify_upload_token(token: str, expected_share_id: int) -> None:
 # ── Quota ───────────────────────────────────────────────────────────────────
 
 
+def effective_max_file_bytes() -> int:
+    """Per-file cap of a multi-file share: the smaller of MAX_UPLOAD_BYTES and
+    MAX_FILE_BYTES (the former also bounds every single-file upload path)."""
+    return min(settings.max_upload_bytes, settings.max_file_bytes)
+
+
+async def share_total_cap(db: AsyncSession) -> int:
+    """The one total-size cap of a multi-file share (admin-tunable)."""
+    from .admin_uploads import resolve_upload_limits
+
+    return int((await resolve_upload_limits(db))["multi_total_max_bytes"])
+
+
+
 async def assert_within_share_quota(
     db: AsyncSession,
     *,
@@ -114,6 +130,7 @@ async def assert_within_share_quota(
     ``share_id=None`` is the init path (we don't yet have a row to query —
     we only check declared totals).
     """
+    total_cap = await share_total_cap(db)
     if new_file_size > settings.max_file_bytes:
         raise ServiceError(
             "file_too_large",
@@ -123,13 +140,13 @@ async def assert_within_share_quota(
         )
 
     # init-path declared-total check
-    if declared_total is not None and declared_total > settings.max_share_total_bytes:
+    if declared_total is not None and declared_total > total_cap:
         raise ServiceError(
             "share_quota_exceeded",
             code=4007,
             http_status=400,
             detail={
-                "max_total_bytes": settings.max_share_total_bytes,
+                "max_total_bytes": total_cap,
                 "declared_total": declared_total,
             },
         )
@@ -154,13 +171,13 @@ async def assert_within_share_quota(
         ).where(ShareFile.share_id == share_id)
         running_size, running_count = (await db.execute(agg_q)).one()
 
-        if running_size + new_file_size > settings.max_share_total_bytes:
+        if running_size + new_file_size > total_cap:
             raise ServiceError(
                 "share_quota_exceeded",
                 code=4007,
                 http_status=400,
                 detail={
-                    "max_total_bytes": settings.max_share_total_bytes,
+                    "max_total_bytes": total_cap,
                     "current_total": running_size,
                     "new_file_size": new_file_size,
                 },

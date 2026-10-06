@@ -10,7 +10,9 @@ Keys:
     share.chunk_upload_max_bytes   — chunked-upload total-bytes cap
                                      (default 10 GiB)
     share.multi_total_max_bytes    — multi-file share aggregate cap
-                                     (default 10 GiB)
+                                     (default ``MAX_SHARE_TOTAL_BYTES``,
+                                     10 GiB); the single total cap enforced
+                                     by every multi-file upload path
     share.chunk_upload_enabled     — kill switch for the chunked-upload flow
                                      (default True)
 """
@@ -21,6 +23,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..core.config import settings
 from ..models.settings_kv import SettingsKV
 
 # settings_kv keys we own here.
@@ -71,7 +74,9 @@ async def resolve_upload_limits(db: AsyncSession) -> dict[str, Any]:
     return {
         "simple_upload_max_bytes": _coerce_int(raw.get(SIMPLE_KEY), DEFAULT_SIMPLE),
         "chunk_upload_max_bytes": _coerce_int(raw.get(CHUNK_KEY), DEFAULT_CHUNK),
-        "multi_total_max_bytes": _coerce_int(raw.get(MULTI_KEY), DEFAULT_MULTI),
+        "multi_total_max_bytes": _coerce_int(
+            raw.get(MULTI_KEY), settings.max_share_total_bytes
+        ),
         "chunk_upload_enabled": _coerce_bool(
             raw.get(CHUNK_ENABLED_KEY), DEFAULT_CHUNK_ENABLED
         ),

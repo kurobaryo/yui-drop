@@ -135,6 +135,58 @@ class S3Storage(StorageBackend):
                 MultipartUpload={"Parts": normalized},
             )
 
+    async def upload_part(
+        self,
+        key: str,
+        s3_upload_id: str,
+        part_number: int,
+        data: bytes,
+    ) -> str:
+        """Server-side ``UploadPart`` of an in-memory chunk. Returns the ETag.
+
+        Used by the /api/v1 multi-file flow, which relays parts through this
+        server: each part goes straight from the request body to the bucket,
+        so nothing is staged on local disk. The ETag comes back unquoted.
+        """
+        async with self._client() as s3:
+            resp = await s3.upload_part(
+                Bucket=self.bucket,
+                Key=self._full_key(key),
+                UploadId=s3_upload_id,
+                PartNumber=part_number,
+                Body=data,
+                ContentLength=len(data),
+            )
+        return (resp.get("ETag") or "").strip('"')
+
+    async def list_parts(self, key: str, s3_upload_id: str) -> list[dict[str, Any]]:
+        """Parts received so far: ``[{part_number, etag, size}]`` (etag unquoted)."""
+        out: list[dict[str, Any]] = []
+        marker: int | None = None
+        async with self._client() as s3:
+            while True:
+                kwargs: dict[str, Any] = {
+                    "Bucket": self.bucket,
+                    "Key": self._full_key(key),
+                    "UploadId": s3_upload_id,
+                    "MaxParts": 1000,
+                }
+                if marker:
+                    kwargs["PartNumberMarker"] = marker
+                resp = await s3.list_parts(**kwargs)
+                for p in resp.get("Parts", []):
+                    out.append({
+                        "part_number": int(p["PartNumber"]),
+                        "etag": (p.get("ETag") or "").strip('"'),
+                        "size": int(p.get("Size") or 0),
+                    })
+                if not resp.get("IsTruncated"):
+                    break
+                marker = int(resp.get("NextPartNumberMarker") or 0)
+                if not marker:
+                    break
+        return out
+
     async def abort_multipart(self, key: str, s3_upload_id: str) -> None:
         async with self._client() as s3:
             try:
