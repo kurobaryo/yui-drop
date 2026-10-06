@@ -214,17 +214,24 @@ async def test_admin_still_reports_plain_text_share_as_text(client):
     assert one.json()["detail"]["is_text"] is True
 
 
-def test_v1_list_projection_keeps_download_url_for_multi_with_note():
+def test_v1_list_projection_reports_multi_with_note_as_multi():
+    """A note doesn't turn a multi share into a text share in the v1 list.
+
+    Multi rows carry no share-level URL (each member file has its own, from
+    pickup or ``?include=content``); they summarise the files instead.
+    """
     from app.api.v1 import _row_to_list_item
     from app.models.file_code import FileCode
 
     row = FileCode(
-        code="123456", kind="multi", text="note", file_path=None,
-        expired_count=-1, used_count=0,
+        id=1, code="123456", kind="multi", text="note", file_path=None,
+        expired_count=-1, used_count=0, file_count=2, total_size=10,
     )
     item = _row_to_list_item(row)
     assert item["kind"] == "multi"
-    assert item["url"] is not None
+    assert item["has_note"] is True
+    assert item["file_count"] == 2 and item["total_size"] == 10
+    assert item["url"] is None
 
 
 @pytest.mark.parametrize(

@@ -173,12 +173,14 @@ class V1ShareListItem(BaseModel):
     name: str | None
     size: int | None
     kind: Literal["text", "file", "multi"]
+    # Revoked / swept rows stay listed (metadata only) for SHARE_HISTORY_DAYS.
+    status: Literal["active", "expired", "revoked"]
     expired_at: str | None
     expired_count: int
     used_count: int
     created_at: str
-    # Single-file shares: absolute download URL with a fresh signed token.
-    # Text and multi shares: null.
+    # Live single-file shares: absolute download URL with a fresh signed
+    # token. Text, multi and revoked / swept shares: null.
     url: str | None
     short_url: str
     # kind == "multi" only.
@@ -194,8 +196,25 @@ class V1ShareListResponse(BaseModel):
     items: list[V1ShareListItem]
 
 
-# Single-share detail is the same shape as a list item.
-V1ShareDetailResponse = V1ShareListItem
+class V1ShareContentFile(BaseModel):
+    """One member file in ``GET /api/v1/shares/{code}?include=content``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    file_id: str
+    order: int
+    name: str
+    size: int
+    content_type: str | None
+    force_download: bool = False
+    url: str
+
+
+class V1ShareDetailResponse(V1ShareListItem):
+    """A list item; ``?include=content`` adds ``text`` and (multi) ``files``."""
+
+    text: str | None = None
+    files: list[V1ShareContentFile] | None = None
 
 
 # ── Multi-file share ────────────────────────────────────────────────────────

@@ -117,6 +117,10 @@ class Settings(BaseSettings):
     # ``all``     — every download needs a valid token.
     download_token_mode: Literal["counted", "all"] = "counted"
 
+    # How long revoked / swept (soft-deleted) shares stay visible, as metadata
+    # only, in an API key's ``GET /api/v1/shares?status=expired|all``.
+    share_history_days: int = Field(default=30, ge=0)
+
     # ── Bot protection ──────────────────────────────────────────────────────
     turnstile_site_key: str = ""
     turnstile_secret_key: str = ""

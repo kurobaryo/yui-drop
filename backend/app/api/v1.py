@@ -25,7 +25,7 @@ is recorded post-success only.
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import (
@@ -39,7 +39,7 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.formparsers import MultiPartException, MultiPartParser
 
@@ -72,7 +72,13 @@ from ..services.presign import (
     sign_presign_part,
 )
 from ..services.share import create_simple_file_share, create_text_share, resolve_share
-from ..services.v1_shares import revoke_share
+from ..services.v1_shares import (
+    list_member_files,
+    list_owned_shares,
+    load_owned_share,
+    revoke_share,
+    share_status,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
@@ -621,21 +627,24 @@ def _iso(dt: datetime | None) -> str | None:
 
 def _row_to_list_item(row: FileCode) -> dict:
     """Project a ``FileCode`` row to the v1 list/detail wire shape."""
-    # Only single-file shares get a URL: a text body rides in the pickup
-    # payload, and a multi share has one URL per member file. The URL is
-    # minted per request with a short-lived token, so the owner can preview
-    # without spending a pickup.
+    # Only a live single-file share gets a URL: a text body rides in the
+    # pickup payload, a multi share has one URL per member file, and a
+    # revoked / swept row is metadata only. The URL is minted per request
+    # with a short-lived token, so the owner can preview without spending a
+    # pickup.
     is_file = row.kind != "multi" and not row.is_text_share
+    live = row.deleted_at is None
     item = {
         "code": row.code,
         "name": row.name,
         "size": row.size,
         "kind": row.kind,
+        "status": share_status(row),
         "expired_at": _iso(row.expired_at),
         "expired_count": row.expired_count,
         "used_count": row.used_count,
         "created_at": _iso(row.created_at) or "",
-        "url": _signed_url(row.code, row.id) if is_file else None,
+        "url": _signed_url(row.code, row.id) if is_file and live else None,
         "short_url": _short_url(row.code),
     }
     if row.kind == "multi":
@@ -655,61 +664,20 @@ async def v1_list_shares(
     offset: Annotated[int, Query(ge=0)] = 0,
     status: Annotated[Literal["active", "expired", "all"], Query()] = "active",
 ):
-    """List shares created by this API key.
+    """List shares created by this API key, newest first.
 
-    ``status`` ∈ {``active``, ``all``, ``expired``}.
+    ``status`` ∈ {``active``, ``expired``, ``all``}; every row carries its
+    own ``status`` (``active`` | ``expired`` | ``revoked``).
 
-    * ``active`` (default) — not soft-deleted AND (no time expiry OR not yet
-      past it) AND (no count expiry OR count != 0).
-    * ``expired`` — not soft-deleted AND past time-expiry OR count == 0.
-    * ``all`` — everything not soft-deleted (live + expired).
+    * ``active`` (default) — live, not past its time, count not used up.
+    * ``expired`` — run out but not yet swept, plus shares swept or revoked
+      in the last ``SHARE_HISTORY_DAYS`` days (metadata only, ``url`` null).
+    * ``all`` — both.
     """
-    base_filter = [
-        FileCode.created_by_key_id == api_key.id,
-        FileCode.deleted_at.is_(None),
-        # A multi share still being uploaded isn't a share yet.
-        FileCode.finalized.is_(True),
-    ]
-    now = datetime.now(UTC)
-    if status == "active":
-        # not time-expired AND not count-expired
-        q_filter = base_filter + [
-            (FileCode.expired_at.is_(None)) | (FileCode.expired_at > now),
-            FileCode.expired_count != 0,
-        ]
-    elif status == "expired":
-        q_filter = base_filter + [
-            (
-                (FileCode.expired_at.is_not(None)) & (FileCode.expired_at <= now)
-            )
-            | (FileCode.expired_count == 0),
-        ]
-    else:  # "all" or any unknown value falls back to "all"
-        q_filter = base_filter
-
-    total = int(
-        (
-            await db.execute(
-                select(func.count()).select_from(FileCode).where(*q_filter)
-            )
-        ).scalar_one()
+    total, rows = await list_owned_shares(
+        db, api_key_id=api_key.id, status=status, limit=limit, offset=offset
     )
-    rows = (
-        await db.execute(
-            select(FileCode)
-            .where(*q_filter)
-            .order_by(FileCode.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
-    ).scalars().all()
-
-    return ok(
-        {
-            "total": total,
-            "items": [_row_to_list_item(r) for r in rows],
-        }
-    )
+    return ok({"total": total, "items": [_row_to_list_item(r) for r in rows]})
 
 
 @router.get("/shares/{code}")
@@ -717,24 +685,35 @@ async def v1_get_share(
     db: Annotated[AsyncSession, Depends(get_db)],
     api_key: Annotated[ApiKey, Depends(require_api_key("read"))],
     code: Annotated[str, Path(min_length=1, max_length=16)],
+    include: Annotated[str | None, Query(max_length=64)] = None,
 ):
-    """Fetch a single share by code — only if owned by this API key."""
-    row = (
-        await db.execute(
-            select(FileCode).where(
-                FileCode.code == code,
-                FileCode.created_by_key_id == api_key.id,
-                FileCode.deleted_at.is_(None),
-                FileCode.finalized.is_(True),
-            )
-        )
-    ).scalars().first()
-    if row is None:
-        raise HTTPException(
-            status_code=404,
-            detail={"code": 4040, "message": "share_not_found", "detail": None},
-        )
-    return ok(_row_to_list_item(row))
+    """Fetch a single share by code — only if owned by this API key.
+
+    Revoked / swept shares stay visible here for ``SHARE_HISTORY_DAYS``.
+
+    ``?include=content`` adds what the share holds, for the owner to view
+    without a pickup (``used_count`` / ``expired_count`` are untouched):
+    ``text`` (a text share's body, or a multi share's note) and, for multi
+    shares, ``files`` shaped like the pickup result, each with a signed
+    absolute ``url``. A revoked / swept share has no content left:
+    ``text`` null and ``files`` empty.
+    """
+    try:
+        row = await load_owned_share(db, code=code, api_key_id=api_key.id)
+    except ServiceError as exc:
+        raise _service_to_http(exc) from exc
+    item = _row_to_list_item(row)
+    wants = {part.strip() for part in (include or "").split(",")}
+    if "content" in wants:
+        live = row.deleted_at is None
+        item["text"] = row.text if live and (row.kind == "multi" or row.is_text_share) else None
+        if row.kind == "multi":
+            files = await list_member_files(db, row) if live else []
+            for f in files:
+                f["url"] = _signed_url(row.code, row.id, f["file_id"])
+                f["file_id"] = str(f["file_id"])
+            item["files"] = files
+    return ok(item)
 
 
 @router.delete("/shares/{code}")
