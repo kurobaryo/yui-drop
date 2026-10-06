@@ -599,13 +599,24 @@
     "toc": {
       "intro": "介绍",
       "auth": "鉴权",
+      "key": "GET /key",
       "upload": "POST /upload",
       "multipartInit": "POST /upload/init",
       "multipartSign": "POST /upload/{id}/sign-part",
       "multipartComplete": "POST /upload/{id}/complete",
       "multipartAbort": "DELETE /upload/{id}",
+      "shareText": "POST /share/text",
+      "multiCreate": "POST /share/multi",
+      "multiFile": "POST /share/multi/{id}/files",
+      "multiPart": "POST …/files/{fid}/parts/{n}",
+      "multiFileComplete": "POST …/files/{fid}/complete",
+      "multiFinalize": "POST /share/multi/{id}/finalize",
+      "multiAbort": "DELETE /share/multi/{id}",
+      "pickup": "POST /pickup",
       "listShares": "GET /shares",
       "getShare": "GET /shares/{code}",
+      "revokeShare": "DELETE /shares/{code}",
+      "downloads": "下载地址",
       "clients": "客户端库",
       "expireStyles": "expire_style 取值",
       "errors": "错误码",
@@ -643,7 +654,7 @@
       },
       "multipartInit": {
         "title": "分片上传 —— 第一步:初始化",
-        "description": "大文件走 R2 multipart presigned URL 协议。客户端先调 init 拿到 upload_id,然后按 parts_total 数量逐个请求 part presigned URL,直接 PUT 上传完整后再调 complete 收尾。",
+        "description": "大文件走 R2 multipart presigned URL 协议。客户端先调 init 拿到 upload_id,然后按 parts_total 数量逐个请求 part presigned URL,直接 PUT 上传完整后再调 complete 收尾。 会话需在 360 分钟内完成。",
         "paramFileName": "文件名,1-512 字符",
         "paramFileSize": "字节数,≥ 1 且 ≤ max_file_size",
         "paramContentType": "MIME 类型,可空",
@@ -666,14 +677,65 @@
       },
       "listShares": {
         "title": "列出本 key 创建的分享",
-        "description": "分页查询当前 API key 上传的所有分享。status 默认为 active,可改为 expired 或 all。",
+        "description": "分页查询当前 API key 创建的所有分享,按创建时间倒序。status 默认为 active;expired 和 all 还包括最近 30 天内被撤销或被清理的分享(只有元数据)。每行带 status(active / expired / revoked)。单文件分享的 url 带签名,创建者预览不扣次数;多文件分享则提供 file_count、total_size 和 has_note。",
         "paramLimit": "1-200,默认 50",
         "paramOffset": "≥ 0,默认 0",
         "paramStatus": "active / expired / all"
       },
       "getShare": {
         "title": "查询单个分享",
-        "description": "返回与列表项相同的形状。仅返回当前 key 创建的分享,否则 404(防止用别人的 key 枚举分享是否存在)。"
+        "description": "返回与列表项相同的形状。仅返回当前 key 创建的分享,否则 404(防止用别人的 key 枚举分享是否存在)。加上 include=content 时还会返回分享内容,不扣次数:text(文字分享的正文或多文件分享的附言),多文件分享另有带签名地址的 files[]。",
+        "paramInclude": "content —— 附带 text 和 files"
+      },
+      "key": {
+        "title": "查询当前 key",
+        "description": "返回当前 key 的公开 ID、scope 和限额。任何有效的 key 都能调用,与 scope 无关;不会返回密钥本身。"
+      },
+      "shareText": {
+        "title": "创建文字分享",
+        "description": "把一段文字(UTF-8 最多 256 KiB)存为一个新的取件码,归属当前 key。文字分享没有下载地址,正文在取件结果里返回。",
+        "paramText": "文字内容"
+      },
+      "multiCreate": {
+        "title": "多文件分享 — 第 1 步:预留取件码",
+        "description": "在一个取件码下发送多个文件,可附一段附言。取件码立即预留,但 finalize 之前不能取件。只有创建它的 key 能操作这份分享,其他 key 一律 404。share_id 和 file_id 都是字符串。",
+        "paramCount": "文件数,1-200",
+        "paramTotal": "所有文件的总字节数,≥ 1 且 ≤ max_share_bytes",
+        "paramText": "可选附言,UTF-8 最多 262144 字节;只有空白时视为没有附言"
+      },
+      "multiFile": {
+        "title": "多文件分享 — 第 2 步:登记一个文件",
+        "description": "每个文件调用一次。part_size 为 6 MiB(文件更小时等于文件大小),parts_total = ceil(size / part_size)。expires_at 是整份分享的截止时间:从创建到 finalize 必须在 360 分钟内完成。",
+        "paramName": "文件名,1-512 个字符",
+        "paramSize": "字节数,≥ 1,且不超过 max_file_bytes 和该 key 的 max_file_size",
+        "paramContentType": "MIME 类型,可选"
+      },
+      "multiPart": {
+        "title": "多文件分享 — 第 3 步:上传一块",
+        "description": "以 multipart/form-data 字段 chunk 发送第 n 块(1 到 parts_total)。除最后一块外,每块必须恰好是 part_size 字节。S3 兼容存储会把这一块直接转存到存储桶并返回 ETag;其他存储的 etag 为 null。",
+        "paramChunk": "这一块的字节(multipart 字段)"
+      },
+      "multiFileComplete": {
+        "title": "多文件分享 — 第 4 步:完成一个文件",
+        "description": "一个文件的所有块都上传后调用。带上每一块的编号和收到的 etag(没有则为 null);服务器会对照存储核对各块。",
+        "paramParts": "完整的块列表(编号 + ETag 或 null),长度必须等于 parts_total"
+      },
+      "multiFinalize": {
+        "title": "多文件分享 — 第 5 步:finalize",
+        "description": "所有登记的文件都完成后开放取件,并返回与 GET /shares/{code} 相同的条目。有效期从这一刻开始计算。重复调用返回同一个条目。"
+      },
+      "multiAbort": {
+        "title": "多文件分享 — 中止",
+        "description": "取消上传:释放取件码,中止未完成的上传并删除已存储的文件。对已经 finalize 的分享,改为撤销它,仍然返回 aborted: true。"
+      },
+      "pickup": {
+        "title": "取件",
+        "description": "兑换任意取件码(不限于当前 key 创建的),和网页取件一样会用掉一次取件次数。kind 为 text(正文在 text)、file(url)或 multi(附言在 text,另有 files[])。地址是带签名的绝对地址,即使这次取件用掉了最后一次次数,15 分钟内仍可下载。仍在上传中的多文件分享返回 404 share_not_finalized,不扣任何次数。输错太多次会暂时封禁当前 key。",
+        "paramCode": "取件码"
+      },
+      "revokeShare": {
+        "title": "撤销分享",
+        "description": "撤销当前 key 创建的分享:之后取件和所有下载地址都返回 404。别的 key 的分享、不存在的取件码和已撤销的分享一律返回 404。"
       }
     },
     "params": {
@@ -699,6 +761,12 @@
       "fieldDescription": "说明",
       "optional": "可选",
       "required": "必填"
+    },
+    "downloads": {
+      "heading": "下载地址",
+      "p1": "取件结果和创建者看到的下载地址(/api/share/download/{code}[/{file_id}])带有签名参数 t,15 分钟内有效。凭它,即使取件用掉了最后一次次数也能下载;分享被撤销后立即失效。加上 dl=1 可直接下载而不是在浏览器中显示。",
+      "p2": "没有有效签名的地址只对仅按时间限制的分享有效;按次数限制的分享必须带签名(服务器也可以配置为所有分享都必须带签名)。",
+      "p3": "所有拒绝都返回同一个 404 code_not_found,并和取件一样按 IP 计入输错封禁。下载路由按 IP 限流。"
     },
     "clients": {
       "heading": "客户端库",
@@ -734,7 +802,13 @@
       "scope": "scope 不足(key 缺少所需权限)",
       "quotaDaily": "当日字节配额已用尽",
       "quotaFileSize": "文件超过 max_file_size",
-      "notFound": "分享或 upload 会话不存在,或不属于当前 key"
+      "notFound": "分享或 upload 会话不存在,或不属于当前 key",
+      "badPart": "块不合法(大小不对、过大或缺少 chunk 字段)",
+      "partList": "块列表与已上传的不一致",
+      "shareLimits": "超出多文件分享的限制(文件数或总大小)",
+      "conflict": "多文件分享状态不对(已 finalize、文件已完成、还有文件未完成)",
+      "sessionExpired": "上传会话已过期",
+      "fileTooLarge": "文件超过 max_file_bytes"
     },
     "quota": {
       "heading": "配额",
@@ -742,7 +816,7 @@
       "maxFileSize": "max_file_size: 500 MiB —— 单文件上限",
       "quotaDailyBytes": "quota_daily_bytes: 5 GiB / 天 —— UTC 日累计字节",
       "quotaPerMinute": "quota_per_minute: 30 / 分钟 —— 调用频率(预留,尚未启用)",
-      "p2": "quota_daily_bytes = 0 表示不限。配额统计走 api_key_usage 的当日汇总:简单上传在响应成功后计入,分片上传在 complete 阶段计入。"
+      "p2": "quota_daily_bytes = 0 表示不限。用量按天汇总在 api_key_usage 中:简单上传在成功时记录,分片上传在 complete 时记录,多文件分享在每个文件完成时按文件记录。两项限额对多文件分享的每个文件分别生效。"
     },
     "requestKey": {
       "heading": "申请 key",

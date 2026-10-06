@@ -600,13 +600,24 @@
     "toc": {
       "intro": "Introduction",
       "auth": "Authentication",
+      "key": "GET /key",
       "upload": "POST /upload",
       "multipartInit": "POST /upload/init",
       "multipartSign": "POST /upload/{id}/sign-part",
       "multipartComplete": "POST /upload/{id}/complete",
       "multipartAbort": "DELETE /upload/{id}",
+      "shareText": "POST /share/text",
+      "multiCreate": "POST /share/multi",
+      "multiFile": "POST /share/multi/{id}/files",
+      "multiPart": "POST …/files/{fid}/parts/{n}",
+      "multiFileComplete": "POST …/files/{fid}/complete",
+      "multiFinalize": "POST /share/multi/{id}/finalize",
+      "multiAbort": "DELETE /share/multi/{id}",
+      "pickup": "POST /pickup",
       "listShares": "GET /shares",
       "getShare": "GET /shares/{code}",
+      "revokeShare": "DELETE /shares/{code}",
+      "downloads": "Download links",
       "clients": "Client libraries",
       "expireStyles": "expire_style values",
       "errors": "Error codes",
@@ -644,7 +655,7 @@
       },
       "multipartInit": {
         "title": "Multipart upload — step 1: initialise",
-        "description": "Large files use the R2 multipart presigned URL protocol. The client first calls init to receive an upload_id, then iterates over parts_total to request presigned PUT URLs, uploads each part directly to R2, and finally calls complete.",
+        "description": "Large files use the R2 multipart presigned URL protocol. The client first calls init to receive an upload_id, then iterates over parts_total to request presigned PUT URLs, uploads each part directly to R2, and finally calls complete. The session must be completed within 360 minutes.",
         "paramFileName": "File name, 1-512 characters",
         "paramFileSize": "Byte count, ≥ 1 and ≤ max_file_size",
         "paramContentType": "MIME type, optional",
@@ -667,14 +678,65 @@
       },
       "listShares": {
         "title": "List shares created by this key",
-        "description": "Paginated query of all shares uploaded with the current API key. status defaults to active; pass expired or all to widen the result set.",
+        "description": "Paginated query of all shares created with the current API key, newest first. status defaults to active; expired and all also include shares revoked or cleaned up in the last 30 days (metadata only). Every row has a status (active / expired / revoked). Single-file rows carry a signed url, so the owner can preview without spending a pickup; multi-file rows carry file_count, total_size and has_note instead.",
         "paramLimit": "1-200, default 50",
         "paramOffset": "≥ 0, default 0",
         "paramStatus": "active / expired / all"
       },
       "getShare": {
         "title": "Fetch a single share",
-        "description": "Returns the same shape as a list item. Only shares created by the current key are returned — others 404 (to prevent enumeration with someone else's key)."
+        "description": "Returns the same shape as a list item. Only shares created by the current key are returned — others 404 (to prevent enumeration with someone else's key). With include=content you also get the content without spending a pickup: text (a text share's body or a multi-file share's note) and, for multi-file shares, files[] with signed URLs.",
+        "paramInclude": "content — add text and files"
+      },
+      "key": {
+        "title": "Describe the calling key",
+        "description": "Returns the key's public id, scopes and limits. Any valid key may call it, whatever its scopes; the secret is never returned."
+      },
+      "shareText": {
+        "title": "Create a text share",
+        "description": "Stores a text body (at most 256 KiB of UTF-8) under a new pickup code attributed to this key. Text shares have no download URL — pickup returns the body.",
+        "paramText": "The text body"
+      },
+      "multiCreate": {
+        "title": "Multi-file share — step 1: reserve a code",
+        "description": "Send several files, optionally with a note, under one pickup code. The code is reserved now but can't be picked up until finalize. Only this key can drive the share; other keys get 404. share_id and file_id are strings.",
+        "paramCount": "Number of files, 1-200",
+        "paramTotal": "Total bytes of all files, ≥ 1 and ≤ max_share_bytes",
+        "paramText": "Optional note, at most 262144 UTF-8 bytes; whitespace-only counts as none"
+      },
+      "multiFile": {
+        "title": "Multi-file share — step 2: declare a file",
+        "description": "Call once per file. part_size is 6 MiB (or the file size for smaller files) and parts_total = ceil(size / part_size). expires_at is the deadline of the whole share: create to finalize must finish within 360 minutes.",
+        "paramName": "File name, 1-512 characters",
+        "paramSize": "Byte count, ≥ 1, within max_file_bytes and the key's max_file_size",
+        "paramContentType": "MIME type, optional"
+      },
+      "multiPart": {
+        "title": "Multi-file share — step 3: upload a part",
+        "description": "Send part n (1 through parts_total) as the multipart/form-data field chunk. Every part except the last must be exactly part_size bytes. On S3-compatible storage the part goes straight to the bucket and its ETag is returned; otherwise etag is null.",
+        "paramChunk": "Multipart field with the part's bytes"
+      },
+      "multiFileComplete": {
+        "title": "Multi-file share — step 4: complete a file",
+        "description": "Call once all parts of one file are uploaded. Send every part number with the etag you received (null if none); the server checks the parts against storage.",
+        "paramParts": "Full part list (number + ETag or null); length must equal parts_total"
+      },
+      "multiFinalize": {
+        "title": "Multi-file share — step 5: finalize",
+        "description": "Opens the share for pickup once every declared file is complete and returns the same entry as GET /shares/{code}. The expiry is counted from this moment. Calling it again returns the same entry."
+      },
+      "multiAbort": {
+        "title": "Multi-file share — abort",
+        "description": "Cancels the upload: releases the code, aborts unfinished uploads and deletes stored files. On a share that is already finalized it revokes the share instead and still answers aborted: true."
+      },
+      "pickup": {
+        "title": "Pick up a code",
+        "description": "Redeems any pickup code, not just this key's, and spends one pickup — exactly like the web page. kind is text (body in text), file (url) or multi (note in text, plus files[]). URLs are absolute and signed; they stay valid for 15 minutes even if this pickup used the last count. A multi-file share still being uploaded answers 404 share_not_finalized without spending anything. Too many wrong codes lock this key out for a while.",
+        "paramCode": "The pickup code"
+      },
+      "revokeShare": {
+        "title": "Revoke a share",
+        "description": "Revokes a share created by this key: pickup and every download URL answer 404 from then on. Another key's share, an unknown code and an already-revoked share all answer 404."
       }
     },
     "params": {
@@ -700,6 +762,12 @@
       "fieldDescription": "DESCRIPTION",
       "optional": "optional",
       "required": "required"
+    },
+    "downloads": {
+      "heading": "Download links",
+      "p1": "Download URLs (/api/share/download/{code}[/{file_id}]) handed out by pickup or to the owner carry a signed t parameter valid for 15 minutes. With it the file downloads even after the pickup used the share's last count; a revoked share is refused at once. Add dl=1 to download instead of displaying inline.",
+      "p2": "A URL without a valid token only works for shares limited purely by time; count-limited shares always need the token (the server can be configured to require it for every share).",
+      "p3": "Every refusal is the same 404 code_not_found and counts towards the same per-IP failure ban as pickup. The download routes are rate limited per IP."
     },
     "clients": {
       "heading": "Client libraries",
@@ -735,7 +803,13 @@
       "scope": "Insufficient scope (key lacks required permission)",
       "quotaDaily": "Daily byte quota exhausted",
       "quotaFileSize": "File exceeds max_file_size",
-      "notFound": "Share or upload session does not exist or is not owned by this key"
+      "notFound": "Share or upload session does not exist or is not owned by this key",
+      "badPart": "Bad part (wrong size, too large, or no chunk field)",
+      "partList": "Part list doesn't match what was uploaded",
+      "shareLimits": "Multi-file share limit exceeded (file count or total size)",
+      "conflict": "Multi-file share in the wrong state (already finalized, file already complete, files incomplete)",
+      "sessionExpired": "Upload session expired",
+      "fileTooLarge": "File larger than max_file_bytes"
     },
     "quota": {
       "heading": "Quotas",
@@ -743,7 +817,7 @@
       "maxFileSize": "max_file_size: 500 MiB — single-file ceiling",
       "quotaDailyBytes": "quota_daily_bytes: 5 GiB / day — cumulative bytes within a UTC day",
       "quotaPerMinute": "quota_per_minute: 30 / minute — call rate (reserved; not yet enforced)",
-      "p2": "quota_daily_bytes = 0 means unlimited. Usage is rolled up daily in api_key_usage; simple uploads are recorded on success and multipart uploads are recorded on complete."
+      "p2": "quota_daily_bytes = 0 means unlimited. Usage is rolled up daily in api_key_usage: simple uploads are recorded on success, multipart uploads on complete, and multi-file shares per file when that file completes. Both limits apply to each file of a multi-file share."
     },
     "requestKey": {
       "heading": "Request a key",

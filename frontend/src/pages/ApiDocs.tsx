@@ -44,13 +44,24 @@ function resolveMode(mode: WashiMode): "light" | "dark" {
 const TOC_IDS = [
   "intro",
   "auth",
+  "key",
   "upload",
   "multipartInit",
   "multipartSign",
   "multipartComplete",
   "multipartAbort",
+  "shareText",
+  "multiCreate",
+  "multiFile",
+  "multiPart",
+  "multiFileComplete",
+  "multiFinalize",
+  "multiAbort",
+  "pickup",
   "listShares",
   "getShare",
+  "revokeShare",
+  "downloads",
   "clients",
   "expireStyles",
   "errors",
@@ -63,13 +74,24 @@ const TOC_IDS = [
 const HASH_FOR_TOC: Record<(typeof TOC_IDS)[number], string> = {
   intro: "intro",
   auth: "auth",
+  key: "key",
   upload: "upload",
   multipartInit: "multipart-init",
   multipartSign: "multipart-sign",
   multipartComplete: "multipart-complete",
   multipartAbort: "multipart-abort",
+  shareText: "share-text",
+  multiCreate: "multi-create",
+  multiFile: "multi-file",
+  multiPart: "multi-part",
+  multiFileComplete: "multi-file-complete",
+  multiFinalize: "multi-finalize",
+  multiAbort: "multi-abort",
+  pickup: "pickup",
   listShares: "list-shares",
   getShare: "get-share",
+  revokeShare: "revoke-share",
+  downloads: "downloads",
   clients: "clients",
   expireStyles: "expire-styles",
   errors: "errors",
@@ -85,6 +107,8 @@ const AUTH_HEADER_EXAMPLE = "Authorization: Bearer yd_<8char_id>_<32char_secret>
 
 /** Examples use the address this page is served from, so every instance documents itself. */
 const ORIGIN = typeof window !== "undefined" ? window.location.origin : "https://drop.example.com";
+/** Shape of the signed `t` download token: share id . expiry . signature. */
+const TOKEN = "42.1779840000.Qm9vay1leGFtcGxlLXNpZw";
 
 const UPLOAD_RESPONSE = [
   "{",
@@ -96,7 +120,7 @@ const UPLOAD_RESPONSE = [
   '    "size": 12,',
   '    "expired_at": "2026-05-28T00:00:00+00:00",',
   '    "expired_count": -1,',
-  `    "url": "${ORIGIN}/api/share/download/abc12345",`,
+  `    "url": "${ORIGIN}/api/share/download/abc12345?t=${TOKEN}",`,
   `    "short_url": "${ORIGIN}/s/abc12345"`,
   "  }",
   "}",
@@ -158,7 +182,7 @@ const COMPLETE_RESPONSE = [
   '    "size": 62914560,',
   '    "expired_at": "2026-05-28T00:00:00+00:00",',
   '    "expired_count": -1,',
-  `    "url": "${ORIGIN}/api/share/download/abc12345",`,
+  `    "url": "${ORIGIN}/api/share/download/abc12345?t=${TOKEN}",`,
   `    "short_url": "${ORIGIN}/s/abc12345"`,
   "  }",
   "}",
@@ -194,11 +218,12 @@ const LIST_RESPONSE = [
   '        "name": "hello.txt",',
   '        "size": 12,',
   '        "kind": "file",',
+  '        "status": "active",',
   '        "expired_at": "2026-05-28T00:00:00+00:00",',
   '        "expired_count": -1,',
   '        "used_count": 0,',
   '        "created_at": "2026-05-27T01:23:45+00:00",',
-  `        "url": "${ORIGIN}/api/share/download/abc12345",`,
+  `        "url": "${ORIGIN}/api/share/download/abc12345?t=${TOKEN}",`,
   `        "short_url": "${ORIGIN}/s/abc12345"`,
   "      }",
   "    ]",
@@ -214,13 +239,191 @@ const LIST_CURL = [
 const GET_RESPONSE = [
   "{",
   '  "code": 2000,',
-  '  "detail": { /* identical to a list item */ }',
+  '  "detail": {',
+  "    /* identical to a list item; include=content adds: */",
+  '    "text": "Two files for you.",',
+  '    "files": [',
+  "      {",
+  '        "file_id": "17",',
+  '        "order": 1,',
+  '        "name": "photo.jpg",',
+  '        "size": 2048,',
+  '        "content_type": "image/jpeg",',
+  '        "force_download": false,',
+  `        "url": "${ORIGIN}/api/share/download/abc12345/17?t=${TOKEN}"`,
+  "      }",
+  "    ]",
+  "  }",
   "}",
 ].join("\n");
 
 const GET_CURL = [
-  `curl ${ORIGIN}/api/v1/shares/abc12345 \\`,
+  `curl "${ORIGIN}/api/v1/shares/abc12345?include=content" \\`,
   '  -H "Authorization: Bearer yd_..."',
+].join("\n");
+
+const REVOKE_RESPONSE = '{ "code": 2000, "message": "ok", "detail": { "code": "abc12345", "deleted": true } }';
+
+const REVOKE_CURL = [
+  `curl -X DELETE ${ORIGIN}/api/v1/shares/abc12345 \\`,
+  '  -H "Authorization: Bearer yd_..."',
+].join("\n");
+
+const KEY_RESPONSE = [
+  "{",
+  '  "code": 2000,',
+  '  "detail": {',
+  '    "key_id": "a1b2c3d4",',
+  '    "scopes": ["upload", "read"],',
+  '    "max_file_size": 524288000,',
+  '    "quota_daily_bytes": 5368709120',
+  "  }",
+  "}",
+].join("\n");
+
+const KEY_CURL = [
+  `curl ${ORIGIN}/api/v1/key \\`,
+  '  -H "Authorization: Bearer yd_..."',
+].join("\n");
+
+const TEXT_RESPONSE = [
+  "{",
+  '  "code": 2000,',
+  '  "detail": {',
+  '    "code": "abc12345",',
+  '    "name": null,',
+  '    "size": 11,',
+  '    "expired_at": "2026-05-28T00:00:00+00:00",',
+  '    "expired_count": -1,',
+  '    "url": null,',
+  `    "short_url": "${ORIGIN}/s/abc12345"`,
+  "  }",
+  "}",
+].join("\n");
+
+const TEXT_CURL = [
+  `curl -X POST ${ORIGIN}/api/v1/share/text \\`,
+  '  -H "Authorization: Bearer yd_..." \\',
+  '  -H "Content-Type: application/json" \\',
+  '  -d \'{"text":"hello world","expire_value":1,"expire_style":"day"}\'',
+].join("\n");
+
+const MULTI_CREATE_RESPONSE = [
+  "{",
+  '  "code": 2000,',
+  '  "detail": {',
+  '    "share_id": "42",',
+  '    "code": "abc12345",',
+  '    "expired_at": "2026-06-03T00:00:00+00:00",',
+  '    "expired_count": -1',
+  "  }",
+  "}",
+].join("\n");
+
+const MULTI_CREATE_CURL = [
+  `curl -X POST ${ORIGIN}/api/v1/share/multi \\`,
+  '  -H "Authorization: Bearer yd_..." \\',
+  '  -H "Content-Type: application/json" \\',
+  '  -d \'{"declared_file_count":2,"declared_total_size":7342080,"expire_value":7,"expire_style":"day","text":"Two files for you."}\'',
+].join("\n");
+
+const MULTI_FILE_RESPONSE = [
+  "{",
+  '  "code": 2000,',
+  '  "detail": {',
+  '    "file_id": "17",',
+  '    "upload_id": "5d41402abc4b2a76b9719d911017c592",',
+  '    "part_size": 6291456,',
+  '    "parts_total": 2,',
+  '    "expires_at": "2026-05-27T18:00:00+00:00"',
+  "  }",
+  "}",
+].join("\n");
+
+const MULTI_FILE_CURL = [
+  `curl -X POST ${ORIGIN}/api/v1/share/multi/42/files \\`,
+  '  -H "Authorization: Bearer yd_..." \\',
+  '  -H "Content-Type: application/json" \\',
+  '  -d \'{"name":"video.mp4","size":7340032,"content_type":"video/mp4"}\'',
+].join("\n");
+
+const MULTI_PART_RESPONSE =
+  '{ "code": 2000, "message": "ok", "detail": { "part_number": 1, "etag": "9b2cf535f27731c974343645a3985328" } }';
+
+const MULTI_PART_CURL = [
+  `curl -X POST ${ORIGIN}/api/v1/share/multi/42/files/17/parts/1 \\`,
+  '  -H "Authorization: Bearer yd_..." \\',
+  '  -F "chunk=@./video.mp4.part1"',
+].join("\n");
+
+const MULTI_FILE_COMPLETE_RESPONSE =
+  '{ "code": 2000, "message": "ok", "detail": { "file_id": "17", "name": "video.mp4", "size": 7340032 } }';
+
+const MULTI_FILE_COMPLETE_CURL = [
+  `curl -X POST ${ORIGIN}/api/v1/share/multi/42/files/17/complete \\`,
+  '  -H "Authorization: Bearer yd_..." \\',
+  '  -H "Content-Type: application/json" \\',
+  '  -d \'{"parts":[{"part_number":1,"etag":"9b2c..."},{"part_number":2,"etag":"1f3a..."}]}\'',
+].join("\n");
+
+const MULTI_FINALIZE_RESPONSE = [
+  "{",
+  '  "code": 2000,',
+  '  "detail": {',
+  '    "code": "abc12345",',
+  '    "name": null,',
+  '    "size": null,',
+  '    "kind": "multi",',
+  '    "status": "active",',
+  '    "expired_at": "2026-06-03T00:00:00+00:00",',
+  '    "expired_count": -1,',
+  '    "used_count": 0,',
+  '    "created_at": "2026-05-27T12:00:00+00:00",',
+  '    "url": null,',
+  `    "short_url": "${ORIGIN}/s/abc12345",`,
+  '    "file_count": 2,',
+  '    "total_size": 7342080,',
+  '    "has_note": true',
+  "  }",
+  "}",
+].join("\n");
+
+const MULTI_FINALIZE_CURL = [
+  `curl -X POST ${ORIGIN}/api/v1/share/multi/42/finalize \\`,
+  '  -H "Authorization: Bearer yd_..."',
+].join("\n");
+
+const MULTI_ABORT_RESPONSE = '{ "code": 2000, "message": "ok", "detail": { "share_id": "42", "aborted": true } }';
+
+const MULTI_ABORT_CURL = [
+  `curl -X DELETE ${ORIGIN}/api/v1/share/multi/42 \\`,
+  '  -H "Authorization: Bearer yd_..."',
+].join("\n");
+
+const PICKUP_RESPONSE = [
+  "{",
+  '  "code": 2000,',
+  '  "detail": {',
+  '    "code": "abc12345",',
+  '    "kind": "file",',
+  '    "name": "hello.txt",',
+  '    "size": 12,',
+  '    "text": null,',
+  `    "url": "${ORIGIN}/api/share/download/abc12345?t=${TOKEN}",`,
+  '    "content_type": "text/plain; charset=utf-8",',
+  '    "force_download": false,',
+  '    "expired_at": null,',
+  '    "expired_count": 0,',
+  '    "used_count": 1',
+  "  }",
+  "}",
+].join("\n");
+
+const PICKUP_CURL = [
+  `curl -X POST ${ORIGIN}/api/v1/pickup \\`,
+  '  -H "Authorization: Bearer yd_..." \\',
+  '  -H "Content-Type: application/json" \\',
+  '  -d \'{"code":"abc12345"}\'',
 ].join("\n");
 
 
@@ -434,6 +637,17 @@ export default function ApiDocs() {
 
             <EndpointBlock
               c={c}
+              id="key"
+              method="GET"
+              path="/api/v1/key"
+              title={t("apiDocs.endpoints.key.title")}
+              description={<span>{t("apiDocs.endpoints.key.description")}</span>}
+              responseShape={KEY_RESPONSE}
+              curlExample={KEY_CURL}
+            />
+
+            <EndpointBlock
+              c={c}
               id="upload"
               method="POST"
               path="/api/v1/upload"
@@ -512,6 +726,120 @@ export default function ApiDocs() {
 
             <EndpointBlock
               c={c}
+              id="share-text"
+              method="POST"
+              path="/api/v1/share/text"
+              title={t("apiDocs.endpoints.shareText.title")}
+              description={<span>{t("apiDocs.endpoints.shareText.description")}</span>}
+              requestParams={[
+                { name: "text", type: "string", required: true, description: t("apiDocs.endpoints.shareText.paramText") },
+                { name: "expire_value", type: "int", description: t("apiDocs.endpoints.upload.paramExpireValue") },
+                { name: "expire_style", type: "enum", description: t("apiDocs.endpoints.upload.paramExpireStyle") },
+              ]}
+              responseShape={TEXT_RESPONSE}
+              curlExample={TEXT_CURL}
+            />
+
+            <EndpointBlock
+              c={c}
+              id="multi-create"
+              method="POST"
+              path="/api/v1/share/multi"
+              title={t("apiDocs.endpoints.multiCreate.title")}
+              description={<span>{t("apiDocs.endpoints.multiCreate.description")}</span>}
+              requestParams={[
+                { name: "declared_file_count", type: "int", required: true, description: t("apiDocs.endpoints.multiCreate.paramCount") },
+                { name: "declared_total_size", type: "int", required: true, description: t("apiDocs.endpoints.multiCreate.paramTotal") },
+                { name: "expire_value", type: "int", description: t("apiDocs.endpoints.upload.paramExpireValue") },
+                { name: "expire_style", type: "enum", description: t("apiDocs.endpoints.upload.paramExpireStyle") },
+                { name: "text", type: "string", description: t("apiDocs.endpoints.multiCreate.paramText") },
+              ]}
+              responseShape={MULTI_CREATE_RESPONSE}
+              curlExample={MULTI_CREATE_CURL}
+            />
+
+            <EndpointBlock
+              c={c}
+              id="multi-file"
+              method="POST"
+              path="/api/v1/share/multi/{share_id}/files"
+              title={t("apiDocs.endpoints.multiFile.title")}
+              description={<span>{t("apiDocs.endpoints.multiFile.description")}</span>}
+              requestParams={[
+                { name: "name", type: "string", required: true, description: t("apiDocs.endpoints.multiFile.paramName") },
+                { name: "size", type: "int", required: true, description: t("apiDocs.endpoints.multiFile.paramSize") },
+                { name: "content_type", type: "string", description: t("apiDocs.endpoints.multiFile.paramContentType") },
+              ]}
+              responseShape={MULTI_FILE_RESPONSE}
+              curlExample={MULTI_FILE_CURL}
+            />
+
+            <EndpointBlock
+              c={c}
+              id="multi-part"
+              method="POST"
+              path="/api/v1/share/multi/{share_id}/files/{file_id}/parts/{n}"
+              title={t("apiDocs.endpoints.multiPart.title")}
+              description={<span>{t("apiDocs.endpoints.multiPart.description")}</span>}
+              requestParams={[
+                { name: "chunk", type: "file", required: true, description: t("apiDocs.endpoints.multiPart.paramChunk") },
+              ]}
+              responseShape={MULTI_PART_RESPONSE}
+              curlExample={MULTI_PART_CURL}
+            />
+
+            <EndpointBlock
+              c={c}
+              id="multi-file-complete"
+              method="POST"
+              path="/api/v1/share/multi/{share_id}/files/{file_id}/complete"
+              title={t("apiDocs.endpoints.multiFileComplete.title")}
+              description={<span>{t("apiDocs.endpoints.multiFileComplete.description")}</span>}
+              requestParams={[
+                { name: "parts", type: "array", required: true, description: t("apiDocs.endpoints.multiFileComplete.paramParts") },
+              ]}
+              responseShape={MULTI_FILE_COMPLETE_RESPONSE}
+              curlExample={MULTI_FILE_COMPLETE_CURL}
+            />
+
+            <EndpointBlock
+              c={c}
+              id="multi-finalize"
+              method="POST"
+              path="/api/v1/share/multi/{share_id}/finalize"
+              title={t("apiDocs.endpoints.multiFinalize.title")}
+              description={<span>{t("apiDocs.endpoints.multiFinalize.description")}</span>}
+              responseShape={MULTI_FINALIZE_RESPONSE}
+              curlExample={MULTI_FINALIZE_CURL}
+            />
+
+            <EndpointBlock
+              c={c}
+              id="multi-abort"
+              method="DELETE"
+              path="/api/v1/share/multi/{share_id}"
+              title={t("apiDocs.endpoints.multiAbort.title")}
+              description={<span>{t("apiDocs.endpoints.multiAbort.description")}</span>}
+              responseShape={MULTI_ABORT_RESPONSE}
+              curlExample={MULTI_ABORT_CURL}
+            />
+
+            <EndpointBlock
+              c={c}
+              id="pickup"
+              method="POST"
+              path="/api/v1/pickup"
+              title={t("apiDocs.endpoints.pickup.title")}
+              description={<span>{t("apiDocs.endpoints.pickup.description")}</span>}
+              requestParams={[
+                { name: "code", type: "string", required: true, description: t("apiDocs.endpoints.pickup.paramCode") },
+              ]}
+              responseShape={PICKUP_RESPONSE}
+              curlExample={PICKUP_CURL}
+            />
+
+            <EndpointBlock
+              c={c}
               id="list-shares"
               method="GET"
               path="/api/v1/shares"
@@ -533,9 +861,30 @@ export default function ApiDocs() {
               path="/api/v1/shares/{code}"
               title={t("apiDocs.endpoints.getShare.title")}
               description={<span>{t("apiDocs.endpoints.getShare.description")}</span>}
+              requestParams={[
+                { name: "include", type: "string", description: t("apiDocs.endpoints.getShare.paramInclude") },
+              ]}
               responseShape={GET_RESPONSE}
               curlExample={GET_CURL}
             />
+
+            <EndpointBlock
+              c={c}
+              id="revoke-share"
+              method="DELETE"
+              path="/api/v1/shares/{code}"
+              title={t("apiDocs.endpoints.revokeShare.title")}
+              description={<span>{t("apiDocs.endpoints.revokeShare.description")}</span>}
+              responseShape={REVOKE_RESPONSE}
+              curlExample={REVOKE_CURL}
+            />
+
+            <section id="downloads" style={sectionStyle(c)}>
+              <h2 style={h2Style(c)}>{t("apiDocs.downloads.heading")}</h2>
+              <p style={pStyle(c)}>{t("apiDocs.downloads.p1")}</p>
+              <p style={pStyle(c)}>{t("apiDocs.downloads.p2")}</p>
+              <p style={pStyle(c)}>{t("apiDocs.downloads.p3")}</p>
+            </section>
 
             <section id="clients" style={sectionStyle(c)}>
               <h2 style={h2Style(c)}>{t("apiDocs.clients.heading")}</h2>
@@ -593,12 +942,18 @@ export default function ApiDocs() {
                   </tr>
                 </thead>
                 <tbody>
+                  <tr><td style={tdS(c, true)}>4002</td><td style={tdS(c, true)}>400</td><td style={tdS(c, false)}>{t("apiDocs.errors.badPart")}</td></tr>
+                  <tr><td style={tdS(c, true)}>4004</td><td style={tdS(c, true)}>400</td><td style={tdS(c, false)}>{t("apiDocs.errors.partList")}</td></tr>
+                  <tr><td style={tdS(c, true)}>4007</td><td style={tdS(c, true)}>400</td><td style={tdS(c, false)}>{t("apiDocs.errors.shareLimits")}</td></tr>
                   <tr><td style={tdS(c, true)}>4011</td><td style={tdS(c, true)}>401</td><td style={tdS(c, false)}>{t("apiDocs.errors.missing")}</td></tr>
                   <tr><td style={tdS(c, true)}>4012</td><td style={tdS(c, true)}>401</td><td style={tdS(c, false)}>{t("apiDocs.errors.revoked")}</td></tr>
                   <tr><td style={tdS(c, true)}>4031</td><td style={tdS(c, true)}>403</td><td style={tdS(c, false)}>{t("apiDocs.errors.scope")}</td></tr>
                   <tr><td style={tdS(c, true)}>4292</td><td style={tdS(c, true)}>429</td><td style={tdS(c, false)}>{t("apiDocs.errors.quotaDaily")}</td></tr>
                   <tr><td style={tdS(c, true)}>4293</td><td style={tdS(c, true)}>413</td><td style={tdS(c, false)}>{t("apiDocs.errors.quotaFileSize")}</td></tr>
                   <tr><td style={tdS(c, true)}>4040</td><td style={tdS(c, true)}>404</td><td style={tdS(c, false)}>{t("apiDocs.errors.notFound")}</td></tr>
+                  <tr><td style={tdS(c, true)}>4090</td><td style={tdS(c, true)}>409</td><td style={tdS(c, false)}>{t("apiDocs.errors.conflict")}</td></tr>
+                  <tr><td style={tdS(c, true)}>4101</td><td style={tdS(c, true)}>410</td><td style={tdS(c, false)}>{t("apiDocs.errors.sessionExpired")}</td></tr>
+                  <tr><td style={tdS(c, true)}>4133</td><td style={tdS(c, true)}>413</td><td style={tdS(c, false)}>{t("apiDocs.errors.fileTooLarge")}</td></tr>
                 </tbody>
               </table>
             </section>
