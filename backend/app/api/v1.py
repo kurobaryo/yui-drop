@@ -11,6 +11,7 @@ POST   /api/v1/share/text                    — create a text share
 POST   /api/v1/pickup                        — redeem a pickup code (consuming)
 GET    /api/v1/shares                        — list shares created by this key
 GET    /api/v1/shares/{code}                 — fetch one share by code
+DELETE /api/v1/shares/{code}                 — revoke one of this key's shares
 
 All write routes require scope ``upload``; reads require ``read``. Quotas
 (``max_file_size`` + ``quota_daily_bytes``) are enforced at the gate; usage
@@ -60,6 +61,7 @@ from ..services.presign import (
     sign_presign_part,
 )
 from ..services.share import create_simple_file_share, create_text_share, resolve_share
+from ..services.v1_shares import revoke_share
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
@@ -486,3 +488,29 @@ async def v1_get_share(
             detail={"code": 4040, "message": "share_not_found", "detail": None},
         )
     return ok(_row_to_list_item(row))
+
+
+@router.delete("/shares/{code}")
+async def v1_revoke_share(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    api_key: Annotated[ApiKey, Depends(require_api_key("upload"))],
+    code: Annotated[str, Path(min_length=1, max_length=16)],
+):
+    """Revoke a share this key created.
+
+    Soft delete: pickup and every download URL answer 404 immediately. Another
+    key's share, an unknown code and an already-deleted share all answer 404
+    ``share_not_found`` — never 403, so the route can't confirm a code exists.
+    """
+    try:
+        out = await revoke_share(
+            db,
+            code=code,
+            api_key_id=api_key.id,
+            ip=real_client_ip(request),
+            ua=request.headers.get("user-agent"),
+        )
+    except ServiceError as exc:
+        raise _service_to_http(exc) from exc
+    return ok(out)
