@@ -9,6 +9,7 @@ POST   /api/v1/upload/{upload_id}/complete   — finalize, create share
 DELETE /api/v1/upload/{upload_id}            — abort an in-flight session
 POST   /api/v1/share/text                    — create a text share
 POST   /api/v1/pickup                        — redeem a pickup code (consuming)
+GET    /api/v1/key                           — describe the calling key
 GET    /api/v1/shares                        — list shares created by this key
 GET    /api/v1/shares/{code}                 — fetch one share by code
 DELETE /api/v1/shares/{code}                 — revoke one of this key's shares
@@ -111,6 +112,25 @@ async def _share_urls(db: AsyncSession, code: str) -> tuple[str, str]:
         await db.execute(select(FileCode.id).where(FileCode.code == code))
     ).scalar_one()
     return _signed_url(code, share_id), _short_url(code)
+
+
+# ── Key ─────────────────────────────────────────────────────────────────────
+
+
+@router.get("/key")
+async def v1_key(
+    api_key: Annotated[ApiKey, Depends(require_api_key(None))],
+):
+    """Describe the calling key: id, scopes and limits. Any valid key may ask;
+    the secret is never echoed."""
+    return ok(
+        {
+            "key_id": api_key.key_id,
+            "scopes": api_key.scopes_list(),
+            "max_file_size": api_key.max_file_size,
+            "quota_daily_bytes": api_key.quota_daily_bytes,
+        }
+    )
 
 
 # ── Simple upload ───────────────────────────────────────────────────────────

@@ -99,8 +99,10 @@ def extract_key_id(plaintext: str) -> str | None:
     return m.group(1)
 
 
-def require_api_key(scope: str):
+def require_api_key(scope: str | None):
     """Return a FastAPI dependency that enforces a Bearer API key with ``scope``.
+
+    ``scope=None`` accepts any valid key (used by ``GET /api/v1/key``).
 
     Order of checks:
 
@@ -160,7 +162,7 @@ def require_api_key(scope: str):
                 },
             )
 
-        if scope not in row.scopes_list():
+        if scope is not None and scope not in row.scopes_list():
             raise HTTPException(
                 status_code=403,
                 detail={

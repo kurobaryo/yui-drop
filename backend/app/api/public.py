@@ -104,10 +104,10 @@ async def public_config(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 # ────────────────────────────────────────────────────────────────────────────
 # GET /api/config/upload — public, read-only upload limits.
 #
-# Exposes the four knobs the SPA needs to choose between simple / chunked /
-# presigned strategies (#7 + #8). These are NOT secrets: the same numbers
-# would be revealed indirectly by a single rejected upload, so giving the
-# UI a way to fail fast is a strict win.
+# Exposes the knobs clients need to choose between simple / chunked /
+# presigned strategies (#7 + #8) and to size multi-file shares. These are NOT
+# secrets: the same numbers would be revealed indirectly by a single rejected
+# upload, so giving clients a way to fail fast is a strict win.
 # ────────────────────────────────────────────────────────────────────────────
 
 
@@ -115,8 +115,30 @@ async def public_config(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 async def public_upload_config(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Return the admin-tunable upload limits + chunked-upload switch."""
+    """Return the upload limits + chunked-upload switch.
+
+    On top of the admin-tunable knobs:
+
+    * ``max_file_bytes`` — largest single file any upload path accepts
+      (min of MAX_UPLOAD_BYTES and the multi-file MAX_FILE_BYTES).
+    * ``max_share_bytes`` — the one total cap of a multi-file share; same
+      value as ``multi_total_max_bytes``.
+    * ``max_files_per_share`` — file-count cap of a multi-file share.
+    * ``v1_multipart_ttl_minutes`` — lifetime of an /api/v1 upload session
+      (a multipart upload, or a multi-file share from create to finalize).
+    * ``v1_features`` — /api/v1 capabilities this server provides.
+    """
     from ..services.admin_uploads import resolve_upload_limits
+    from ..services.share_multi import effective_max_file_bytes
 
     out = await resolve_upload_limits(db)
+    out.update(
+        {
+            "max_file_bytes": effective_max_file_bytes(),
+            "max_share_bytes": out["multi_total_max_bytes"],
+            "max_files_per_share": settings.max_files_per_share,
+            "v1_multipart_ttl_minutes": settings.v1_multipart_session_ttl_min,
+            "v1_features": {"multi_send": True, "revoke": True, "owner_view": True},
+        }
+    )
     return ok(out)
