@@ -148,3 +148,12 @@ async def client() -> AsyncIterator:
         db_path.unlink()
     except FileNotFoundError:
         pass
+
+
+@pytest.fixture
+async def s3_storage() -> AsyncIterator:
+    """A moto-backed S3 storage installed as the live backend for one test."""
+    from tests._moto_s3 import moto_s3_storage
+
+    async with moto_s3_storage() as storage:
+        yield storage

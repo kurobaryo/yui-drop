@@ -85,9 +85,14 @@ async def init_presign_upload(
 
     part_size, parts_total = _compute_part_size(file_size)
     upload_id = uuid.uuid4().hex
-    expires_at = datetime.now(tz=UTC) + timedelta(
-        minutes=settings.multipart_session_ttl_min
+    # API-key sessions get the longer /api/v1 lifetime; anonymous ones keep
+    # the short default.
+    ttl_min = (
+        settings.v1_multipart_session_ttl_min
+        if created_by_key_id is not None
+        else settings.multipart_session_ttl_min
     )
+    expires_at = datetime.now(tz=UTC) + timedelta(minutes=ttl_min)
 
     sess = MultipartSession(
         upload_id=upload_id,
@@ -284,7 +289,13 @@ async def complete_presign_upload(
         },
     )
     await db.commit()
-    return {"code": code, "name": safe, "size": real_size}
+    return {
+        "code": code,
+        "name": safe,
+        "size": real_size,
+        "expired_at": expired_at.isoformat() if expired_at else None,
+        "expired_count": expired_count,
+    }
 
 
 # ────────────────────────────────────────────────────────────────────────────

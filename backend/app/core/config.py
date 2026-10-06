@@ -96,6 +96,11 @@ class Settings(BaseSettings):
     storage_quota_bytes: int | None = None
     expire_sweeper_interval_min: int = 10
     multipart_session_ttl_min: int = 60
+    # Absolute lifetime of an upload session opened through /api/v1 — a
+    # single-file multipart upload, or a whole multi-file share from create
+    # to finalize. Longer than the anonymous one because large files relayed
+    # through an API client can take hours.
+    v1_multipart_session_ttl_min: int = Field(default=360, ge=1)
 
     # ── Download links ──────────────────────────────────────────────────────
     # Lifetime of the signed ``?t=`` token on download URLs handed out by a

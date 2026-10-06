@@ -255,14 +255,12 @@ async def v1_upload_complete(
         await record_usage(db, api_key, bytes_used=real_size)
 
     url, short_url = await _share_urls(db, out["code"])
-    # The presign service returns code/name/size only — flesh out the envelope
-    # to match the v1 contract.
     payload = {
         "code": out["code"],
         "name": out.get("name"),
         "size": real_size,
-        "expired_at": out.get("expired_at"),
-        "expired_count": out.get("expired_count", -1),
+        "expired_at": out["expired_at"],
+        "expired_count": out["expired_count"],
         "url": url,
         "short_url": short_url,
     }
