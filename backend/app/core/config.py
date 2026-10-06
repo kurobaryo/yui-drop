@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     rate_limit_retrieve_fails_per_hour: int = 20
     retrieve_ban_duration_min: int = 60
     rate_limit_login_per_5min: int = 10
+    # Per-IP limits on GET /api/share/download/{code}[/{file_id}]. Requests
+    # carrying a valid signed token (minted by a pickup or an owner listing)
+    # get their own, larger bucket so "download all" on a big multi-file
+    # share is not throttled like an anonymous probe.
+    rate_limit_download_per_min: int = 60
+    rate_limit_download_signed_per_min: int = 600
     max_upload_bytes: int = 10 * 1024 * 1024 * 1024  # 10 GiB (legacy alias)
     # Per-file cap for the new multi-file share flow. Independent of
     # ``max_upload_bytes`` so legacy single-file APIs keep their existing
@@ -90,6 +96,17 @@ class Settings(BaseSettings):
     storage_quota_bytes: int | None = None
     expire_sweeper_interval_min: int = 10
     multipart_session_ttl_min: int = 60
+
+    # ── Download links ──────────────────────────────────────────────────────
+    # Lifetime of the signed ``?t=`` token on download URLs handed out by a
+    # pickup or an owner listing. The token doubles as the grace window: a
+    # share whose pickup count just ran out stays downloadable through it.
+    download_token_ttl_min: int = Field(default=15, ge=1)
+    # ``counted`` — a URL without a valid token still works for shares that
+    #               are only time-limited (expired_count == -1); count-limited
+    #               shares need a token.
+    # ``all``     — every download needs a valid token.
+    download_token_mode: Literal["counted", "all"] = "counted"
 
     # ── Bot protection ──────────────────────────────────────────────────────
     turnstile_site_key: str = ""

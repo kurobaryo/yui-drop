@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..core.crypto import generate_dek, wrap_dek
+from ..core.download_token import signed_download_path, verify_download_token
 from ..core.filenames import build_storage_key, sanitize_filename
 from ..core.rate_limit import retrieve_fail_tracker
 from ..core.security import generate_unique_pickup_code
@@ -270,6 +271,39 @@ async def create_simple_file_share(
 # ────────────────────────────────────────────────────────────────────────────
 
 
+async def record_retrieve_miss(
+    db: AsyncSession,
+    *,
+    code: str,
+    ip: str | None,
+    ua: str | None,
+    tracked: str | None,
+    reason: str,
+    event: str = "share.retrieve.miss",
+) -> None:
+    """Audit one failed lookup and count it towards the caller's ban.
+
+    Shared by pickup and the download route so both feed the same
+    ``retrieve_fail_tracker`` with the same threshold and ban duration.
+    """
+    await record_access(
+        db,
+        action=AccessLogAction.SHARE_RETRIEVE,
+        code=code,
+        ip=ip,
+        ua=ua,
+        status_code=404,
+        extra={"event": event, "reason": reason},
+    )
+    await db.commit()
+    if tracked:
+        n = await retrieve_fail_tracker.record_failure(tracked)
+        if n >= settings.rate_limit_retrieve_fails_per_hour:
+            await retrieve_fail_tracker.ban(
+                tracked, settings.retrieve_ban_duration_min * 60
+            )
+
+
 async def resolve_share(
     db: AsyncSession,
     *,
@@ -308,6 +342,19 @@ async def resolve_share(
 
     # ── Failure path: record + maybe ban
     async def _miss(reason: str) -> None:
+        await record_retrieve_miss(
+            db, code=code, ip=ip, ua=ua, tracked=tracked, reason=reason
+        )
+
+    if row is None:
+        await _miss("not_found")
+        raise NotFoundError("code_not_found")
+
+    # A multi share whose sender is still uploading. Answer before touching
+    # the counters and without counting a miss: the code is right, the share
+    # just isn't ready, so a retry must neither burn one of the receiver's
+    # pickups nor push them towards a ban.
+    if row.kind == "multi" and not row.finalized:
         await record_access(
             db,
             action=AccessLogAction.SHARE_RETRIEVE,
@@ -315,19 +362,10 @@ async def resolve_share(
             ip=ip,
             ua=ua,
             status_code=404,
-            extra={"event": "share.retrieve.miss", "reason": reason},
+            extra={"event": "share.retrieve.not_finalized"},
         )
         await db.commit()
-        if tracked:
-            n = await retrieve_fail_tracker.record_failure(tracked)
-            if n >= settings.rate_limit_retrieve_fails_per_hour:
-                await retrieve_fail_tracker.ban(
-                    tracked, settings.retrieve_ban_duration_min * 60
-                )
-
-    if row is None:
-        await _miss("not_found")
-        raise NotFoundError("code_not_found")
+        raise NotFoundError("share_not_finalized")
 
     if row.expired_at is not None and as_utc(row.expired_at) <= now:
         await _miss("expired_time")
@@ -340,12 +378,12 @@ async def resolve_share(
     if row.expired_count > 0:
         row.expired_count -= 1
     row.used_count = (row.used_count or 0) + 1
+    # Download tokens minted below stay valid for DOWNLOAD_TOKEN_TTL_MIN; the
+    # sweeper keeps a count-exhausted row until that window has passed.
+    row.last_pickup_at = now
 
     # Multi-file share: row.kind='multi' + finalized — list its files.
     if row.kind == "multi":
-        if not row.finalized:
-            await _miss("share_not_finalized")
-            raise NotFoundError("share_not_finalized")
         # Lazy import to avoid a cycle.
         from ..models.share_file import ShareFile
 
@@ -365,8 +403,10 @@ async def resolve_share(
             # Always hand out the same-origin proxy path. Routing the bytes
             # through our backend (instead of an R2 presigned URL) avoids
             # the cross-origin CORS wall that breaks <img> previews and
-            # keeps storage credentials server-side.
-            url = f"/api/share/download/{row.code}/{sf.id}"
+            # keeps storage credentials server-side. The signed ``t`` token
+            # is what lets the receiver download after this pickup used up
+            # the share's last count.
+            url = signed_download_path(row.code, row.id, sf.id)
             files_out.append({
                 "file_id": sf.id,
                 "order": sf.order,
@@ -440,8 +480,8 @@ async def resolve_share(
     # Same-origin proxy URL. The dedicated /download/{code} route streams
     # bytes from storage (R2/local) without ever exposing a presigned URL
     # to the client — restores <img> previews and centralises access
-    # logging.
-    url = f"/api/share/download/{row.code}"
+    # logging. Signed, like the multi-file member URLs above.
+    url = signed_download_path(row.code, row.id)
 
     await record_access(
         db,
@@ -505,6 +545,12 @@ async def open_download_stream(key: str, wrapped_dek: bytes | None = None):
         head = await storage.head(key)
     except FileNotFoundError as exc:
         raise NotFoundError("object_not_found") from exc
+    except Exception as exc:
+        # S3 reports a missing object as a ClientError with a 404 code.
+        err = getattr(exc, "response", None) or {}
+        if str(err.get("Error", {}).get("Code")) in {"404", "NoSuchKey", "NotFound"}:
+            raise NotFoundError("object_not_found") from exc
+        raise
     # Only backends that can write encrypted objects can hold them. A row may
     # still carry a DEK the bytes were never encrypted with (multi-file shares
     # created on S3 before the init-time gate checked the live backend); those
@@ -525,38 +571,103 @@ async def open_download_stream(key: str, wrapped_dek: bytes | None = None):
 # ────────────────────────────────────────────────────────────────────────────
 
 
+class DownloadNotFound(NotFoundError):
+    """The one 404 the download route ever returns.
+
+    Every refusal — unknown / expired / revoked code, bad or missing token,
+    wrong ``file_id``, text share, unfinalized multi share, missing object —
+    renders as the same ``code_not_found`` envelope so the route can't be
+    used to tell a live code from a dead one. ``reason`` is for the audit
+    log only and never reaches the client.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__("code_not_found")
+        self.reason = reason
+
+
+def parse_download_file_id(raw: str | None) -> int | None:
+    """Path ``file_id`` → int. Anything that isn't a plain positive integer
+    raises :class:`DownloadNotFound` (ids are opaque strings on the wire)."""
+    if raw is None:
+        return None
+    if not raw.isdigit() or len(raw) > 18 or int(raw) <= 0:
+        raise DownloadNotFound("bad_file_id")
+    return int(raw)
+
+
 async def resolve_download_target(
     db: AsyncSession,
     *,
     code: str,
     file_id: int | None = None,
+    token: str | None = None,
 ) -> dict[str, Any]:
     """Resolve a pickup code (and optional file_id) to a streamable storage target.
 
-    Returns ``{key, name, content_type, force_download, size}``.
+    Returns ``{key, name, content_type, force_download, size, wrapped_dek}``.
 
-    Validates soft-delete + time-based expiry but DOES NOT decrement the
-    pickup counter (those counters are owned by :func:`resolve_share`,
-    which the client already hit to obtain the proxy URL). A NotFoundError
-    is raised in any condition that would have caused ``/select`` to
-    refuse the lookup, plus the file_id / file_path consistency checks.
+    Never touches the pickup counters (those belong to :func:`resolve_share`).
+    Access rules, checked once when the download starts:
+
+    * **Valid token** (minted by a pickup or an owner listing for this exact
+      share + file): served unless the share was revoked — even if its count
+      just ran out or its time just passed. The token's TTL is the grace
+      window.
+    * **No (valid) token**, ``DOWNLOAD_TOKEN_MODE=counted``: served only for
+      a live, unexpired share without a pickup-count limit
+      (``expired_count == -1``), so plain links to time-limited shares keep
+      working. ``all``: never served.
+
+    An invalid token is treated exactly like a missing one — stripping it
+    from the URL would give the same result anyway.
+
+    Every refusal raises :class:`DownloadNotFound`.
     """
     now = datetime.now(tz=UTC)
-    q = (
-        select(FileCode)
-        .where(FileCode.code == code, FileCode.deleted_at.is_(None))
-        .limit(1)
-    )
-    row = (await db.execute(q)).scalars().first()
-    if row is None:
-        raise NotFoundError("code_not_found")
-    if row.expired_at is not None and as_utc(row.expired_at) <= now:
-        raise NotFoundError("code_expired")
+    row: FileCode | None = None
 
-    # Multi-file: file_id must be supplied and belong to this share.
+    share_id = (
+        verify_download_token(token, code=code, file_id=file_id) if token else None
+    )
+    if share_id is not None:
+        row = (
+            await db.execute(
+                select(FileCode)
+                .where(FileCode.id == share_id, FileCode.code == code)
+                .limit(1)
+            )
+        ).scalars().first()
+        if row is None:
+            raise DownloadNotFound("not_found")
+        # Sweeper deletions ('expired') stay downloadable inside the token
+        # window; an owner revoke or an admin delete ends access at once.
+        if row.deleted_at is not None and row.deleted_reason != "expired":
+            raise DownloadNotFound("revoked")
+    else:
+        if settings.download_token_mode != "counted":
+            raise DownloadNotFound("token_required")
+        row = (
+            await db.execute(
+                select(FileCode)
+                .where(FileCode.code == code, FileCode.deleted_at.is_(None))
+                .limit(1)
+            )
+        ).scalars().first()
+        if row is None:
+            raise DownloadNotFound("not_found")
+        if row.expired_at is not None and as_utc(row.expired_at) <= now:
+            raise DownloadNotFound("expired_time")
+        if row.expired_count != -1:
+            # Count-limited (or exhausted): only a pickup can hand out access.
+            raise DownloadNotFound("token_required")
+
+    # Multi-file: finalized, and file_id must name a complete member file.
     if row.kind == "multi":
+        if not row.finalized:
+            raise DownloadNotFound("share_not_finalized")
         if file_id is None:
-            raise NotFoundError("file_id_required")
+            raise DownloadNotFound("file_id_required")
         from ..models.share_file import ShareFile
 
         sf = (
@@ -569,7 +680,7 @@ async def resolve_download_target(
             )
         ).scalars().first()
         if sf is None:
-            raise NotFoundError("file_not_found")
+            raise DownloadNotFound("file_not_found")
         ct, inline_ok = served_type(sf.name, sf.suffix)
         return {
             "key": sf.file_path,
@@ -583,10 +694,10 @@ async def resolve_download_target(
 
     # Single-file share. Text shares have no payload to stream.
     if row.file_path is None:
-        raise NotFoundError("not_a_file_share")
+        raise DownloadNotFound("not_a_file_share")
     if file_id is not None:
         # Reject file_id on a non-multi share so /code/<id> can't smuggle.
-        raise NotFoundError("file_id_not_applicable")
+        raise DownloadNotFound("file_id_not_applicable")
 
     ct, inline_ok = served_type(row.name, row.suffix)
     return {
@@ -604,6 +715,9 @@ __all__ = [
     "create_simple_file_share",
     "resolve_share",
     "resolve_download_target",
+    "parse_download_file_id",
+    "DownloadNotFound",
+    "record_retrieve_miss",
     "authorize_download_token",
     "open_download_stream",
     "SIMPLE_UPLOAD_MAX",

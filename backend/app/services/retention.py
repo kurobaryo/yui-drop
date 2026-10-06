@@ -3,7 +3,9 @@
 Runs as a background task spawned from ``app.main`` lifespan. One pass does:
 
 * Soft-delete shares whose ``expired_at`` has passed.
-* Soft-delete shares whose ``expired_count`` reached zero.
+* Soft-delete shares whose ``expired_count`` reached zero, once the signed
+  download links handed out by the last pickup have expired
+  (``last_pickup_at`` older than ``DOWNLOAD_TOKEN_TTL_MIN``).
 * Abort orphan multipart sessions past their ``expires_at`` and remove their
   DB rows.
 
@@ -14,7 +16,7 @@ post-soft-delete eviction (TBD) reach into storage.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -55,15 +57,23 @@ async def sweep_once(
             exp = as_utc(row.expired_at)
             if exp is not None and exp <= now:
                 row.deleted_at = now
+                row.deleted_reason = "expired"
                 soft_deleted += 1
 
-        # Soft-delete expired (count-based).
+        # Soft-delete expired (count-based) — but only after the download
+        # tokens minted by the final pickup have run out, so the receiver can
+        # still fetch the files they just picked up.
+        token_cutoff = now - timedelta(minutes=settings.download_token_ttl_min)
         q2 = select(FileCode).where(
             FileCode.deleted_at.is_(None),
             FileCode.expired_count == 0,
         )
         for row in (await db.execute(q2)).scalars():
+            last = as_utc(row.last_pickup_at)
+            if last is not None and last > token_cutoff:
+                continue
             row.deleted_at = now
+            row.deleted_reason = "expired"
             soft_deleted += 1
 
         # Abort orphan multiparts.

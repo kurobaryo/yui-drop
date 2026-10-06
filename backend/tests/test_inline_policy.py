@@ -301,7 +301,7 @@ async def test_multi_share_files_follow_the_same_policy(client, storage_declares
     assert svg.headers["content-disposition"].startswith("attachment;")
     _assert_hardened(svg)
 
-    jpg = await client.get(f"{by_name['cat.jpg']['url']}?dl=1")
+    jpg = await client.get(f"{by_name['cat.jpg']['url']}&dl=1")
     assert jpg.headers["content-type"] == OCTET_STREAM
     assert jpg.headers["content-disposition"].startswith("attachment;")
     _assert_hardened(jpg)

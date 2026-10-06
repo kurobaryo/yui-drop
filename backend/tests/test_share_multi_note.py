@@ -109,7 +109,8 @@ async def test_single_file_with_note_is_still_multi(client):
     got = await _select(client, code)
     assert got["kind"] == "multi"
     assert got["text"] == "see attached"
-    assert got["files"][0]["url"].endswith(f"/api/share/download/{code}/{got['files'][0]['file_id']}")
+    path = got["files"][0]["url"].partition("?")[0]
+    assert path.endswith(f"/api/share/download/{code}/{got['files'][0]['file_id']}")
 
 
 async def test_multi_without_note_has_null_text(client):

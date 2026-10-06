@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.rate_limit import limiter, real_client_ip, upload_limit
+from ..core.config import settings
+from ..core.download_token import verify_download_token
+from ..core.rate_limit import limiter, real_client_ip, retrieve_fail_tracker, upload_limit
 from ..db.session import get_db
 from ..models.access_log import AccessLogAction
 from ..schemas import ok
@@ -16,13 +18,16 @@ from ..schemas.share import (
     ShareTextRequest,
 )
 from ..services.admin_turnstile import resolve_turnstile_config
-from ..services.common import ServiceError, record_access
+from ..services.common import ForbiddenError, NotFoundError, ServiceError, record_access
 from ..services.inline_policy import OCTET_STREAM, file_response_headers
 from ..services.share import (
+    DownloadNotFound,
     authorize_download_token,
     create_simple_file_share,
     create_text_share,
     open_download_stream,
+    parse_download_file_id,
+    record_retrieve_miss,
     resolve_download_target,
     resolve_share,
 )
@@ -226,12 +231,39 @@ async def share_download(
 # ────────────────────────────────────────────────────────────────────────────
 
 
+def _download_rate_key(request: Request) -> str:
+    """slowapi key: client IP, in a separate bucket when the URL is signed.
+
+    The token is verified statelessly (HMAC only, no DB) — enough to keep
+    unsigned probes out of the larger signed-download allowance.
+    """
+    ip = real_client_ip(request)
+    token = request.query_params.get("t")
+    if token:
+        try:
+            file_id = parse_download_file_id(request.path_params.get("file_id"))
+        except ServiceError:
+            return ip
+        code = request.path_params.get("code", "")
+        if verify_download_token(token, code=code, file_id=file_id) is not None:
+            return f"signed:{ip}"
+    return ip
+
+
+def _download_limit(key: str) -> str:
+    """Per-IP limit for the download routes (see ``_download_rate_key``)."""
+    if key.startswith("signed:"):
+        return f"{settings.rate_limit_download_signed_per_min}/minute"
+    return f"{settings.rate_limit_download_per_min}/minute"
+
+
 async def _stream_share_payload(
     request: Request,
     db: AsyncSession,
     code: str,
-    file_id: int | None,
+    file_id: str | None,
     *,
+    token: str | None = None,
     force_attachment: bool = False,
 ) -> StreamingResponse:
     """Shared body for the two same-origin download routes.
@@ -242,6 +274,10 @@ async def _stream_share_payload(
     honoured inside :func:`record_access`, so callers don't need to
     re-check it here.
 
+    Every refusal is the same 404 ``code_not_found`` and counts as a failed
+    retrieve for the client IP — the same tracker, threshold and ban as
+    pickup. A banned IP gets the same 403 pickup gives it.
+
     ``force_attachment`` comes from the ``?dl=1`` query parameter. The
     default (inline) response is what makes ``<img>`` / ``<video>`` /
     ``<iframe>`` previews work, so we can't unconditionally send
@@ -250,11 +286,29 @@ async def _stream_share_payload(
     two behaviours onto the same URL lets the preview and the download
     button coexist.
     """
+    ip = real_client_ip(request)
+    if ip and await retrieve_fail_tracker.is_banned(ip):
+        raise _service_to_http(
+            ForbiddenError("ip_banned", detail={"reason": "too_many_failures"})
+        )
     try:
-        target = await resolve_download_target(db, code=code, file_id=file_id)
+        fid = parse_download_file_id(file_id)
+        target = await resolve_download_target(db, code=code, file_id=fid, token=token)
         body, head = await open_download_stream(
             target["key"], wrapped_dek=target.get("wrapped_dek")
         )
+    except NotFoundError as e:
+        reason = e.reason if isinstance(e, DownloadNotFound) else e.message
+        await record_retrieve_miss(
+            db,
+            code=code,
+            ip=ip,
+            ua=_ua(request),
+            tracked=ip,
+            reason=reason,
+            event="share.download.miss",
+        )
+        raise _service_to_http(DownloadNotFound(reason)) from e
     except ServiceError as e:
         raise _service_to_http(e) from e
 
@@ -307,7 +361,6 @@ async def _stream_share_payload(
 
     # Append the audit row. record_access honours the audit.log_access_ip
     # toggle (default on) — when off, the IP is dropped before insert.
-    ip = real_client_ip(request)
     await record_access(
         db,
         action=AccessLogAction.SHARE_RETRIEVE,
@@ -317,7 +370,7 @@ async def _stream_share_payload(
         status_code=200,
         extra={
             "event": "share.download.proxy",
-            "file_id": file_id,
+            "file_id": fid,
             "size": head.get("size"),
             "force_download": as_attachment,
             "disposition": disposition,
@@ -329,11 +382,13 @@ async def _stream_share_payload(
 
 
 @router.get("/download/{code}")
+@limiter.limit(_download_limit, key_func=_download_rate_key)
 async def share_download_by_code(
     request: Request,
     code: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     dl: Annotated[int, Query(ge=0, le=1)] = 0,
+    t: Annotated[str | None, Query(max_length=128)] = None,
 ) -> StreamingResponse:
     """Same-origin proxy for single-file shares.
 
@@ -341,29 +396,35 @@ async def share_download_by_code(
     never sees an R2 presigned URL. Restores ``<img>`` previews that
     were blocked by cross-origin CORS and centralises access logging.
 
+    ``?t=`` is the signed token from a pickup / owner listing (see
+    :func:`resolve_download_target` for when it is required).
+
     ``?dl=1`` switches the response to ``Content-Disposition: attachment``
     so the browser saves the file instead of rendering it in a tab.
     Without it the bytes are served inline, which is what the preview
     surfaces (``<img>``, ``<video>``, ``<iframe>``) need.
     """
     return await _stream_share_payload(
-        request, db, code, None, force_attachment=bool(dl)
+        request, db, code, None, token=t, force_attachment=bool(dl)
     )
 
 
 @router.get("/download/{code}/{file_id}")
+@limiter.limit(_download_limit, key_func=_download_rate_key)
 async def share_download_multi_by_code(
     request: Request,
     code: str,
-    file_id: int,
+    file_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     dl: Annotated[int, Query(ge=0, le=1)] = 0,
+    t: Annotated[str | None, Query(max_length=128)] = None,
 ) -> StreamingResponse:
     """Same-origin proxy for one file inside a multi-file share.
 
-    ``?dl=1`` forces an attachment disposition — see
-    :func:`share_download_by_code`.
+    ``file_id`` is taken as a string so a malformed id gets the same 404 as
+    every other refusal instead of a distinguishable 422. ``?t=`` and
+    ``?dl=1`` work as in :func:`share_download_by_code`.
     """
     return await _stream_share_payload(
-        request, db, code, file_id, force_attachment=bool(dl)
+        request, db, code, file_id, token=t, force_attachment=bool(dl)
     )

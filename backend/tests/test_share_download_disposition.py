@@ -159,7 +159,9 @@ class TestSelectContentTypes:
         code = await _upload(client, "a.md")
         res = await client.post("/api/share/select", json={"code": code})
         detail = res.json()["detail"]
-        assert detail["url"] == f"/api/share/download/{code}"
+        path, _, query = detail["url"].partition("?")
+        assert path == f"/api/share/download/{code}"
+        assert query.startswith("t=")
         # force_download stays False for markdown — it is safe to render.
         assert detail["force_download"] is False
 

@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.api_auth import require_api_key
 from ..core.config import settings
+from ..core.download_token import signed_download_path
 from ..core.rate_limit import real_client_ip
 from ..db.session import get_db
 from ..models.api_key import ApiKey
@@ -71,10 +72,26 @@ def _service_to_http(exc: ServiceError) -> HTTPException:
     )
 
 
-def _share_urls(code: str) -> tuple[str, str]:
-    """Return ``(download_url, short_url)`` for a pickup code."""
-    base = settings.app_url.rstrip("/")
-    return f"{base}/api/share/download/{code}", f"{base}/s/{code}"
+def _short_url(code: str) -> str:
+    return f"{settings.app_url.rstrip('/')}/s/{code}"
+
+
+def _signed_url(code: str, share_id: int, file_id: int | None = None) -> str:
+    """Absolute download URL carrying a fresh signed token.
+
+    Handed to the owner (upload responses, list/detail) so they can fetch or
+    preview their own share without spending a pickup — and so the URL works
+    for count-limited shares, which refuse unsigned downloads.
+    """
+    return f"{settings.app_url.rstrip('/')}{signed_download_path(code, share_id, file_id)}"
+
+
+async def _share_urls(db: AsyncSession, code: str) -> tuple[str, str]:
+    """Return ``(signed_download_url, short_url)`` for a just-created share."""
+    share_id = (
+        await db.execute(select(FileCode.id).where(FileCode.code == code))
+    ).scalar_one()
+    return _signed_url(code, share_id), _short_url(code)
 
 
 # ── Simple upload ───────────────────────────────────────────────────────────
@@ -120,7 +137,7 @@ async def v1_upload(
     # Best-effort accounting — never fails the request.
     await record_usage(db, api_key, bytes_used=int(out.get("size") or size))
 
-    url, short_url = _share_urls(out["code"])
+    url, short_url = await _share_urls(db, out["code"])
     out["url"] = url
     out["short_url"] = short_url
     return ok(out)
@@ -237,7 +254,7 @@ async def v1_upload_complete(
     if real_size > 0:
         await record_usage(db, api_key, bytes_used=real_size)
 
-    url, short_url = _share_urls(out["code"])
+    url, short_url = await _share_urls(db, out["code"])
     # The presign service returns code/name/size only — flesh out the envelope
     # to match the v1 contract.
     payload = {
@@ -311,10 +328,9 @@ async def v1_share_text(
     await record_usage(db, api_key, bytes_used=size)
 
     # Text shares have no download URL — the body rides in the pickup payload.
-    _, short_url = _share_urls(out["code"])
     out["size"] = size
     out["url"] = None
-    out["short_url"] = short_url
+    out["short_url"] = _short_url(out["code"])
     return ok(out)
 
 
@@ -370,7 +386,9 @@ def _row_to_list_item(row: FileCode) -> dict:
     """Project a ``FileCode`` row to the v1 list/detail wire shape."""
     base = settings.app_url.rstrip("/")
     # Text shares don't get a download URL (the body is in the resolve payload).
-    url = None if row.is_text_share else f"{base}/api/share/download/{row.code}"
+    # File URLs are minted per request with a short-lived token, so the owner
+    # can preview without spending a pickup.
+    url = None if row.is_text_share else _signed_url(row.code, row.id)
     return {
         "code": row.code,
         "name": row.name,

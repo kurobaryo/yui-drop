@@ -189,7 +189,9 @@ async def test_pickup_file_share_returns_absolute_url(client):
     assert detail["name"] == "doc.txt"
     url = detail["url"]
     assert url.startswith("http"), f"expected absolute URL, got {url!r}"
-    assert url.endswith(f"/api/share/download/{code}")
+    path, _, query = url.partition("?")
+    assert path.endswith(f"/api/share/download/{code}")
+    assert query.startswith("t="), "pickup URLs carry a signed download token"
 
 
 async def test_pickup_works_across_keys(client):

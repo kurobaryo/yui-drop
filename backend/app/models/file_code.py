@@ -53,6 +53,10 @@ class FileCode(Base):
     # -1 = unlimited, >=0 = remaining retrievals before auto-expire.
     expired_count: Mapped[int] = mapped_column(Integer, default=-1, nullable=False)
     used_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Most recent successful pickup. Download tokens minted by that pickup
+    # stay valid for DOWNLOAD_TOKEN_TTL_MIN, so the sweeper keeps a
+    # count-exhausted row alive until this is older than the token TTL.
+    last_pickup_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Upload mechanics
     is_chunked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -84,6 +88,9 @@ class FileCode(Base):
 
     # Soft delete
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    # 'expired' (retention sweeper) | 'revoked' (owner) | NULL (live row, or a
+    # row deleted before the column existed / by an admin).
+    deleted_reason: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     # Audit (client metadata at create-time)
     created_by_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)

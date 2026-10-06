@@ -42,7 +42,10 @@ async def test_v1_upload_happy_path(client):
     code = detail["code"]
     assert 5 <= len(code) <= 8
     assert detail["size"] == len(payload)
-    assert detail["url"].endswith(f"/api/share/download/{code}")
+    # Owner-facing URLs carry a signed token so they work without a pickup.
+    path, _, query = detail["url"].partition("?")
+    assert path.endswith(f"/api/share/download/{code}")
+    assert query.startswith("t=")
     assert detail["short_url"].endswith(f"/s/{code}")
 
 
